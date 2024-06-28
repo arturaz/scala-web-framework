@@ -82,7 +82,7 @@ trait AppScalaModule extends BaseScalaModule with ScalafmtModule /*  with Scalaf
 }
 
 /** ScalaJS module for our own non-generated code. */
-trait AppScalaJSModule extends AppScalaModule with BaseScalaJSModule {}
+trait AppScalaJSModule extends AppScalaModule with BaseScalaJSModule
 
 /** A module shared between JVM and JS. */
 trait AppPlatformModule extends AppScalaModule with PlatformScalaModule
@@ -102,7 +102,7 @@ def makePreludeImportsCompilerOption(imports: Vector[String]): String =
   s"-Yimports:${imports.mkString(",")}"
 
 /** Code common for all projects that use this stack and shared between JVM and JS. */
-object frameworkShared extends Module {
+object shared extends Module {
   trait SharedModule extends AppPlatformModule {
     override def ivyDeps = Agg(
       // Functional programming library
@@ -195,8 +195,8 @@ object frameworkShared extends Module {
 }
 
 /** Code common for all projects that use this stack for the client (JS platform). */
-object frameworkClient extends AppScalaJSModule {
-  override def moduleDeps = Seq(frameworkShared.js)
+object client extends AppScalaJSModule {
+  override def moduleDeps = Seq(shared.js)
 
   override def scalacOptions: Target[Seq[String]] = T {
     super.scalacOptions() ++ Seq(makePreludeImportsCompilerOption(ScalaDefaultImports ++ FrameworkPreludeImports))
@@ -229,12 +229,13 @@ object frameworkClient extends AppScalaJSModule {
 }
 
 /** Code common for all projects that use this stack for the server (JVM platform). */
-object frameworkServer extends AppScalaModule {
-  override def moduleDeps = Seq(frameworkShared.jvm)
+object server extends AppScalaModule {
+  override def moduleDeps = Seq(shared.jvm)
 
   override def scalacOptions: Target[Seq[String]] = T {
     super.scalacOptions() ++ Seq(makePreludeImportsCompilerOption(ScalaDefaultImports ++ FrameworkPreludeImports))
   }
+
   override def ivyDeps = Agg(
     // HTTP endpoint description library
     // https://tapir.softwaremill.com/en/latest/

@@ -3,6 +3,7 @@
     "/.bloop": true,
     "/.metals": true,
     "/out": true,
+    "**/target": true
   },
   "editor.rulers": [
     {
