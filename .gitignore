@@ -1,0 +1,15 @@
+/.idea
+/.bsp
+/.metals
+/.bloop
+/.ammonite
+
+# Mill build tool output
+/out
+
+# The NPM dependencies
+/client/vite/node_modules
+# Generated JS output
+/client/vite/scala_output
+# Optimized vite build that you get after running `npm run build`
+/client/vite/dist
