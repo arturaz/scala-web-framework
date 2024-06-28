@@ -54,7 +54,7 @@ trait BaseScalaJSModule extends BaseScalaModule with ScalaJSModule {
 }
 
 /** Scala module for our own non-generated code. */
-trait AppScalaModule extends BaseScalaModule with ScalafmtModule /*  with ScalafixModule */ {
+trait FrameworkScalaModule extends BaseScalaModule with ScalafmtModule /*  with ScalafixModule */ {
   override def scalacOptions = T {
     Seq(
       // Show deprecation warnings
@@ -82,10 +82,10 @@ trait AppScalaModule extends BaseScalaModule with ScalafmtModule /*  with Scalaf
 }
 
 /** ScalaJS module for our own non-generated code. */
-trait AppScalaJSModule extends AppScalaModule with BaseScalaJSModule
+trait FrameworkScalaJSModule extends FrameworkScalaModule with BaseScalaJSModule
 
 /** A module shared between JVM and JS. */
-trait AppPlatformModule extends AppScalaModule with PlatformScalaModule
+trait FrameworkPlatformModule extends FrameworkScalaModule with PlatformScalaModule
 
 val ScalaDefaultImports: Vector[String] = Vector(
   "java.lang",
@@ -103,7 +103,7 @@ def makePreludeImportsCompilerOption(imports: Vector[String]): String =
 
 /** Code common for all projects that use this stack and shared between JVM and JS. */
 object shared extends Module {
-  trait SharedModule extends AppPlatformModule {
+  trait SharedModule extends FrameworkPlatformModule {
     override def ivyDeps = Agg(
       // Functional programming library
       // https://typelevel.org/cats/
@@ -191,11 +191,11 @@ object shared extends Module {
   }
 
   object jvm extends SharedModule
-  object js extends SharedModule with AppScalaJSModule
+  object js extends SharedModule with FrameworkScalaJSModule
 }
 
 /** Code common for all projects that use this stack for the client (JS platform). */
-object client extends AppScalaJSModule {
+object client extends FrameworkScalaJSModule {
   override def moduleDeps = Seq(shared.js)
 
   override def scalacOptions: Target[Seq[String]] = T {
@@ -229,7 +229,7 @@ object client extends AppScalaJSModule {
 }
 
 /** Code common for all projects that use this stack for the server (JVM platform). */
-object server extends AppScalaModule {
+object server extends FrameworkScalaModule {
   override def moduleDeps = Seq(shared.jvm)
 
   override def scalacOptions: Target[Seq[String]] = T {
@@ -308,4 +308,69 @@ object server extends AppScalaModule {
     // https://mvnrepository.com/artifact/org.scodec/scodec-core
     ivy"org.scodec::scodec-core:2.3.0",
   )
+}
+
+/** Copies all existing and new files from [[src]] to [[dst]] by exchanging the directories with a `move`. */
+def copyBySwap(
+  src: Path,
+  dst: Path,
+  log: Logger,
+): Unit = {
+  log.info(s"Copying '$src' to '$dst'")
+
+  val dstNew = Path(s"$dst.new")
+  val dstOld = Path(s"$dst.old")
+
+  // Copy the files to the new directory
+  os.remove.all(dstNew)
+  os.copy(src, dstNew, replaceExisting = true, createFolders = true)
+
+  // Try to do an semi-atomic swap
+  os.remove.all(dstOld)
+  os.move(dst, dstOld)
+  os.move(dstNew, dst)
+
+  // Remove the old path
+  os.remove.all(dstOld)
+}
+
+/** Copies all existing and new files from [[src]] to [[dst]], removes files from [[dst]] which do not exist in [[src]]
+  * anymore.
+  */
+def syncDirectories(
+  src: Path,
+  dst: Path,
+  log: Logger,
+  removeOldFiles: Boolean = true,
+): Unit = {
+  val srcFiles = os.walk(src).iterator.map(_.relativeTo(src)).toVector
+  if (!Files.exists(dst.toNIO)) os.makeDir.all(dst)
+  val dstFiles = os.walk(dst).iterator.map(_.relativeTo(dst)).toVector
+
+  val newFiles = srcFiles diff dstFiles
+  val removedFiles = dstFiles diff srcFiles
+  val keptFiles = dstFiles intersect srcFiles
+
+  log.info(s"Syncing directories: $src -> $dst")
+  log.info(s"  New files: ${newFiles.size}")
+  if (log.debugEnabled) log.debug(s"  New files:\n    ${newFiles.mkString(",\n    ")}")
+  log.info(s"  Kept files: ${keptFiles.size}")
+  if (log.debugEnabled) log.debug(s"  Kept files:\n    ${keptFiles.mkString(",\n    ")}")
+  if (removeOldFiles) {
+    log.info(s"  Removed files: ${removedFiles.size}")
+    if (log.debugEnabled) log.debug(s"  Removed files:\n    ${removedFiles.mkString(",\n    ")}")
+  }
+
+  val toCopy = newFiles ++ keptFiles
+  toCopy.foreach { file =>
+    os.copy(src / file, dst / file, replaceExisting = true, createFolders = true)
+  }
+
+  if (removeOldFiles) {
+    val toRemove = removedFiles
+    // Remove from the longest path to the shortest
+    toRemove.reverseIterator.foreach { file =>
+      os.remove.all(dst / file)
+    }
+  }
 }
