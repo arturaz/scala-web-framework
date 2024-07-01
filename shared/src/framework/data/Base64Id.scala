@@ -72,6 +72,9 @@ trait Base64IdWrapperCompanion[Wrapped <: Base64IdWrapper](using ClassTag[Wrappe
   inline def wrap(id: Base64Id): Wrapped = apply(id)
   inline def unwrap(wrapped: Wrapped): Base64Id = wrapped.asBase64Id
 
+  given ordering: Ordering[Wrapped] = Ordering.by(unwrap(_).asString)
+  given order: Order[Wrapped] = Order.fromOrdering
+
   given show: Show[Wrapped] = _.asBase64Id.show
 
   given codec: Codec[String, Wrapped, CodecFormat.TextPlain] =

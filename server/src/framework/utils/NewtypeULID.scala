@@ -11,6 +11,7 @@ import framework.data.Base64Id
 import scala.util.Try
 import neotype.Newtype
 import cats.syntax.show.*
+import cats.kernel.Order
 
 trait NewtypeULID extends Newtype[ULID] {
   def generate(using gen: ULIDGenerator): SyncIO[Type] = gen.map(id => make(id).getOrThrow)
@@ -21,6 +22,8 @@ trait NewtypeULID extends Newtype[ULID] {
 
   given Read[Type] = Read[UUID].map(uuid => make(ULID.fromUUID(uuid)).getOrThrow)
   given Write[Type] = Write[UUID].contramap(unwrap(_).uuid)
+  given Ordering[Type] = Ordering.by(unwrap(_).uuid)
+  given Order[Type] = Order.fromOrdering
 }
 
 /** [[ULID]] based newtype that has a client representation. */
@@ -32,6 +35,10 @@ trait NewtypeULIDWithClient[TClient <: Base64IdWrapper](clientCompanion: Base64I
     Try(ULID.fromBinary(bytes.unsafeArray)).toEither.left
       .map(err => s"Failed to create ULID from bytes: ${err.getMessage.show}")
       .flatMap(make)
+
+  /** Tries to parse a client representation into the ID. Can fail if the client representation is invalid. */
+  def fromClient(client: TClient): Either[String, Type] =
+    fromBytes(client.asBase64Id.bytes)
 
   extension (value: Type) {
     def toClient: TClient = clientCompanion(Base64Id(value.toBinary))
