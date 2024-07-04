@@ -220,13 +220,20 @@ object shared extends Module {
   object jvm extends SharedModule
   object js extends SharedModule with FrameworkScalaJSModule
 
+  /** Helpers for tests. Applications can use them if they need to. */
+  object testInfra extends Module {
+    object jvm extends FrameworkPlatformModule with FrameworkTestModule
+    object js extends FrameworkPlatformModule with FrameworkScalaJSModule with FrameworkTestModule
+  }
+
+  /** Tests for the framework code. */
   object tests extends Module {
     object jvm extends FrameworkPlatformModule with FrameworkTestModule {
-      override def moduleDeps: Seq[JavaModule] = Seq(shared.jvm)
+      override def moduleDeps: Seq[JavaModule] = Seq(shared.jvm, testInfra.jvm)
     }
 
     object js extends FrameworkPlatformModule with FrameworkTestModule with FrameworkScalaJSTestModule {
-      override def moduleDeps: Seq[JavaModule] = Seq(shared.js)
+      override def moduleDeps: Seq[JavaModule] = Seq(shared.js, testInfra.js)
     }
   }
 }
@@ -346,8 +353,12 @@ object server extends FrameworkScalaModule {
     ivy"org.scodec::scodec-core:2.3.0",
   )
 
+  object testInfra extends FrameworkTestModule {
+    override def moduleDeps: Seq[JavaModule] = Seq(server, shared.testInfra.jvm)
+  }
+
   object tests extends FrameworkTestModule {
-    override def moduleDeps: Seq[JavaModule] = Seq(server, shared.tests.jvm)
+    override def moduleDeps: Seq[JavaModule] = Seq(testInfra)
 
     override def ivyDeps = super.ivyDeps() ++ Agg(
       // In-memory database.
