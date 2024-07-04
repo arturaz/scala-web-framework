@@ -7,7 +7,6 @@ import cats.arrow.FunctionK
 import cats.effect.IO
 import cats.effect.unsafe.IORuntime
 import cats.{~>, Show}
-import framework.sourcecode.DefinedAt
 import sttp.capabilities.WebSockets
 import sttp.client3.SttpBackend
 import sttp.client3.impl.cats.FetchCatsBackend
@@ -32,18 +31,3 @@ export com.raquo.airstream.state.Var
 export com.raquo.laminar.api.L
 
 export org.scalajs.dom.console
-
-def log(msg: Any)(using definedAt: DefinedAt): Unit = {
-  println(
-    s"""[INFO] $msg
-       |[INFO]   @ $definedAt""".stripMargin
-  )
-}
-
-/** Logs an error message. */
-def logError(err: Any)(using definedAt: DefinedAt): Unit = {
-  Console.err.println(
-    s"""[ERROR] $err
-       |[ERROR]   @ $definedAt""".stripMargin
-  )
-}

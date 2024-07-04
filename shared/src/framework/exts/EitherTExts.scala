@@ -1,8 +1,8 @@
 package framework.exts
 
 import cats.data.EitherT
-import cats.MonadError
 import cats.syntax.flatMap.*
+import cats.{Monad, MonadError}
 
 extension [F[_], A, B](eitherT: EitherT[F, A, B]) {
 

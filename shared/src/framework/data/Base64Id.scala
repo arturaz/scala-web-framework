@@ -13,6 +13,8 @@ import cats.syntax.show.*
 import sttp.tapir.SchemaType
 import scala.reflect.ClassTag
 import cats.kernel.Order
+import framework.utils.UrlConvertible
+import urldsl.errors.DummyError
 
 /** Some binary identifier encoded as Base64 data.
   *
@@ -79,6 +81,8 @@ trait Base64IdWrapperCompanion[Wrapped <: Base64IdWrapper](using ClassTag[Wrappe
 
   given codec: Codec[String, Wrapped, CodecFormat.TextPlain] =
     Base64Id.codec.map(wrap)(unwrap)
+
+  given urlConvertible: UrlConvertible[Wrapped, DummyError] = UrlConvertible.fromCodec
 
   given schema: Schema[Wrapped] =
     Base64Id.schema.map(id => Some(wrap(id)))(unwrap)

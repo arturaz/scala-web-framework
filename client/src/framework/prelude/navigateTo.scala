@@ -5,31 +5,48 @@ import org.scalajs.dom
 
 import scala.util.control.NonFatal
 import framework.utils.RouterOps
+import com.raquo.waypoint.Router
+import com.raquo.laminar.modifiers.EventListener
+import org.scalajs.dom.MouseEvent
+import scala.util.chaining.*
 
-/** @note
+/** Navigates to the given page.
+  *
+  * @note
   *   code taken from [[https://github.com/raquo/Waypoint#responding-to-link-clicks]].
   */
-def navigateTo[BasePage, AppPage <: BasePage](page: AppPage)(using router: RouterOps[BasePage]): Binder[HtmlElement] =
+def navigateTo[BasePage, AppPage <: BasePage](signal: Signal[AppPage])(using
+  router: RouterOps[BasePage]
+): Binder[HtmlElement] =
   Binder { el =>
     val isLinkElement = el.ref.isInstanceOf[dom.html.Anchor]
 
     if (isLinkElement) {
       try {
-        val url = router.absoluteUrlForPage(page)
-        el.amend(href(url))
+        val urlSignal = signal.map(router.absoluteUrlForPage)
+        el.amend(href <-- urlSignal)
       } catch {
-        case NonFatal(err) => dom.console.error(err)
+        case NonFatal(err) => logError(s"navigateTo: $err")
       }
     }
 
-    // If element is a link and user is holding a modifier while clicking:
-    //  - Do nothing, browser will open the URL in new tab / window / etc. depending on the modifier key
-    // Otherwise:
-    //  - Perform regular pushState transition
-    (
-      onClick
-        .filter(ev => !(isLinkElement && (ev.ctrlKey || ev.metaKey || ev.shiftKey || ev.altKey)))
-        .preventDefault
-        --> (_ => router.pushState(page))
-    ).bind(el)
+    val binder = navigateToEventProcessor(isLinkElement).compose(_.sample(signal)) --> router.pushState
+    binder.bind(el)
   }
+
+def navigateTo[BasePage, AppPage <: BasePage](page: AppPage)(using
+  router: RouterOps[BasePage]
+): Binder[HtmlElement] =
+  navigateTo(Signal.fromValue(page))
+
+def navigateToEventProcessor(
+  isLinkElement: Boolean
+): EventProcessor[MouseEvent, MouseEvent] = {
+  // If element is a link and user is holding a modifier while clicking:
+  //  - Do nothing, browser will open the URL in new tab / window / etc. depending on the modifier key
+  // Otherwise:
+  //  - Perform regular pushState transition
+  onClick
+    .filter(ev => !(isLinkElement && (ev.ctrlKey || ev.metaKey || ev.shiftKey || ev.altKey)))
+    .preventDefault
+}

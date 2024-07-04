@@ -15,6 +15,11 @@ sealed trait LocalLoadingStatus[+A] extends LoadingStatus[A] derives CanEqual {
     case LocalLoadingStatus.Loaded(value) => LocalLoadingStatus.Loaded(f(value))
   }
 
+  def flatMap[B](f: A => LocalLoadingStatus[B]): LocalLoadingStatus[B] = this match {
+    case LocalLoadingStatus.Loading       => LocalLoadingStatus.Loading
+    case LocalLoadingStatus.Loaded(value) => f(value)
+  }
+
   def isLoading: Boolean = this match {
     case LocalLoadingStatus.Loading   => true
     case LocalLoadingStatus.Loaded(_) => false

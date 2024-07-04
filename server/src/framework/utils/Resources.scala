@@ -3,6 +3,7 @@ package framework.utils
 import java.io.InputStream
 import cats.effect.kernel.Async
 
+/** Helpers for dealing with JVM resource files. */
 object Resources {
 
   /** Returns [[Left]] if the resource is not available or [[Right]] with the resource [[InputStream]] if it is

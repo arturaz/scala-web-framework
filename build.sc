@@ -77,7 +77,10 @@ trait FrameworkScalaModule extends BaseScalaModule with ScalafmtModule /*  with 
   }
 
   override def repositoriesTask = T.task {
-    super.repositoriesTask() ++ Seq()
+    super.repositoriesTask() ++ Seq(
+      MavenRepository("https://arturaz.github.io/packages/ivy2"),
+      MavenRepository("https://arturaz.github.io/packages/maven/repository"),
+    )
   }
 }
 
@@ -100,6 +103,28 @@ val FrameworkPreludeImports: Vector[String] = Vector(
 
 def makePreludeImportsCompilerOption(imports: Vector[String]): String =
   s"-Yimports:${imports.mkString(",")}"
+
+trait FrameworkTestModule extends FrameworkScalaModule with TestModule.Munit {
+  override def ivyDeps = Agg(
+    // Testing framework
+    // https://scalameta.org/munit/
+    // https://mvnrepository.com/artifact/org.scalameta/munit
+    ivy"org.scalameta::munit::${Versions.MUnit}",
+
+    // MUnit support for Cats Effect
+    // https://github.com/typelevel/munit-cats-effect
+    // https://mvnrepository.com/artifact/org.typelevel/munit-cats-effect
+    ivy"org.typelevel::munit-cats-effect::2.0.0",
+
+    // MUnit support for ScalaCheck
+    // https://scalameta.org/munit/docs/integrations/scalacheck.html
+    // https://mvnrepository.com/artifact/org.scalameta/munit-scalacheck
+    ivy"org.scalameta::munit-scalacheck::${Versions.MUnit}",
+  )
+}
+
+/** Module for tests that use Scala.js. */
+trait FrameworkScalaJSTestModule extends FrameworkTestModule with FrameworkScalaJSModule with TestScalaJSModule
 
 /** Code common for all projects that use this stack and shared between JVM and JS. */
 object shared extends Module {
@@ -186,12 +211,24 @@ object shared extends Module {
       // https://mvnrepository.com/artifact/com.raquo/waypoint
       //
       // Defined in shared part because sometimes you want to access client-side routes from the server.
-      ivy"com.raquo::waypoint::8.0.0",
+      //
+      // SNAPSHOT includes fix for https://github.com/sherpal/url-dsl/pull/22
+      ivy"com.raquo::waypoint::8.1.0-SNAPSHOT",
     )
   }
 
   object jvm extends SharedModule
   object js extends SharedModule with FrameworkScalaJSModule
+
+  object tests extends Module {
+    object jvm extends FrameworkPlatformModule with FrameworkTestModule {
+      override def moduleDeps: Seq[JavaModule] = Seq(shared.jvm)
+    }
+
+    object js extends FrameworkPlatformModule with FrameworkTestModule with FrameworkScalaJSTestModule {
+      override def moduleDeps: Seq[JavaModule] = Seq(shared.js)
+    }
+  }
 }
 
 /** Code common for all projects that use this stack for the client (JS platform). */
@@ -293,7 +330,7 @@ object server extends FrameworkScalaModule {
     // Typesafe doobie (for SQL queries)
     // https://arturaz.github.io/doobie-typesafe
     // https://mvnrepository.com/artifact/io.github.arturaz/doobie-typesafe
-    ivy"io.github.arturaz::doobie-typesafe:0.1.0",
+    ivy"io.github.arturaz::doobie-typesafe:0.3-c5b1b72-20240702T133825Z-SNAPSHOT",
 
     // Encryption library
     // https://developers.google.com/tink/tink-setup#java
@@ -308,6 +345,17 @@ object server extends FrameworkScalaModule {
     // https://mvnrepository.com/artifact/org.scodec/scodec-core
     ivy"org.scodec::scodec-core:2.3.0",
   )
+
+  object tests extends FrameworkTestModule {
+    override def moduleDeps: Seq[JavaModule] = Seq(server, shared.tests.jvm)
+
+    override def ivyDeps = super.ivyDeps() ++ Agg(
+      // In-memory database.
+      // https://www.h2database.com/
+      // https://mvnrepository.com/artifact/com.h2database/h2
+      ivy"com.h2database:h2:2.2.224"
+    )
+  }
 }
 
 /** Copies all existing and new files from [[src]] to [[dst]] by exchanging the directories with a `move`. */

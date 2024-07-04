@@ -9,6 +9,7 @@ import framework.utils.{FetchRequest, NetworkError, PageRenderResult}
 import sttp.capabilities.Effect
 import sttp.client3.Request
 import sttp.tapir.{Endpoint, PublicEndpoint}
+import scala.annotation.targetName
 
 /** Helper for loading page data from an URL. */
 trait PageDataLoader {
@@ -52,16 +53,26 @@ trait PageDataLoader {
   class Builder[Input](private val inputSignal: Signal[Input]) {
 
     /** Loads public data which can be not found. */
+    @targetName("publicPossiblyNotFound")
     def public[Output](
       createRequest: Input => EitherT[IO, NetworkError, Option[Output]]
     )(
       whenLoaded: (WithInput[Input, Output], Signal[WithInput[Input, Output]]) => PageRenderResult
     ): PageRenderResult =
       authenticated[Nothing, Output](
-        createRequest = input => createRequest(input).leftMap(_.asNetworkOrAuthError)
+        createRequest.andThen(_.leftMap(_.asNetworkOrAuthError))
       )(whenLoaded)
 
+    /** Loads public data which is always found. */
+    def public[Output](
+      createRequest: Input => EitherT[IO, NetworkError, Output]
+    )(
+      whenLoaded: (WithInput[Input, Output], Signal[WithInput[Input, Output]]) => PageRenderResult
+    ): PageRenderResult =
+      public(createRequest.andThen(_.map(_.some)))(whenLoaded)
+
     /** Loads private data which can be not found. */
+    @targetName("authenticatedPossiblyNotFound")
     def authenticated[AuthError, Output](
       createRequest: Input => EitherT[IO, NetworkOrAuthError[AuthError], Option[Output]]
     )(
@@ -89,6 +100,15 @@ trait PageDataLoader {
       }
 
       renderResult
+    }
+
+    /** Loads private data which is always found. */
+    def authenticated[AuthError, Output](
+      createRequest: Input => EitherT[IO, NetworkOrAuthError[AuthError], Output]
+    )(
+      whenLoaded: (WithInput[Input, Output], Signal[WithInput[Input, Output]]) => PageRenderResult
+    ): PageRenderResult = {
+      authenticated(createRequest.andThen(_.map(_.some)))(whenLoaded)
     }
   }
 }

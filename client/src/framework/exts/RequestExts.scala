@@ -29,6 +29,10 @@ extension [Output, Requirements >: Effect[IO]](req: Request[Either[NetworkError,
     }
 }
 
+private object RequestDebugCounter {
+  var counter = 0
+}
+
 /** Request that can fail with an authentication error. */
 extension [AuthError, Output, Requirements >: Effect[IO]](
   req: Request[Either[NetworkOrAuthError[AuthError], Output], Requirements]
@@ -36,19 +40,27 @@ extension [AuthError, Output, Requirements >: Effect[IO]](
 
   /** Sends the request. */
   @targetName("ioWithAuthError")
-  def io: EitherT[IO, NetworkOrAuthError[AuthError], Response[Output]] =
+  def io: EitherT[IO, NetworkOrAuthError[AuthError], Response[Output]] = {
+    val id = RequestDebugCounter.counter
+    RequestDebugCounter.counter += 1
+
     EitherT(
-      IO(log(s"Sending request: $req")) *>
+      IO(log(s"#$id: Sending request: $req")) *>
         sttpBackend
           .send(req)
           .map { response =>
+            logAt(if (response.body.isLeft) LogLevel.Error else LogLevel.Info, s"#$id: Received response: $response")
             response.body match {
-              case Left(error)  => Left(error)
-              case Right(value) => Right(response.mapBody(_ => value))
+              case Left(error) =>
+                Left(error)
+              case Right(value) =>
+                Right(response.mapBody(_ => value))
             }
           }
           .recover { case e: JavaScriptException =>
+            logError(s"#$id: Error while sending request: $e")
             Left(NetworkOrAuthError.NetworkError(NetworkError.JsError(e)))
           }
     )
+  }
 }

@@ -8,5 +8,8 @@ extension [T, V <: SourceValue[T]](c: SourceCompanion[T, V]) {
     *
     * Example: `s"Enclosing type: ${sourcecode.Enclosing.here}"`
     */
-  def here(implicit v: V): T = v.value
+  def here(using v: V): T = v.value
+
+  /** Summons a value and turns it into a string. */
+  def hereShow(using v: V): String = v.value.toString()
 }

@@ -1,5 +1,7 @@
 package framework
 
+import doobie.syntax.SqlInterpolator.SingleFragment
+
 /** Allows you to get all DB related stuff in one place.
   *
   * @note
@@ -11,6 +13,7 @@ object db {
   export doobie.postgres.implicits.*
   export doobie.{
     updateTable,
+    AliasedTableDefinition,
     Column,
     Columns,
     Composite,
@@ -22,6 +25,7 @@ object db {
     Read,
     SQLDefinition,
     TableDefinition,
+    TableName,
     Transactor,
     Update,
     Update0,
@@ -32,6 +36,19 @@ object db {
   object ConnectionIO {
     // Aliases so you could do `ConnectionIO.pure` and friends.
     export doobie.FC.{pure, raiseError, unit}
+  }
+
+  enum SqlOrder derives CanEqual {
+    case Asc
+    case Desc
+  }
+  object SqlOrder {
+    given Conversion[SqlOrder, Fragment] = {
+      case SqlOrder.Asc  => Fragment.const("ASC")
+      case SqlOrder.Desc => Fragment.const("DESC")
+    }
+
+    given Conversion[SqlOrder, SingleFragment[?]] = SingleFragment.fromFragment(_)
   }
 
   /** Drops and recreates the current schema. */
