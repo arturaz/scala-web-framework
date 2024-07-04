@@ -214,6 +214,11 @@ object shared extends Module {
       //
       // SNAPSHOT includes fix for https://github.com/sherpal/url-dsl/pull/22
       ivy"com.raquo::waypoint::8.1.0-SNAPSHOT",
+
+      // Pretty printing library
+      // https://github.com/com-lihaoyi/PPrint
+      // https://mvnrepository.com/artifact/com.lihaoyi/pprint
+      ivy"com.lihaoyi::pprint::0.9.0",
     )
   }
 

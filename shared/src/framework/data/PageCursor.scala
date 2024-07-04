@@ -35,6 +35,10 @@ final case class PageCursor[+DocId, +Timestamp, +PageSize](
   def pageIndex: Int =
     cursor.fold(0)(_.index)
 
+  /** Returns the [[PageCursorDirection]] of the current cursor. */
+  def direction: PageCursorDirection =
+    cursor.fold(PageCursorDirection.Forward)(_.direction)
+
   def next[DocId1 >: DocId, Timestamp1 >: Timestamp](
     lastId: DocId1,
     lastTimestamp: Timestamp1,
@@ -158,6 +162,9 @@ object PageCursor {
     }
   }
 
+  given show[DocId: Show, Timestamp: Show, PageSize: Show]: Show[PageCursor[DocId, Timestamp, PageSize]] =
+    c => show"PageCursor(pageSize = ${c.pageSize}, cursor = ${c.cursor})"
+
   /** Cursor for the first page. */
   given empty[DocId, Timestamp, PageSize: Empty]: Empty[PageCursor[DocId, Timestamp, PageSize]] =
     Empty(apply[DocId, Timestamp, PageSize](None, Empty[PageSize].empty))
@@ -222,6 +229,9 @@ object PageCursor {
     index: Int,
   )
   object Cursor {
+    given show[DocId: Show, Timestamp: Show]: Show[Cursor[DocId, Timestamp]] =
+      c => show"Cursor(${c.direction}, id = ${c.id}, timestamp = ${c.timestamp}, index = ${c.index})"
+
     given circeCodec[DocId, Timestamp](using
       CirceEncoder[DocId],
       CirceDecoder[DocId],

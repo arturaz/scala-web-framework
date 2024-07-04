@@ -15,8 +15,28 @@ extension [DocId, Timestamp, PageSize](cursor: PageCursor[DocId, Timestamp, Page
     case Some(cursor) => cursor.sqlWhereFragment(colId, colTimestamp, order)
 
   /* Produces the SQL fragment for `ORDER BY` clause that orders by timestamp and then id if the timestamps match. */
-  def sqlOrderFragment(colId: Column[DocId], colTimestamp: Column[Timestamp], order: SqlOrder): Fragment =
-    sql"$colTimestamp $order, $colId $order"
+  def sqlOrderFragment(colId: Column[DocId], colTimestamp: Column[Timestamp], order: SqlOrder): Fragment = {
+    val effectiveOrder = cursor.direction match {
+      case PageCursorDirection.Backward =>
+        /** When going backwards with a cursor we must invert the order because otherwise we always get the first page
+          * instead of the previous one. After we fetch results we must reverse the order again using
+          * [[processResults]].
+          */
+        order.reverse
+      case PageCursorDirection.Forward => order
+    }
+    sql"$colTimestamp $effectiveOrder, $colId $effectiveOrder"
+  }
+
+  /** Invoke this after fetching results from the database.
+    *
+    * This is needed for [[PageCursorDirection.Backward]] to correctly render the fetched results.
+    */
+  def processResults[C[X] <: Seq[X], A](data: C[A])(using factory: collection.Factory[A, C[A]]): C[A] = {
+    cursor.direction match
+      case PageCursorDirection.Backward => data.reverseIterator.to(factory)
+      case PageCursorDirection.Forward  => data
+  }
 
   /** Produces the SQL fragment that limits the number of documents in the current page. */
   def sqlLimitFragment(using Write[PageSize]): Fragment =

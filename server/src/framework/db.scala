@@ -41,6 +41,10 @@ object db {
   enum SqlOrder derives CanEqual {
     case Asc
     case Desc
+
+    def reverse: SqlOrder = this match
+      case SqlOrder.Asc  => SqlOrder.Desc
+      case SqlOrder.Desc => SqlOrder.Asc
   }
   object SqlOrder {
     given Conversion[SqlOrder, Fragment] = {
