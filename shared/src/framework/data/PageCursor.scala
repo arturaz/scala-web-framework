@@ -13,7 +13,7 @@ import urldsl.errors.DummyError
   *
   * Typically you would define your own cursor type, for example:
   * {{{
-  *   type DocumentsPageCursor = PageCursor[AppDocumentId, AppDateTime, AppPageSize]
+  *   type DocumentsPageCursor = PageCursor[AppDocumentId, FrameworkDateTime, AppPageSize]
   * }}}
   *
   * In the server module there are extensions on the `PageCursor` that implement cursor-based pagination, notably
