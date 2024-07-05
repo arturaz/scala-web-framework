@@ -2,10 +2,12 @@ package framework.data
 
 import framework.utils.{DBFixture, FrameworkTestSuite}
 import framework.exts.*
-import framework.prelude.*
+import framework.prelude.{*, given}
+import cats.syntax.all.*
 import doobie.TableDefinition.RowHelpers
+import java.util.Random
 
-class PageCursorTest extends FrameworkTestSuite with DBFixture {
+trait PageCursorTest(rngSeed: Long) extends FrameworkTestSuite with DBFixture {
   object Docs extends TableDefinition("docs") {
     val id: Column[Int] = Column("id")
     val timestamp: Column[Int] = Column("ts")
@@ -16,68 +18,81 @@ class PageCursorTest extends FrameworkTestSuite with DBFixture {
         with RowHelpers[Row](Docs)
   }
 
+  def printAll(header: String, entries: Vector[Any]): Unit =
+    println(s"$header:\n  ${entries.iterator.zipWithIndex.map { case (row, idx) => s"#$idx: $row" }.mkString("\n  ")}")
+
+  val rng = new Random(rngSeed)
+  val entries =
+    Vector
+      .fill(11)(Docs.Row(id = rng.nextInt(0, 1000), timestamp = rng.nextInt(10000, 20000)))
+      .sortBy(r => (r.timestamp, r.id))
+  printAll("Entries", entries)
+
   val withTable = withDDLs(
     sql"create table $Docs (${Docs.id} int not null, ${Docs.timestamp} int not null)",
     // Insert some test data where the `id` is not monotonic and we have some records with the same `ts`.
-    sql"""insert into $Docs (${Docs.id}, ${Docs.timestamp}) values
-          (10, 0), (11, 0), (12, 0), (0, 1), (1, 1), (2, 1), (20, 2), (21, 2), (22, 2), (23, 2), (24, 2)""",
+    sql"""insert into $Docs (${Docs.id}, ${Docs.timestamp}) values ${entries
+        .map { case Docs.Row(id, ts) => Fragment.const0(s"($id, $ts)") }
+        .intercalate(sql", ")}""",
   )
 
   val ascPages = Vector(
-    HasSurroundingPages(Vector(Docs.Row(10, 0), Docs.Row(11, 0)), hasPrevious = false, hasNext = true),
-    HasSurroundingPages(Vector(Docs.Row(12, 0), Docs.Row(0, 1)), hasPrevious = true, hasNext = true),
-    HasSurroundingPages(Vector(Docs.Row(1, 1), Docs.Row(2, 1)), hasPrevious = true, hasNext = true),
-    HasSurroundingPages(Vector(Docs.Row(20, 2), Docs.Row(21, 2)), hasPrevious = true, hasNext = true),
-    HasSurroundingPages(Vector(Docs.Row(22, 2), Docs.Row(23, 2)), hasPrevious = true, hasNext = true),
-    HasSurroundingPages(Vector(Docs.Row(24, 2)), hasPrevious = true, hasNext = false),
+    HasSurroundingPages(Vector(entries(0), entries(1)), hasPrevious = false, hasNext = true),
+    HasSurroundingPages(Vector(entries(2), entries(3)), hasPrevious = true, hasNext = true),
+    HasSurroundingPages(Vector(entries(4), entries(5)), hasPrevious = true, hasNext = true),
+    HasSurroundingPages(Vector(entries(6), entries(7)), hasPrevious = true, hasNext = true),
+    HasSurroundingPages(Vector(entries(8), entries(9)), hasPrevious = true, hasNext = true),
+    HasSurroundingPages(Vector(entries(10)), hasPrevious = true, hasNext = false),
   )
+  printAll("ASC pages", ascPages)
+
+  def fwdCursors(pages: Vector[HasSurroundingPages[Vector[Docs.Row]]]): Vector[Cursor] =
+    Vector(
+      baseCursor.first
+    ) ++ pages
+      .dropRight(1)
+      .iterator
+      .map(_.data.last)
+      .zipWithIndex
+      .map { case (lastRow, idx) =>
+        baseCursor.next(lastRow.id, lastRow.timestamp, index = idx)
+      }
+      .toVector
+
+  def bwdCursors(pages: Vector[HasSurroundingPages[Vector[Docs.Row]]]): Vector[Cursor] =
+    pages.iterator.zipWithIndex
+      .drop(1)
+      .map { case (page, index) =>
+        val firstRow = page.data.head
+        baseCursor.previous(firstRow.id, firstRow.timestamp, index = index)
+      }
+      .toVector
 
   // Forward cursors for ascending order
-  val ascFwdCursors = Vector(
-    baseCursor.first,
-    baseCursor.next(11, 0, index = 0),
-    baseCursor.next(0, 1, index = 1),
-    baseCursor.next(2, 1, index = 2),
-    baseCursor.next(21, 2, index = 3),
-    baseCursor.next(23, 2, index = 4),
-  )
+  val ascFwdCursors = fwdCursors(ascPages)
+  printAll("ASC fwd cursors", ascFwdCursors)
 
   // Backward cursors for ascending order
-  val ascBwdCursors = Vector(
-    baseCursor.previous(12, 0, index = 1),
-    baseCursor.previous(1, 1, index = 2),
-    baseCursor.previous(20, 2, index = 3),
-    baseCursor.previous(22, 2, index = 4),
-    baseCursor.previous(24, 2, index = 5),
-  )
+  val ascBwdCursors = bwdCursors(ascPages)
+  printAll("ASC bwd cursors", ascBwdCursors)
 
   val descPages = Vector(
-    HasSurroundingPages(Vector(Docs.Row(24, 2), Docs.Row(23, 2)), hasPrevious = false, hasNext = true),
-    HasSurroundingPages(Vector(Docs.Row(22, 2), Docs.Row(21, 2)), hasPrevious = true, hasNext = true),
-    HasSurroundingPages(Vector(Docs.Row(20, 2), Docs.Row(2, 1)), hasPrevious = true, hasNext = true),
-    HasSurroundingPages(Vector(Docs.Row(1, 1), Docs.Row(0, 1)), hasPrevious = true, hasNext = true),
-    HasSurroundingPages(Vector(Docs.Row(12, 0), Docs.Row(11, 0)), hasPrevious = true, hasNext = true),
-    HasSurroundingPages(Vector(Docs.Row(10, 0)), hasPrevious = true, hasNext = false),
+    HasSurroundingPages(Vector(entries(10), entries(9)), hasPrevious = false, hasNext = true),
+    HasSurroundingPages(Vector(entries(8), entries(7)), hasPrevious = true, hasNext = true),
+    HasSurroundingPages(Vector(entries(6), entries(5)), hasPrevious = true, hasNext = true),
+    HasSurroundingPages(Vector(entries(4), entries(3)), hasPrevious = true, hasNext = true),
+    HasSurroundingPages(Vector(entries(2), entries(1)), hasPrevious = true, hasNext = true),
+    HasSurroundingPages(Vector(entries(0)), hasPrevious = true, hasNext = false),
   )
+  printAll("DESC pages", descPages)
 
   // Forward cursors for descending order
-  val descFwdCursors = Vector(
-    baseCursor.first,
-    baseCursor.next(23, 2, index = 0),
-    baseCursor.next(21, 2, index = 1),
-    baseCursor.next(2, 1, index = 2),
-    baseCursor.next(0, 1, index = 3),
-    baseCursor.next(11, 0, index = 4),
-  )
+  val descFwdCursors = fwdCursors(descPages)
+  printAll("DESC fwd cursors", descFwdCursors)
 
   // Backward cursors for descending order
-  val descBwdCursors = Vector(
-    baseCursor.previous(22, 2, index = 1),
-    baseCursor.previous(20, 2, index = 2),
-    baseCursor.previous(1, 1, index = 3),
-    baseCursor.previous(12, 0, index = 4),
-    baseCursor.previous(10, 0, index = 5),
-  )
+  val descBwdCursors = bwdCursors(descPages)
+  printAll("DESC bwd cursors", descBwdCursors)
 
   type Cursor = PageCursor[Int, Int, Int]
   def baseCursor: PageCursor.Builder[Int] = PageCursor.withPageSize(2)
@@ -167,7 +182,7 @@ class PageCursorTest extends FrameworkTestSuite with DBFixture {
   }
 
   withTable.test("DESC: page #0 (from page #1)") { xa =>
-    val obtained = run(baseCursor.previous(22, 2, index = 1), SqlOrder.Desc).transact(xa)
+    val obtained = run(descBwdCursors(0), SqlOrder.Desc).transact(xa)
 
     assertIO(obtained, descPages(0))
   }
@@ -350,3 +365,7 @@ class PageCursorTest extends FrameworkTestSuite with DBFixture {
     } yield ()
   }
 }
+
+class PageCursorTest0 extends PageCursorTest(1000)
+class PageCursorTest1 extends PageCursorTest(1001)
+class PageCursorTest2 extends PageCursorTest(1002)

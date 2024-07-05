@@ -129,7 +129,7 @@ extension [DocId, Timestamp](cursor: PageCursor.Cursor[DocId, Timestamp]) {
   ): Fragment =
     (cursor.direction, order) match
       case (PageCursorDirection.Backward, SqlOrder.Asc) | (PageCursorDirection.Forward, SqlOrder.Desc) =>
-        sql"($colTimestamp <= ${cursor.timestamp} AND ($colTimestamp < ${cursor.timestamp} OR $colId < ${cursor.id}))"
+        sql"($colTimestamp < ${cursor.timestamp} OR ($colTimestamp = ${cursor.timestamp} AND $colId < ${cursor.id}))"
       case (PageCursorDirection.Forward, SqlOrder.Asc) | (PageCursorDirection.Backward, SqlOrder.Desc) =>
-        sql"($colTimestamp >= ${cursor.timestamp} AND ($colTimestamp > ${cursor.timestamp} OR $colId > ${cursor.id}))"
+        sql"($colTimestamp > ${cursor.timestamp} OR ($colTimestamp = ${cursor.timestamp} AND $colId > ${cursor.id}))"
 }

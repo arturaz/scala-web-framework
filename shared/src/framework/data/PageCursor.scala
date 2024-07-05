@@ -17,7 +17,7 @@ import urldsl.errors.DummyError
   * }}}
   *
   * In the server module there are extensions on the `PageCursor` that implement cursor-based pagination, notably
-  * `sqlWhereFragment`, `sqlOrderFragment` and `sqlLimitFragment`. You probably also want
+  * `sqlWhereFragment`, `sqlOrderFragment`, `sqlLimitFragment` and `processResults`. You probably also want
   * `PageCursor.hasSurroundingPages` to determine whether the previous/next page are available.
   *
   * @tparam PageSize
@@ -30,6 +30,8 @@ final case class PageCursor[+DocId, +Timestamp, +PageSize](
   cursor: Option[PageCursor.Cursor[DocId, Timestamp]],
   pageSize: PageSize,
 ) {
+  override def toString(): String =
+    s"PageCursor(pageSize = ${pageSize}, cursor = ${cursor})"
 
   /** Index of the current page. */
   def pageIndex: Int =
@@ -227,10 +229,13 @@ object PageCursor {
     id: DocId,
     timestamp: Timestamp,
     index: Int,
-  )
+  ) {
+    override def toString(): String =
+      s"Cursor($direction, id = $id, timestamp = $timestamp, current page index = $index)"
+  }
   object Cursor {
     given show[DocId: Show, Timestamp: Show]: Show[Cursor[DocId, Timestamp]] =
-      c => show"Cursor(${c.direction}, id = ${c.id}, timestamp = ${c.timestamp}, index = ${c.index})"
+      c => show"Cursor(${c.direction}, id = ${c.id}, timestamp = ${c.timestamp}, current page index = ${c.index})"
 
     given circeCodec[DocId, Timestamp](using
       CirceEncoder[DocId],
@@ -303,7 +308,9 @@ object PageCursorDirection {
 /** Indicates whether the previous/next page are available. */
 case class HasSurroundingPages[Data](data: Data, pages: HasSurroundingPages.Pages) derives CanEqual
 object HasSurroundingPages {
-  case class Pages(hasPrevious: Boolean, hasNext: Boolean) derives CanEqual, CirceCodec
+  case class Pages(hasPrevious: Boolean, hasNext: Boolean) derives CanEqual, CirceCodec {
+    override def toString(): String = show"Pages(prev = $hasPrevious, next = $hasNext)"
+  }
 
   def withoutPages[Data](data: Data): HasSurroundingPages[Data] =
     apply(data, Pages(hasPrevious = false, hasNext = false))
