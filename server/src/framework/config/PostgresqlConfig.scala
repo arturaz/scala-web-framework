@@ -8,6 +8,8 @@ import doobie.hikari.HikariTransactor
 import doobie.util.transactor.Transactor
 import fly4s.Fly4s
 import fly4s.data.Fly4sConfig
+import doobie.util.log.LogHandler
+import cats.effect.kernel.Async
 
 case class PostgresqlConfig(
   username: String = "postgres",
@@ -32,17 +34,23 @@ case class PostgresqlConfig(
   )
 
   /** Returns the [[Resource]] that creates a Hikari-based transactor. */
-  def transactorResource: Resource[IO, Transactor[IO] { type A = HikariDataSource }] =
-    HikariTransactor.fromHikariConfig[IO] {
-      // For the full list of hikari configurations see
-      // https://github.com/brettwooldridge/HikariCP#gear-configuration-knobs-baby
-      val config = new HikariConfig()
-      config.setDriverClassName(PostgresqlConfig.JDBCDriverName)
-      config.setJdbcUrl(jdbcUrl)
-      config.setUsername(username)
-      config.setPassword(password)
-      config
-    }
+  def transactorResource[F[_]: Async](
+    logHandler: Option[LogHandler[F]],
+    modConfig: HikariConfig => HikariConfig = identity,
+  ): Resource[F, Transactor[F] { type A = HikariDataSource }] =
+    HikariTransactor.fromHikariConfig[F](
+      {
+        // For the full list of hikari configurations see
+        // https://github.com/brettwooldridge/HikariCP#gear-configuration-knobs-baby
+        val config = new HikariConfig()
+        config.setDriverClassName(PostgresqlConfig.JDBCDriverName)
+        config.setJdbcUrl(jdbcUrl)
+        config.setUsername(username)
+        config.setPassword(password)
+        modConfig(config)
+      },
+      logHandler,
+    )
 }
 object PostgresqlConfig {
 
