@@ -24,6 +24,6 @@ enum NetworkError {
              |${error.errorWithCausesAndStacktracesString.indent(4)}
              |))""".stripMargin
 
-    // Use default `toString` for other cases
-    case _ => super.toString()
+    case DecodeError(other) => s"NetworkError.DecodeError($other)"
+    case JsError(err)       => s"NetworkError.JsError($err)"
 }
