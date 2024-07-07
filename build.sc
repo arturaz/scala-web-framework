@@ -25,12 +25,12 @@ object Versions {
 
   final val Cats = "2.12.0"
   final val MUnit = "1.0.0"
-  final val Tapir = "1.10.9"
+  final val Tapir = "1.10.12"
   final val Http4s = "0.23.27"
-  final val Scribe = "3.13.5"
+  final val Scribe = "3.15.0"
   final val Doobie = "1.0.0-RC5"
-  final val Chimney = "1.0.0"
-  final val Circe = "0.14.8"
+  final val Chimney = "1.2.0"
+  final val Circe = "0.14.9"
 }
 
 /** Barebones Scala build. */
@@ -184,12 +184,12 @@ object shared extends Module {
       // Enumerations for Scala 2
       // https://github.com/lloydmeta/enumeratum
       // https://mvnrepository.com/artifact/com.beachape/enumeratum <: scala.reflect.Enum
-      ivy"com.beachape::enumeratum:1.7.3",
+      ivy"com.beachape::enumeratum:1.7.4",
 
       // A friendly newtype library for Scala 3.
       // https://github.com/kitlangton/neotype
       // https://mvnrepository.com/artifact/io.github.kitlangton/neotype
-      ivy"io.github.kitlangton::neotype::0.2.16",
+      ivy"io.github.kitlangton::neotype::0.3.0",
 
       // Endpoint description library
       // https://tapir.softwaremill.com/en/latest/
@@ -273,7 +273,7 @@ object client extends FrameworkScalaJSModule {
     // Java 8 Date/Time API implemented in Scala
     // http://cquiroz.github.io/scala-java-time/
     // https://mvnrepository.com/artifact/io.github.cquiroz/scala-java-time
-    ivy"io.github.cquiroz::scala-java-time::2.5.0",
+    ivy"io.github.cquiroz::scala-java-time::2.6.0",
   )
 }
 
@@ -320,10 +320,10 @@ object server extends FrameworkScalaModule {
     // Flyway database migrations wrapped in cats-effect
     // https://github.com/geirolz/fly4s
     // https://mvnrepository.com/artifact/com.github.geirolz/fly4s
-    ivy"com.github.geirolz::fly4s:1.0.4",
+    ivy"com.github.geirolz::fly4s:1.0.5",
     // https://documentation.red-gate.com/flyway/flyway-cli-and-api/supported-databases/postgresql-database
     // https://mvnrepository.com/artifact/org.flywaydb/flyway-database-postgresql
-    ivy"org.flywaydb:flyway-database-postgresql:10.13.0",
+    ivy"org.flywaydb:flyway-database-postgresql:10.15.2",
 
     // PostgreSQL driver
     // https://jdbc.postgresql.org/
@@ -347,7 +347,7 @@ object server extends FrameworkScalaModule {
     // Encryption library
     // https://developers.google.com/tink/tink-setup#java
     // https://mvnrepository.com/artifact/com.google.crypto.tink/tink
-    ivy"com.google.crypto.tink:tink:1.13.0",
+    ivy"com.google.crypto.tink:tink:1.14.0",
     // Tink support for Google Cloud KMS
     // https://mvnrepository.com/artifact/com.google.crypto.tink/tink-gcpkms
     ivy"com.google.crypto.tink:tink-gcpkms:1.10.0",
