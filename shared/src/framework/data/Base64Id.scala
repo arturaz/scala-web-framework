@@ -46,8 +46,11 @@ object Base64Id {
   given circeKeyCodec: CirceKeyCodec[Base64Id] =
     CirceKeyCodec.instance(fromBase64)(_.asString)
 
-  given schema: Schema[Base64Id] =
-    Schema(SchemaType.SString()).description("Base64 without the trailing = characters")
+  /** Schema builder for types wrapping [[Base64Id]]. */
+  def schemaFor[A]: Schema[A] =
+    Schema(SchemaType.SString()).format("Base64 without the trailing = characters")
+
+  given schema: Schema[Base64Id] = schemaFor
 
   def fromBase64(string: String): Option[Base64Id] = {
     try {

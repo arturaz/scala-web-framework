@@ -1,6 +1,10 @@
 package framework
 
 import doobie.syntax.SqlInterpolator.SingleFragment
+import doobie.util.{Read, Write}
+import doobie.postgres.implicits.*
+import jkugiya.ulid.ULID
+import java.util.UUID
 
 /** Allows you to get all DB related stuff in one place.
   *
@@ -20,6 +24,7 @@ object db {
     ConnectionIO,
     Fragment,
     FragmentExtensions,
+    Meta,
     Query,
     Query0,
     Read,
@@ -65,4 +70,13 @@ object db {
       _ <- Fragment.const(show"SET search_path TO $schemaName").update.run
     } yield ()
   }
+
+  given ulidRead: Read[ULID] = Read[UUID].map(uuid => ULID.fromUUID(uuid))
+  given ulidWrite: Write[ULID] = Write[UUID].contramap(_.uuid)
+
+  given ulidWrapperRead[Wrapper](using newType: neotype.Newtype.WithType[ULID, Wrapper]): Read[Wrapper] =
+    Read[ULID].map(newType.make(_).getOrThrow)
+
+  given ulidWrapperWrite[Wrapper](using newType: neotype.Newtype.WithType[ULID, Wrapper]): Write[Wrapper] =
+    Write[ULID].contramap(newType.unwrap)
 }

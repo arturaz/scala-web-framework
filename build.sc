@@ -191,6 +191,12 @@ object shared extends Module {
       // https://mvnrepository.com/artifact/io.github.kitlangton/neotype
       ivy"io.github.kitlangton::neotype::0.3.0",
 
+      // ULID generation,
+      // https://github.com/jkugiya/ulid-scala
+      // https://mvnrepository.com/artifact/com.github.jkugiya/ulid-scala
+      // https://github.com/jkugiya/ulid-scala/pull/9
+      ivy"com.github.jkugiya::ulid-scala::1.0.4-SNAPSHOT",
+
       // Endpoint description library
       // https://tapir.softwaremill.com/en/latest/
       // https://mvnrepository.com/artifact/com.softwaremill.sttp.tapir/tapir-core
@@ -311,11 +317,6 @@ object server extends FrameworkScalaModule {
     // immudb and http4s uses SLF4J
     // https://github.com/outr/scribe/wiki/slf4j
     ivy"com.outr::scribe-slf4j2:${Versions.Scribe}",
-
-    // ULID generation,
-    // https://github.com/jkugiya/ulid-scala
-    // https://mvnrepository.com/artifact/com.github.jkugiya/ulid-scala
-    ivy"com.github.jkugiya::ulid-scala:1.0.3",
 
     // Flyway database migrations wrapped in cats-effect
     // https://github.com/geirolz/fly4s

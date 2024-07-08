@@ -1,6 +1,7 @@
 package framework.utils
 
 import jkugiya.ulid.ULID
+import cats.effect.SyncIO
 
 /** Generates [[ULID]]s.
   *
