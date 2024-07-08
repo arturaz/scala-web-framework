@@ -2,6 +2,7 @@ package framework.data
 
 import alleycats.Empty
 import framework.prelude.*
+import framework.exts.*
 import framework.utils.{NamedEnum, UrlConvertible}
 import sttp.tapir.DecodeResult
 import urldsl.errors.DummyError
@@ -36,6 +37,10 @@ final case class PageCursor[+DocId, +Timestamp, +PageSize](
   /** Index of the current page. */
   def pageIndex: Int =
     cursor.fold(0)(_.index)
+
+  /** Returns a cursor for the first page. */
+  def firstPage: PageCursor[DocId, Timestamp, PageSize] =
+    PageCursor.withPageSize(pageSize).first
 
   /** Returns the [[PageCursorDirection]] of the current cursor. */
   def direction: PageCursorDirection =
@@ -306,7 +311,35 @@ object PageCursorDirection {
 }
 
 /** Indicates whether the previous/next page are available. */
-case class HasSurroundingPages[Data](data: Data, pages: HasSurroundingPages.Pages) derives CanEqual
+case class HasSurroundingPages[Data](data: Data, pages: HasSurroundingPages.Pages) derives CanEqual {
+
+  /** Returns the cursor for the previous page if that is available. */
+  def previousPageCursor[DocId, Timestamp, PageSize](
+    currentPageCursor: PageCursor[DocId, Timestamp, PageSize],
+    getFirst: Data => Option[(DocId, Timestamp)],
+  ): Option[PageCursor[DocId, Timestamp, PageSize]] = {
+    if (!pages.hasPrevious) None
+    // If we are on Page 2 then return the cursor for the first page instead of returning a cursor that goes backwards
+    // from page 2.
+    else if (currentPageCursor.pageIndex == 1) Some(currentPageCursor.firstPage)
+    else
+      getFirst(data).map { case (id, timestamp) =>
+        currentPageCursor.previous(id, timestamp)
+      }
+  }
+
+  /** Returns the cursor for the next page if that is available. */
+  def nextPageCursor[DocId, Timestamp, PageSize](
+    currentPageCursor: PageCursor[DocId, Timestamp, PageSize],
+    getLast: Data => Option[(DocId, Timestamp)],
+  ): Option[PageCursor[DocId, Timestamp, PageSize]] = {
+    if (!pages.hasNext) None
+    else
+      getLast(data).map { case (id, timestamp) =>
+        currentPageCursor.next(id, timestamp)
+      }
+  }
+}
 object HasSurroundingPages {
   case class Pages(hasPrevious: Boolean, hasNext: Boolean) derives CanEqual, CirceCodec {
     override def toString(): String = show"Pages(prev = $hasPrevious, next = $hasNext)"
