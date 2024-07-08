@@ -347,7 +347,9 @@ object server extends FrameworkScalaModule {
     // Encryption library
     // https://developers.google.com/tink/tink-setup#java
     // https://mvnrepository.com/artifact/com.google.crypto.tink/tink
-    ivy"com.google.crypto.tink:tink:1.14.0",
+    // Can't use 1.14.0 because then it upgrades protobuf (why?!) and then immudb fails because it uses other GRPC
+    // version.
+    ivy"com.google.crypto.tink:tink:1.13.0",
     // Tink support for Google Cloud KMS
     // https://mvnrepository.com/artifact/com.google.crypto.tink/tink-gcpkms
     ivy"com.google.crypto.tink:tink-gcpkms:1.10.0",
