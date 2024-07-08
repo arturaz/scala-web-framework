@@ -7,3 +7,14 @@ export sttp.tapir.Schema
 
 export cats.syntax.show.{showInterpolator, toShow}
 export cats.syntax.invariant.toInvariantOps
+
+/** A type alias that allows writing code like this:
+  *
+  * {{{
+  *   def myFn[A: CanEqual1]: Int = ???
+  * }}}
+  *
+  * @see
+  *   https://docs.scala-lang.org/scala3/reference/contextual/multiversal-equality.html#why-two-type-parameters-1
+  */
+type CanEqual1[A] = CanEqual[A, A]
