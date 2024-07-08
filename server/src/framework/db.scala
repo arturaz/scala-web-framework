@@ -8,6 +8,9 @@ import java.util.UUID
 
 /** Allows you to get all DB related stuff in one place.
   *
+  * For JSON it uses JSONB, instead of JSON. Feel free to define your own object (like `app.db` and re-export different
+  * things if you want).
+  *
   * @note
   *   This is an object not a package because you (yet) can't do `export framework.db.*` in your application code if
   *   this is a package.
@@ -15,6 +18,7 @@ import java.util.UUID
 object db {
   export doobie.implicits.*
   export doobie.postgres.implicits.*
+  export doobie.postgres.circe.jsonb.implicits.*
   export doobie.{
     updateTable,
     AliasedTableDefinition,

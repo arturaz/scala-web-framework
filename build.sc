@@ -334,11 +334,13 @@ object server extends FrameworkScalaModule {
     // PostgreSQL database access
     // https://tpolecat.github.io/doobie
     // https://mvnrepository.com/artifact/org.tpolecat/doobie-core
-    // https://mvnrepository.com/artifact/org.tpolecat/doobie-postgres
-    // https://mvnrepository.com/artifact/org.tpolecat/doobie-hikari
     ivy"org.tpolecat::doobie-core:${Versions.Doobie}",
+    // https://mvnrepository.com/artifact/org.tpolecat/doobie-postgres
     ivy"org.tpolecat::doobie-postgres:${Versions.Doobie}",
+    // https://mvnrepository.com/artifact/org.tpolecat/doobie-hikari
     ivy"org.tpolecat::doobie-hikari:${Versions.Doobie}",
+    // https://mvnrepository.com/artifact/org.tpolecat/doobie-postgres-circe
+    ivy"org.tpolecat::doobie-postgres-circe:${Versions.Doobie}",
 
     // Typesafe doobie (for SQL queries)
     // https://arturaz.github.io/doobie-typesafe
