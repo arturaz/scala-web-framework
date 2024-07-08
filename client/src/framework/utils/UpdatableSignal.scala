@@ -1,20 +1,12 @@
 package framework.utils
 
-import com.raquo.airstream.core.Signal
 import com.raquo.airstream.split.SplittableSignal
-import com.raquo.airstream.state.Var
 
 /** Like [[Var.zoom]] but is not required to have an [[com.raquo.airstream.ownership.Owner]]. */
-trait UpdatableSignal[A] { self =>
-
-  /** The [[Signal]] which is most likely mapped from a [[Var]]. */
-  def signal: Signal[A]
+trait UpdatableSignal[A] extends ZoomedOwnerlessSignal[A] { self =>
 
   /** The current value. */
   def now(): A
-
-  /** Sets the value of the underlying data source to the given value. */
-  def setTo(value: A): Unit
 
   /** Updates the value of the underlying data source using the given function. */
   def update(f: A => A): Unit = {
@@ -32,7 +24,7 @@ trait UpdatableSignal[A] { self =>
     */
   def bimap[PartOfA](
     get: A => PartOfA
-  )(set: UpdatableSignal.Setter[A, PartOfA]): UpdatableSignal[PartOfA] =
+  )(set: UpdatableSignal.PartSetter[A, PartOfA]): UpdatableSignal[PartOfA] =
     UpdatableSignal[PartOfA](
       signal.map(get),
       () => get(now()),
@@ -68,7 +60,7 @@ trait UpdatableSignal[A] { self =>
   // TODO: this probably needs a better name.
   def bimapFromSplit[PartOfA](signal: Signal[PartOfA])(
     get: A => PartOfA,
-    update: UpdatableSignal.Setter[A, PartOfA],
+    update: UpdatableSignal.PartSetter[A, PartOfA],
   ): UpdatableSignal[PartOfA] = UpdatableSignal[PartOfA](
     signal,
     () => get(now()),
@@ -83,9 +75,9 @@ object UpdatableSignal {
 
   /** Sets [[PartOfA]] in [[A]] and returns the modified [[A]]. */
   // noinspection ScalaWeakerAccess
-  type Setter[A, PartOfA] = (A, PartOfA) => A
+  type PartSetter[A, PartOfA] = (A, PartOfA) => A
 
-  /** Creates an instance from a [[Signal]] and [[UpdateFn]]. */
+  /** Creates an instance. */
   def apply[A](
     signal: Signal[A],
     now: () => A,
@@ -103,8 +95,7 @@ object UpdatableSignal {
   }
 
   /** Creates an instance from a [[Var]] and mapping functions. */
-  given fromVar[A]: Conversion[Var[A], UpdatableSignal[A]] = rxVar =>
-    UpdatableSignal[A](rxVar.signal, rxVar.now, rxVar.set)
+  given fromVar[A]: Conversion[Var[A], UpdatableSignal[A]] = rxVar => apply(rxVar.signal, rxVar.now, rxVar.set)
 
   extension [A](s: UpdatableSignal[NonEmptyVector[A]]) {
 
