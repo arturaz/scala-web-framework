@@ -3,6 +3,7 @@ package framework.exts
 import doobie.AliasedTableDefinition
 import framework.data.{HasSurroundingPages, PageCursor, PageCursorDirection}
 import framework.db.*
+import io.scalaland.chimney.Transformer
 
 extension [DocId, Timestamp, PageSize](cursor: PageCursor[DocId, Timestamp, PageSize]) {
 
@@ -39,8 +40,8 @@ extension [DocId, Timestamp, PageSize](cursor: PageCursor[DocId, Timestamp, Page
   }
 
   /** Produces the SQL fragment that limits the number of documents in the current page. */
-  def sqlLimitFragment(using Write[PageSize]): Fragment =
-    sql"LIMIT ${cursor.pageSize}"
+  def sqlLimitFragment(using t: Transformer[PageSize, Long]): Fragment =
+    sql"LIMIT ${t.transform(cursor.pageSize)}"
 }
 
 extension (c: PageCursor.type) {
