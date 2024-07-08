@@ -42,6 +42,15 @@ final case class PageCursor[+DocId, +Timestamp, +PageSize](
   def firstPage: PageCursor[DocId, Timestamp, PageSize] =
     PageCursor.withPageSize(pageSize).first
 
+  /** Change the page size.
+    *
+    * @note
+    *   Returns to the first page because otherwise the cursor would be invalid and might point to a non-Int or
+    *   non-existent page.
+    */
+  def withPageSize[PS >: PageSize](pageSize: PS): PageCursor[DocId, Timestamp, PS] =
+    PageCursor.withPageSize(pageSize).first
+
   /** Returns the [[PageCursorDirection]] of the current cursor. */
   def direction: PageCursorDirection =
     cursor.fold(PageCursorDirection.Forward)(_.direction)
