@@ -51,7 +51,7 @@ trait NamedEnum[A] {
 object NamedEnum {
 
   /** A [[NamedEnum]] that additionally can be converted from / to [[Int]]. */
-  trait WithIntRepresentation[A] { self: NamedEnum[A] =>
+  trait WithIntRepresentation[A] extends NamedEnum[A] {
     def toInt(a: A): Int
 
     def fromInt(i: Int): Option[A] =
