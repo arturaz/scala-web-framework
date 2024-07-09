@@ -9,10 +9,13 @@ import java.util.Random
 
 trait PageCursorTest(rngSeed: Long) extends FrameworkTestSuite with DBFixture {
   object Docs extends TableDefinition("docs") {
-    val id: Column[Int] = Column("id")
+    val id: Column[Long] = Column("id")
     val timestamp: Column[Int] = Column("ts")
 
-    case class Row(id: Int, timestamp: Int)
+    case class Row(id: Long, timestamp: Int) {
+      def primary = timestamp
+      def secondary = id
+    }
     object Row
         extends WithSQLDefinition[Row](Composite((id.sqlDef, timestamp.sqlDef))(Row.apply)(Tuple.fromProductTyped))
         with RowHelpers[Row](Docs)
@@ -55,7 +58,7 @@ trait PageCursorTest(rngSeed: Long) extends FrameworkTestSuite with DBFixture {
       .map(_.data.last)
       .zipWithIndex
       .map { case (lastRow, idx) =>
-        baseCursor.next(lastRow.id, lastRow.timestamp, index = idx)
+        baseCursor.next(primary = lastRow.primary, secondary = lastRow.secondary, index = idx)
       }
       .toVector
 
@@ -64,7 +67,7 @@ trait PageCursorTest(rngSeed: Long) extends FrameworkTestSuite with DBFixture {
       .drop(1)
       .map { case (page, index) =>
         val firstRow = page.data.head
-        baseCursor.previous(firstRow.id, firstRow.timestamp, index = index)
+        baseCursor.previous(primary = firstRow.primary, secondary = firstRow.secondary, index = index)
       }
       .toVector
 
@@ -94,20 +97,23 @@ trait PageCursorTest(rngSeed: Long) extends FrameworkTestSuite with DBFixture {
   val descBwdCursors = bwdCursors(descPages)
   printAll("DESC bwd cursors", descBwdCursors)
 
-  type Cursor = PageCursor[Int, Int, Int]
+  type Cursor = PageCursor[Int, Long, Int]
   def baseCursor: PageCursor.Builder[Int] = PageCursor.withPageSize(2)
   val columns = Docs.Row
 
-  def run(cursor: Cursor, order: SqlOrder) =
-    sql"""SELECT $columns FROM $Docs WHERE ${cursor.sqlWhereFragment(Docs.id, Docs.timestamp, order)}
-          ORDER BY ${cursor.sqlOrderFragment(Docs.id, Docs.timestamp, order)}
+  def run(cursor: Cursor, order: SqlOrder) = {
+    val t = Docs
+
+    sql"""SELECT $columns FROM $t WHERE ${cursor.sqlWhereFragment(t.timestamp, t.id, order)}
+          ORDER BY ${cursor.sqlOrderFragment(t.timestamp, t.id, order)}
           ${cursor.sqlLimitFragment}"""
       .queryOf(columns)
       .to[Vector]
       .map(cursor.processResults)
       .flatMap(
-        PageCursor.hasSurroundingPages(Docs as "d", None, _, _.c(_.id), _.id, _.c(_.timestamp), _.timestamp, order)
+        PageCursor.hasSurroundingPages(t as "d", None, _, t.timestamp, _.primary, t.id, _.secondary, order)
       )
+  }
 
   withTable.test("ASC: page #0 (without cursor)") { xa =>
     val obtained = run(ascFwdCursors(0), SqlOrder.Asc).transact(xa)
@@ -250,53 +256,53 @@ trait PageCursorTest(rngSeed: Long) extends FrameworkTestSuite with DBFixture {
       page <- run(cursor)
       _ <- assertIO(IO.pure(page), ascPages(0), "forwards page #0")
 
-      cursor <- IO.pure(cursor.next(page.data)(_.id, _.timestamp).get)
+      cursor <- IO.pure(cursor.next(page.data)(_.primary, _.secondary).get)
       _ <- assertIO(IO.pure(cursor), ascFwdCursors(1), "forwards cursor #1")
       page <- run(cursor)
       _ <- assertIO(IO.pure(page), ascPages(1), "forwards page #1")
 
-      cursor <- IO.pure(cursor.next(page.data)(_.id, _.timestamp).get)
+      cursor <- IO.pure(cursor.next(page.data)(_.primary, _.secondary).get)
       _ <- assertIO(IO.pure(cursor), ascFwdCursors(2), "forwards cursor #2")
       page <- run(cursor)
       _ <- assertIO(IO.pure(page), ascPages(2), "forwards page #2")
 
-      cursor <- IO.pure(cursor.next(page.data)(_.id, _.timestamp).get)
+      cursor <- IO.pure(cursor.next(page.data)(_.primary, _.secondary).get)
       _ <- assertIO(IO.pure(cursor), ascFwdCursors(3), "forwards cursor #3")
       page <- run(cursor)
       _ <- assertIO(IO.pure(page), ascPages(3), "forwards page #3")
 
-      cursor <- IO.pure(cursor.next(page.data)(_.id, _.timestamp).get)
+      cursor <- IO.pure(cursor.next(page.data)(_.primary, _.secondary).get)
       _ <- assertIO(IO.pure(cursor), ascFwdCursors(4), "forwards cursor #4")
       page <- run(cursor)
       _ <- assertIO(IO.pure(page), ascPages(4), "forwards page #4")
 
-      cursor <- IO.pure(cursor.next(page.data)(_.id, _.timestamp).get)
+      cursor <- IO.pure(cursor.next(page.data)(_.primary, _.secondary).get)
       _ <- assertIO(IO.pure(cursor), ascFwdCursors(5), "forwards cursor #5")
       page <- run(cursor)
       _ <- assertIO(IO.pure(page), ascPages(5), "forwards page #5")
 
       // Run backwards
-      cursor <- IO.pure(cursor.previous(page.data)(_.id, _.timestamp).get)
+      cursor <- IO.pure(cursor.previous(page.data)(_.primary, _.secondary).get)
       _ <- assertIO(IO.pure(cursor), ascBwdCursors(4), "backwards cursor #4")
       page <- run(cursor)
       _ <- assertIO(IO.pure(page), ascPages(4), "backwards page #4")
 
-      cursor <- IO.pure(cursor.previous(page.data)(_.id, _.timestamp).get)
+      cursor <- IO.pure(cursor.previous(page.data)(_.primary, _.secondary).get)
       _ <- assertIO(IO.pure(cursor), ascBwdCursors(3), "backwards cursor #3")
       page <- run(cursor)
       _ <- assertIO(IO.pure(page), ascPages(3), "backwards page #3")
 
-      cursor <- IO.pure(cursor.previous(page.data)(_.id, _.timestamp).get)
+      cursor <- IO.pure(cursor.previous(page.data)(_.primary, _.secondary).get)
       _ <- assertIO(IO.pure(cursor), ascBwdCursors(2), "backwards cursor #2")
       page <- run(cursor)
       _ <- assertIO(IO.pure(page), ascPages(2), "backwards page #2")
 
-      cursor <- IO.pure(cursor.previous(page.data)(_.id, _.timestamp).get)
+      cursor <- IO.pure(cursor.previous(page.data)(_.primary, _.secondary).get)
       _ <- assertIO(IO.pure(cursor), ascBwdCursors(1), "backwards cursor #1")
       page <- run(cursor)
       _ <- assertIO(IO.pure(page), ascPages(1), "backwards page #1")
 
-      cursor <- IO.pure(cursor.previous(page.data)(_.id, _.timestamp).get)
+      cursor <- IO.pure(cursor.previous(page.data)(_.primary, _.secondary).get)
       _ <- assertIO(IO.pure(cursor), ascBwdCursors(0), "backwards cursor #0")
       page <- run(cursor)
       _ <- assertIO(IO.pure(page), ascPages(0), "backwards page #0")
@@ -312,53 +318,53 @@ trait PageCursorTest(rngSeed: Long) extends FrameworkTestSuite with DBFixture {
       page <- run(cursor)
       _ <- assertIO(IO.pure(page), descPages(0), "forwards page #0")
 
-      cursor <- IO.pure(cursor.next(page.data)(_.id, _.timestamp).get)
+      cursor <- IO.pure(cursor.next(page.data)(_.primary, _.secondary).get)
       _ <- IO(assertEquals(cursor, descFwdCursors(1), "forwards cursor #1"))
       page <- run(cursor)
       _ <- assertIO(IO.pure(page), descPages(1), "forwards page #1")
 
-      cursor <- IO.pure(cursor.next(page.data)(_.id, _.timestamp).get)
+      cursor <- IO.pure(cursor.next(page.data)(_.primary, _.secondary).get)
       _ <- IO(assertEquals(cursor, descFwdCursors(2), "forwards cursor #2"))
       page <- run(cursor)
       _ <- assertIO(IO.pure(page), descPages(2), "forwards page #2")
 
-      cursor <- IO.pure(cursor.next(page.data)(_.id, _.timestamp).get)
+      cursor <- IO.pure(cursor.next(page.data)(_.primary, _.secondary).get)
       _ <- IO(assertEquals(cursor, descFwdCursors(3), "forwards cursor #3"))
       page <- run(cursor)
       _ <- assertIO(IO.pure(page), descPages(3), "forwards page #3")
 
-      cursor <- IO.pure(cursor.next(page.data)(_.id, _.timestamp).get)
+      cursor <- IO.pure(cursor.next(page.data)(_.primary, _.secondary).get)
       _ <- IO(assertEquals(cursor, descFwdCursors(4), "forwards cursor #4"))
       page <- run(cursor)
       _ <- assertIO(IO.pure(page), descPages(4), "forwards page #4")
 
-      cursor <- IO.pure(cursor.next(page.data)(_.id, _.timestamp).get)
+      cursor <- IO.pure(cursor.next(page.data)(_.primary, _.secondary).get)
       _ <- IO(assertEquals(cursor, descFwdCursors(5), "forwards cursor #5"))
       page <- run(cursor)
       _ <- assertIO(IO.pure(page), descPages(5), "forwards page #5")
 
       // Run backwards
-      cursor <- IO.pure(cursor.previous(page.data)(_.id, _.timestamp).get)
+      cursor <- IO.pure(cursor.previous(page.data)(_.primary, _.secondary).get)
       _ <- IO(assertEquals(cursor, descBwdCursors(4), "backwards cursor #4"))
       page <- run(cursor)
       _ <- assertIO(IO.pure(page), descPages(4), "backwards page #4")
 
-      cursor <- IO.pure(cursor.previous(page.data)(_.id, _.timestamp).get)
+      cursor <- IO.pure(cursor.previous(page.data)(_.primary, _.secondary).get)
       _ <- IO(assertEquals(cursor, descBwdCursors(3), "backwards cursor #3"))
       page <- run(cursor)
       _ <- assertIO(IO.pure(page), descPages(3), "backwards page #3")
 
-      cursor <- IO.pure(cursor.previous(page.data)(_.id, _.timestamp).get)
+      cursor <- IO.pure(cursor.previous(page.data)(_.primary, _.secondary).get)
       _ <- IO(assertEquals(cursor, descBwdCursors(2), "backwards cursor #2"))
       page <- run(cursor)
       _ <- assertIO(IO.pure(page), descPages(2), "backwards page #2")
 
-      cursor <- IO.pure(cursor.previous(page.data)(_.id, _.timestamp).get)
+      cursor <- IO.pure(cursor.previous(page.data)(_.primary, _.secondary).get)
       _ <- IO(assertEquals(cursor, descBwdCursors(1), "backwards cursor #1"))
       page <- run(cursor)
       _ <- assertIO(IO.pure(page), descPages(1), "backwards page #1")
 
-      cursor <- IO.pure(cursor.previous(page.data)(_.id, _.timestamp).get)
+      cursor <- IO.pure(cursor.previous(page.data)(_.primary, _.secondary).get)
       _ <- IO(assertEquals(cursor, descBwdCursors(0), "backwards cursor #0"))
       page <- run(cursor)
       _ <- assertIO(IO.pure(page), descPages(0), "backwards page #0")
