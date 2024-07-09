@@ -346,21 +346,6 @@ object server extends FrameworkScalaModule {
     // https://arturaz.github.io/doobie-typesafe
     // https://mvnrepository.com/artifact/io.github.arturaz/doobie-typesafe
     ivy"io.github.arturaz::doobie-typesafe:0.3-c5b1b72-20240702T133825Z-SNAPSHOT",
-
-    // Encryption library
-    // https://developers.google.com/tink/tink-setup#java
-    // https://mvnrepository.com/artifact/com.google.crypto.tink/tink
-    // Can't use 1.14.0 because then it upgrades protobuf (why?!) and then immudb fails because it uses other GRPC
-    // version.
-    ivy"com.google.crypto.tink:tink:1.13.0",
-    // Tink support for Google Cloud KMS
-    // https://mvnrepository.com/artifact/com.google.crypto.tink/tink-gcpkms
-    ivy"com.google.crypto.tink:tink-gcpkms:1.10.0",
-
-    // Binary codecs description library
-    // https://github.com/scodec/scodec
-    // https://mvnrepository.com/artifact/org.scodec/scodec-core
-    ivy"org.scodec::scodec-core:2.3.0",
   )
 
   object testInfra extends FrameworkTestModule {
