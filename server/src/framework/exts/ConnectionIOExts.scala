@@ -17,4 +17,8 @@ extension (connectionIO: ConnectionIO[Int]) {
       case 1     => ConnectionIO.unit
       case other => ConnectionIO.raiseError(new Exception(s"Expected 1 row, got $other at $definedAt"))
     }
+
+  /** Returns true if the number of affected rows is 1. */
+  def singleOrFalse: ConnectionIO[Boolean] =
+    connectionIO.map(_ == 1)
 }
