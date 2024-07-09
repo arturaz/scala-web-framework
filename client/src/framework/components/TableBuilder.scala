@@ -71,11 +71,11 @@ object TableBuilder {
   ) {
 
     /** Sets the [[rowAmender]]. */
-    def amendRows(amender: (Key, Data, Signal[Data]) => Seq[Modifier[TableRow]]): Builder[Data, Key] =
+    def amendEachRow(amender: (Key, Data, Signal[Data]) => Seq[Modifier[TableRow]]): Builder[Data, Key] =
       copy(rowAmender = amender)
 
     /** Sets the [[rowAmender]]. */
-    def amendRows(amender: Signal[Data] => Seq[Modifier[TableRow]]): Builder[Data, Key] =
+    def amendEachRow(amender: Signal[Data] => Seq[Modifier[TableRow]]): Builder[Data, Key] =
       copy(rowAmender = (_, _, data) => amender(data))
 
     def render: Table = table(
