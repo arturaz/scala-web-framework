@@ -77,8 +77,8 @@ extension [PrimaryColumn, SecondaryColumn, PageSize](cursor: PageCursor[PrimaryC
     tables: Fragment,
     columns: Columns[RowsResult],
     whereFragment: Option[Fragment],
-    colSecondary: Column[SecondaryColumn],
     colPrimary: Column[PrimaryColumn],
+    colSecondary: Column[SecondaryColumn],
     order: SqlOrder,
     process: RowsResult => ProcessedResult,
     getPrimary: ProcessedResult => PrimaryColumn,
@@ -108,10 +108,9 @@ extension [PrimaryColumn, SecondaryColumn, PageSize](cursor: PageCursor[PrimaryC
     tables: Fragment,
     columns: Columns[Result],
     whereFragment: Option[Fragment],
-    colSecondary: Column[SecondaryColumn],
     colPrimary: Column[PrimaryColumn],
+    colSecondary: Column[SecondaryColumn],
     order: SqlOrder,
-  )(
     getPrimary: Result => PrimaryColumn,
     getSecondary: Result => SecondaryColumn,
   )(using
