@@ -8,6 +8,8 @@ given identityTransformer[A]: Transformer[A, A] = a => a
 
 given intToLongTransformer: Transformer[Int, Long] = _.toLong
 
+// Instances that Chimney does not provide by default: https://github.com/scalalandio/chimney/issues/569
+
 given nonEmptyVectorTransformer[From, To](using
   t: Transformer[From, To]
 ): Transformer[NonEmptyVector[From], NonEmptyVector[To]] =
