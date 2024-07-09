@@ -34,6 +34,7 @@ trait NewtypeULID extends Newtype[ULID] {
   }
 
   given Show[Type] = _.toBase64.asString
+  given CanEqual1[Type] = CanEqual.derived
 
   given Ordering[Type] = Ordering.by(unwrap(_).uuid)
   given Order[Type] = Order.fromOrdering
