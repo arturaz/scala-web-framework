@@ -31,6 +31,7 @@ object Versions {
   final val Doobie = "1.0.0-RC5"
   final val Chimney = "1.2.0"
   final val Circe = "0.14.9"
+  final val Monocle = "3.2.0"
 }
 
 /** Barebones Scala build. */
@@ -156,9 +157,11 @@ object shared extends Module {
       ivy"org.typelevel::cats-effect::3.5.4",
 
       // Quickly modify deeply nested case class fields
-      // https://github.com/softwaremill/quicklens
-      // https://mvnrepository.com/artifact/com.softwaremill.quicklens/quicklens
-      ivy"com.softwaremill.quicklens::quicklens::1.9.7",
+      // https://www.optics.dev/Monocle/
+      // https://mvnrepository.com/artifact/dev.optics/monocle-core
+      ivy"dev.optics::monocle-core::${Versions.Monocle}",
+      // https://mvnrepository.com/artifact/dev.optics/monocle-macro
+      ivy"dev.optics::monocle-macro::${Versions.Monocle}",
 
       // case class transformations
       // https://chimney.readthedocs.io/en/stable
