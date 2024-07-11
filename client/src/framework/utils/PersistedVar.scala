@@ -1,7 +1,7 @@
 package framework.utils
 
 import com.raquo.airstream.core.{EventStream, Signal}
-import com.raquo.airstream.state.Var
+import com.raquo.airstream.state.{StrictSignal, Var}
 import com.raquo.laminar.api.enrichSource
 import com.raquo.laminar.inserters.DynamicInserter
 import com.raquo.laminar.modifiers.Binder
@@ -25,7 +25,8 @@ class PersistedVar[A](
   persistenceKey: String,
   storage: Storage,
   defaultValueVar: Var[A],
-)(using CanEqual[A, A], CirceEncoder[A], CirceDecoder[A]) {
+)(using CanEqual1[A], CirceEncoder[A], CirceDecoder[A]) {
+  def signal: StrictSignal[A] = underlying.signal
 
   /** Returns an [[EventStream]] that emits whenever the form is submitted or changed (with debounce). */
   def persistEvent(submitting: EventStream[Unit], underlyingDebounceMs: Int = 100): EventStream[A] =
