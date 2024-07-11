@@ -1,10 +1,10 @@
 package framework.exts
 
 import doobie.AliasedTableDefinition
+import doobie.util.compat.FactoryCompat
 import framework.data.{HasSurroundingPages, PageCursor, PageCursorDirection}
 import framework.db.*
 import io.scalaland.chimney.Transformer
-import doobie.util.compat.FactoryCompat
 
 extension [PrimaryColumn, SecondaryColumn, PageSize](cursor: PageCursor[PrimaryColumn, SecondaryColumn, PageSize]) {
 
