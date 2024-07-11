@@ -5,6 +5,9 @@ import alleycats.Empty
 /** Allows using `empty[Type]` instead of `Empty[Type].empty`. */
 def empty[A](using empty: Empty[A]): A = empty.empty
 
+/** Alias for [[empty]]. */
+def emptyValue[A](using empty: Empty[A]): A = empty.empty
+
 extension [A](a: A) {
 
   /** Returns whether the value is the same as the [[Empty]] value. */
