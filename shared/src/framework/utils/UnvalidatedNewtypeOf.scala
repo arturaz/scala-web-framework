@@ -36,8 +36,11 @@ trait UnvalidatedNewtypeOf[
   TValidatedWrapperCompanion <: Newtype[TValidatedUnderlying],
 ](val companion: TValidatedWrapperCompanion)(using
   val transformer: PartialTransformer[TValidatedUnderlying, companion.Type]
-) {
+) { self =>
   opaque type Type = TValidatedUnderlying
+
+  inline transparent given instance
+    : UnvalidatedNewtypeOf.WithType[Type, TValidatedWrapperCompanion, TValidatedUnderlying] = this
 
   /** You can do this to improve generated type signatures:
     *
@@ -62,6 +65,9 @@ trait UnvalidatedNewtypeOf[
   type TValidatedWrapper = companion.Type
 
   def apply(underlying: TValidatedUnderlying): Type = underlying
+  def unwrap(wrapped: Type): TValidatedUnderlying = wrapped
+
+  given CanEqual1[Type] = CanEqual.derived
 
   /** [[Transformer]] instead of [[Conversion]] that goes from raw type to the newtype because [[Conversion]]s are
     * implicit and we don't want that.
@@ -83,21 +89,41 @@ trait UnvalidatedNewtypeOf[
     decoder: CirceDecoder[TValidatedUnderlying],
     encoder: CirceEncoder[TValidatedUnderlying],
   ): CirceCodec[Type] =
-    CirceCodec.from(decoder, encoder).imap(apply)(_.unwrap)
+    CirceCodec.from(decoder, encoder).imap(apply)(unwrap)
 
   given partialTransformer: PartialTransformer[Type, TValidatedWrapper] = PartialTransformer(transformer.transform(_))
 
   given Validatable[Type] with
     override def validate(value: Type): Option[Errors] = partialTransformer.transform(value).asEither.left.toOption
+}
+object UnvalidatedNewtypeOf {
 
-  extension (a: Type) {
-    def unwrap: TValidatedUnderlying = a
+  /** @tparam TUnvalidatedWrapper
+    *   the type that wraps around [[TUnderlying]] without any validations.
+    * @tparam TValidatedWrapper
+    *   the type that wraps around [[TUnderlying]] and performs validations.
+    * @tparam TUnderlying
+    *   the type that is wrapped around by [[TUnvalidatedWrapper]] and [[TValidatedWrapper]].
+    */
+  type WithType[TUnvalidatedWrapper, TValidatedWrapper <: Newtype[TUnderlying], TUnderlying] =
+    UnvalidatedNewtypeOf[TUnderlying, TValidatedWrapper] { type Type = TUnvalidatedWrapper }
+
+  extension [TUnvalidatedWrapper, TValidatedWrapperCompanion <: Newtype[TUnderlying], TUnderlying](
+    value: TUnvalidatedWrapper
+  )(using
+    newType: WithType[TUnvalidatedWrapper, TValidatedWrapperCompanion, TUnderlying]
+  ) {
+    def unwrap: TUnderlying = newType.unwrap(value)
 
     /** Validates the value and returns the wrapped value if successful.
       *
       * Returns [[String]] on failure because [[neotype.Newtype.make]] returns an [[Either]] of [[String]].
       */
-    def validate: Either[String, TValidatedWrapper] =
-      transformer.transform(a).asEither.left.map(_.errors.head.message.asString)
+    def validate: Either[String, newType.TValidatedWrapper] =
+      newType.transformer.transform(unwrap).asEither.left.map(_.errors.head.message.asString)
+
+    /** Validates the value and returns the wrapped value if successful. */
+    def validateAsOption: Option[newType.TValidatedWrapper] =
+      newType.transformer.transform(unwrap).asOption
   }
 }
