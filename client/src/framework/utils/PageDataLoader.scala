@@ -18,8 +18,8 @@ trait PageDataLoader {
   def public[Output](
     createRequest: => EitherT[IO, NetworkError, Output]
   )(whenLoaded: Output => PageRenderResult): PageRenderResult = {
-    of(Signal.fromValue(())).public(createRequest = _ => createRequest.map(_.some))((initial, _) =>
-      whenLoaded(initial.fetchedData)
+    of(Signal.fromValue(())).public(createRequest = _ => createRequest.map(_.some))(withInput =>
+      whenLoaded(withInput.fetchedData)
     )
   }
 
@@ -27,8 +27,8 @@ trait PageDataLoader {
   def authenticated[AuthError, Output](
     createRequest: => EitherT[IO, NetworkOrAuthError[AuthError], Output]
   )(whenLoaded: Output => PageRenderResult): PageRenderResult = {
-    of(Signal.fromValue(())).authenticated(createRequest = _ => createRequest.map(_.some))((initial, _) =>
-      whenLoaded(initial.fetchedData)
+    of(Signal.fromValue(())).authenticated(createRequest = _ => createRequest.map(_.some))(withInput =>
+      whenLoaded(withInput.fetchedData)
     )
   }
 
@@ -57,7 +57,7 @@ trait PageDataLoader {
     def public[Output](
       createRequest: Input => EitherT[IO, NetworkError, Option[Output]]
     )(
-      whenLoaded: (WithInput[Input, Output], Signal[WithInput[Input, Output]]) => PageRenderResult
+      whenLoaded: WithInput[Input, Output] => PageRenderResult
     ): PageRenderResult =
       authenticated[Nothing, Output](
         createRequest.andThen(_.leftMap(_.asNetworkOrAuthError))
@@ -67,7 +67,7 @@ trait PageDataLoader {
     def public[Output](
       createRequest: Input => EitherT[IO, NetworkError, Output]
     )(
-      whenLoaded: (WithInput[Input, Output], Signal[WithInput[Input, Output]]) => PageRenderResult
+      whenLoaded: WithInput[Input, Output] => PageRenderResult
     ): PageRenderResult =
       public(createRequest.andThen(_.map(_.some)))(whenLoaded)
 
@@ -76,7 +76,7 @@ trait PageDataLoader {
     def authenticated[AuthError, Output](
       createRequest: Input => EitherT[IO, NetworkOrAuthError[AuthError], Option[Output]]
     )(
-      whenLoaded: (WithInput[Input, Output], Signal[WithInput[Input, Output]]) => PageRenderResult
+      whenLoaded: WithInput[Input, Output] => PageRenderResult
     ): PageRenderResult = {
       val request = FetchRequest(createRequest)
 
@@ -93,7 +93,9 @@ trait PageDataLoader {
             ifNetworkError = renderWhenNetworkError(request),
             ifLoaded = (initial, signal) => {
               onPageLoaded(request)
-              whenLoaded(initial, signal)
+              // Rerender everything when the signal changes as that would only happen on page reload and we would
+              // go to the loading state before that anyway. This simplifies the API.
+              signal.map(whenLoaded).extract
             },
           )
           .extract
@@ -106,7 +108,7 @@ trait PageDataLoader {
     def authenticated[AuthError, Output](
       createRequest: Input => EitherT[IO, NetworkOrAuthError[AuthError], Output]
     )(
-      whenLoaded: (WithInput[Input, Output], Signal[WithInput[Input, Output]]) => PageRenderResult
+      whenLoaded: WithInput[Input, Output] => PageRenderResult
     ): PageRenderResult = {
       authenticated(createRequest.andThen(_.map(_.some)))(whenLoaded)
     }
