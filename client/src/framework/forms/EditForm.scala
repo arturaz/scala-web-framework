@@ -18,22 +18,30 @@ import org.scalajs.dom.{html, Element, HTMLButtonElement, HTMLDivElement, HTMLIn
 import sttp.capabilities.Effect
 import sttp.client3.Response
 import sttp.tapir.Endpoint
+import com.raquo.airstream.ownership.DynamicSubscription
 
-/** Helper for a form that is intended to create or edit a resource. The form data is persisted in the [[persistedVar]].
+/** Helper for a form that is intended to create or edit a resource.
+  *
+  * @param additionalSubmitting
+  *   A form can have additional buttons that submit network requests, for example the delete button. This [[Signal]]
+  *   allows us to know if any of those buttons are currently being submitted.
   */
-class EditForm[A](
-  val persistedVar: PersistedVar[A]
+sealed abstract class EditForm[TVar[_], A](
+  val underlying: TVar[A],
+  val additionalSubmitting: Signal[Boolean],
 ) {
-  val requestTracker: ModificationRequestTracker = ModificationRequestTracker()
-  def submitting: Signal[Boolean] = requestTracker.submitting
 
-  def rxVar: Var[A] = persistedVar.underlying
+  /** The tracker for the create/edit resource action. */
+  val requestTracker: ModificationRequestTracker = ModificationRequestTracker()
+
+  /** Is [[requestTracker]] or any of the [[additionalSubmitting]] buttons currently being submitted? */
+  val submitting: Signal[Boolean] =
+    requestTracker.submitting.combineWithFn(additionalSubmitting)(_ || _)
+
+  def rxVar: Var[A]
   def now(): A = rxVar.now()
 
   val signal: UpdatableSignal[A] = UpdatableSignal.fromVar(rxVar)
-
-  /** The persister that will persist the form data when mounted to DOM. */
-  def persister: Binder[ReactiveElement[Element]] = persistedVar.persisterFromSignal(submitting)
 
   /** Sends the form data to the given endpoint. */
   def sendAuthedToEndpointIO[AuthData, AuthError, Output, Requirements >: Effect[IO]](
@@ -96,11 +104,63 @@ class EditForm[A](
     response: Response[WithInput[Input, ResponseData]]
   )(callback: (Input, Response[ResponseData]) => Unit)(using Transformer[Input, A]) = {
     val formData = response.body.input.transformInto[A]
-    persistedVar.changeDefaultTo(formData)
+    // After the response is received change the default to the new form data because logically now form has no more
+    // changes from the default data.
+    changeVarDefaultTo(formData)
 
     callback(response.body.input, response.mapBody(_.fetchedData))
   }
+
+  protected def changeVarDefaultTo(newDefault: A): Unit
+
+  def asPersisted: Option[EditForm.Persisted[A]]
 }
 object EditForm {
-  def apply[A](persistedVar: PersistedVar[A]): EditForm[A] = new EditForm(persistedVar)
+
+  /** [[EditForm]] where the form data is persisted in the [[persistedVar]].
+    *
+    * Used to create resources.
+    *
+    * @param additionalSubmitting
+    *   by default false as usually when we create resources we just have one primary action which is "save".
+    */
+  class Persisted[A](
+    persistedVar: PersistedVar[A],
+    additionalSubmitting: Signal[Boolean] = Signal.fromValue(false),
+  ) extends EditForm[PersistedVar, A](persistedVar, additionalSubmitting) {
+    override def rxVar: Var[A] = persistedVar.underlying
+
+    override def changeVarDefaultTo(newDefault: A): Unit = persistedVar.changeDefaultTo(newDefault)
+
+    /** The persister that will persist the form data when mounted to DOM. */
+    def persister: Binder[ReactiveElement[Element]] =
+      // Only persist when we send the primary request.
+      persistedVar.persisterFromSignal(requestTracker.submitting)
+
+    override def asPersisted: Option[Persisted[A]] = Some(this)
+  }
+
+  /** [[EditForm]] where the form data is not persisted.
+    *
+    * Used to edit resources.
+    *
+    * @param additionalSubmitting
+    *   usually you will want to have a delete button as well, whose submitting signal should go here.
+    */
+  class NotPersisted[A](
+    val rxVar: Var[A],
+    additionalSubmitting: Signal[Boolean],
+  ) extends EditForm[Var, A](rxVar, additionalSubmitting) {
+    override def changeVarDefaultTo(newDefault: A): Unit = {}
+
+    override def asPersisted: Option[Persisted[A]] = None
+  }
+
+  /** @see [[Persisted]] */
+  def apply[A](persistedVar: PersistedVar[A]): Persisted[A] =
+    new Persisted(persistedVar)
+
+  /** @see [[NotPersisted]] */
+  def apply[A](rxVar: Var[A], additionalSubmitting: Signal[Boolean]): NotPersisted[A] =
+    new NotPersisted(rxVar, additionalSubmitting)
 }

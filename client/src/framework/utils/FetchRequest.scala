@@ -101,16 +101,44 @@ object FetchRequest {
         .map(lens.replace)
     }
 
-    /** Helper to construct the [[PageCursor]]s for the previous and next page. */
+    /** Helper to construct the [[PageCursor]]s for the previous, current and next page. */
     def pageCursors[Input1 >: Input, CursorPrimaryColumn, CursorSecondaryColumn, PageSize, Data](
       extractSurroundingPages: A => HasSurroundingPages[Data],
       cursorLens: Input1 => AppliedLens[Input1, PageCursor[CursorPrimaryColumn, CursorSecondaryColumn, PageSize]],
       getFirst: Data => Option[(CursorPrimaryColumn, CursorSecondaryColumn)],
       getLast: Data => Option[(CursorPrimaryColumn, CursorSecondaryColumn)],
-    ): (Option[Input1], Option[Input1]) = {
+    ): (Option[Input1], PageCursor[CursorPrimaryColumn, CursorSecondaryColumn, PageSize], Option[Input1]) = {
       (
         previousPageCursor(extractSurroundingPages, cursorLens, getFirst),
+        cursorLens(input).get,
         nextPageCursor(extractSurroundingPages, cursorLens, getLast),
+      )
+    }
+
+    /** Helper to construct the [[PageCursor]]s for the previous page, current cursor and next page when
+      * [[HasSurroundingPages]] contains an indexed collection.
+      *
+      * @return
+      *   (previousPageCursor, currentPageCursor, nextPageCursor)
+      */
+    def pageCursorsForIndexedSeq[
+      Input1 >: Input,
+      CursorPrimaryColumn,
+      CursorSecondaryColumn,
+      PageSize,
+      Element,
+      Collection[X] <: IndexedSeq[X],
+    ](
+      extractSurroundingPages: A => HasSurroundingPages[Collection[Element]],
+      cursorLens: Input1 => AppliedLens[Input1, PageCursor[CursorPrimaryColumn, CursorSecondaryColumn, PageSize]],
+      getPrimary: Element => CursorPrimaryColumn,
+      getSecondary: Element => CursorSecondaryColumn,
+    ): (Option[Input1], PageCursor[CursorPrimaryColumn, CursorSecondaryColumn, PageSize], Option[Input1]) = {
+      pageCursors(
+        extractSurroundingPages,
+        cursorLens,
+        collection => collection.headOption.map(elem => (getPrimary(elem), getSecondary(elem))),
+        collection => collection.lastOption.map(elem => (getPrimary(elem), getSecondary(elem))),
       )
     }
   }
@@ -133,8 +161,7 @@ object FetchRequest {
         Signal[Option[Input1]],
       ) = {
         val s = withInputSignal.map(_.pageCursors(extractSurroundingPages, cursorLens, getFirst, getLast))
-        val cursorSignal = withInputSignal.map(withInput => cursorLens(withInput.input).get)
-        (s.map(_._1), cursorSignal, s.map(_._2))
+        (s.map(_._1), s.map(_._2), s.map(_._3))
       }
 
       /** Helper to construct the [[PageCursor]] [[Signal]]s for the previous page, current cursor and next page when

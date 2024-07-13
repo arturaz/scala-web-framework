@@ -70,6 +70,7 @@ class PersistedVar[A](
     storage.removeItem(persistenceKey)
   }
 
+  /** Changes the value that is considered to be the default value. */
   def changeDefaultTo(a: A): Unit = {
     defaultValueVar.set(a)
   }

@@ -3,7 +3,7 @@ package framework.utils
 import cats.data.EitherT
 import cats.effect.kernel.Outcome
 import com.raquo.airstream.core.Signal
-import com.raquo.airstream.state.Var
+import com.raquo.airstream.state.{StrictSignal, Var}
 import framework.utils.NetworkOrAuthError
 
 /** Tracks the status of an ongoing request.
@@ -14,7 +14,7 @@ import framework.utils.NetworkOrAuthError
   * Most useful for data submission. For view-like actions, use [[FetchRequest]].
   */
 class ModificationRequestTracker(status: Var[ModificationRequestTracker.Status]) {
-  def signal: Signal[ModificationRequestTracker.Status] = status.signal
+  def signal: StrictSignal[ModificationRequestTracker.Status] = status.signal
 
   /** Is true when the request is being submitted. */
   val submitting: Signal[Boolean] = signal.map {
@@ -28,6 +28,7 @@ class ModificationRequestTracker(status: Var[ModificationRequestTracker.Status])
     case ModificationRequestTracker.Status.Standby         => None
     case ModificationRequestTracker.Status.EnRoute(cancel) => Some(() => cancel.unsafeRunAndForget())
   }
+  val canCancelBool: Signal[Boolean] = canCancel.map(_.isDefined)
 
   /** Launches a request. */
   def launch[A, AuthError](
