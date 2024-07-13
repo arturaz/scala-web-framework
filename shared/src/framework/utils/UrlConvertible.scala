@@ -7,6 +7,18 @@ import urldsl.vocabulary.{FromString, Printer}
 /** Convenience trait that combines [[FromString]] and [[Printer]]. */
 trait UrlConvertible[Result, Err] extends FromString[Result, Err] with Printer[Result]
 object UrlConvertible {
+  def apply[Result, Err](
+    fromString: String => Either[Err, Result],
+    toString: Result => String,
+  ): UrlConvertible[Result, Err] = {
+    val parse = fromString
+    val render = toString
+
+    new UrlConvertible[Result, Err] {
+      override def fromString(str: String): Either[Err, Result] = parse(str)
+      override def print(t: Result): String = render(t)
+    }
+  }
 
   /** Example:
     * {{{
