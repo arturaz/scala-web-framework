@@ -3,6 +3,7 @@ package framework.components
 import com.raquo.laminar.api.L.*
 import com.raquo.laminar.nodes.ReactiveHtmlElement
 import org.scalajs.dom.{HTMLTableCellElement, HTMLTableElement, HTMLTableRowElement, HTMLTableSectionElement}
+import framework.data.MaybeSignal
 
 /** If you are annoyed by the design of HTML tables and that headers are separated from the body, this is the component
   * for you.
@@ -27,7 +28,7 @@ object TableBuilder {
 
   case class BuilderStep1(tableModifiers: Seq[Modifier[Table]]) extends AnyVal {
     def of[Data, Key](
-      datas: Seq[Data] | Signal[Seq[Data]],
+      datas: MaybeSignal[Seq[Data]],
       splitBy: Data => Key,
       columns: Seq[Column[Data]],
     ): Builder[Data, Key] = Builder(
@@ -38,7 +39,7 @@ object TableBuilder {
     )
 
     def ofSplitByIndex[Data](
-      datas: Seq[Data] | Signal[Seq[Data]],
+      datas: MaybeSignal[Seq[Data]],
       columns: Seq[Column[Data]],
     ): Builder[Data, Int] = Builder(
       datas.deunionizeSignal,
