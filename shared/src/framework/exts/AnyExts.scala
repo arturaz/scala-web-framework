@@ -7,6 +7,8 @@ import scala.reflect.ClassTag
 extension [A](a: A) {
   def pprint: String = _root_.pprint.apply(a).render
 
+  def pprintWithoutColors: String = _root_.pprint.apply(a).plainText
+
   /** Gets the first element in the collection. */
   def headOption[Element](using typeclass: MaybeGetHead[A, Element]): Option[Element] =
     typeclass.headOption(a)
