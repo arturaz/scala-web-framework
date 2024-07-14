@@ -7,9 +7,11 @@ opaque type MaybePersistedVar[A] = PersistedVar[A] | Var[A]
 object MaybePersistedVar {
   given [A]: Conversion[PersistedVar[A], MaybePersistedVar[A]] = apply
   given [A]: Conversion[Var[A], MaybePersistedVar[A]] = apply
+  given [A]: Conversion[PersistedVar[A] | Var[A], MaybePersistedVar[A]] = apply
 
   def apply[A](persisted: PersistedVar[A]): MaybePersistedVar[A] = persisted
   def apply[A](rxVar: Var[A]): MaybePersistedVar[A] = rxVar
+  def apply[A](union: PersistedVar[A] | Var[A]): MaybePersistedVar[A] = union
 
   extension [A](maybe: MaybePersistedVar[A]) {
     def asPersisted: Option[PersistedVar[A]] = maybe match
