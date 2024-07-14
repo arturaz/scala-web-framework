@@ -1,3 +1,5 @@
--Xmx16G
+-Xmx1G
+
 # Enable tools like gprofiler
+
 -XX:+EnableDynamicAgentLoading
