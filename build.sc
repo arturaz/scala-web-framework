@@ -32,6 +32,7 @@ object Versions {
   final val Chimney = "1.2.0"
   final val Circe = "0.14.9"
   final val Monocle = "3.2.0"
+  final val Ciris = "3.6.0"
 }
 
 /** Barebones Scala build. */
@@ -349,6 +350,13 @@ object server extends FrameworkScalaModule {
     // https://arturaz.github.io/doobie-typesafe
     // https://mvnrepository.com/artifact/io.github.arturaz/doobie-typesafe
     ivy"io.github.arturaz::doobie-typesafe:0.3-c5b1b72-20240702T133825Z-SNAPSHOT",
+
+    // Functional Configurations for Scala
+    // https://cir.is/
+    // https://mvnrepository.com/artifact/is.cir/ciris
+    ivy"is.cir::ciris:${Versions.Ciris}",
+    ivy"is.cir::ciris-http4s:${Versions.Ciris}",
+    ivy"is.cir::ciris-squants:${Versions.Ciris}",
   )
 
   object testInfra extends FrameworkTestModule {

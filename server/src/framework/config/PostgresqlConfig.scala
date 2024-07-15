@@ -1,19 +1,21 @@
 package framework.config
 
-import cats.effect.kernel.Resource
+import cats.effect.kernel.{Async, Resource}
+import cats.syntax.parallel.*
 import cats.syntax.show.*
+import ciris.http4s.*
+import ciris.{ConfigValue, Secret}
 import com.comcast.ip4s.*
 import com.zaxxer.hikari.{HikariConfig, HikariDataSource}
 import doobie.hikari.HikariTransactor
+import doobie.util.log.LogHandler
 import doobie.util.transactor.Transactor
 import fly4s.Fly4s
 import fly4s.data.Fly4sConfig
-import doobie.util.log.LogHandler
-import cats.effect.kernel.Async
 
 case class PostgresqlConfig(
   username: String = "postgres",
-  password: String,
+  password: Secret[String],
   database: String,
   host: Host = host"localhost",
   port: Port = port"5432",
@@ -28,7 +30,7 @@ case class PostgresqlConfig(
   ) = Fly4s.make[IO](
     url = jdbcUrl,
     user = Some(username),
-    password = Some(password.toCharArray),
+    password = Some(password.value.toCharArray),
     config = config,
     classLoader = classLoader,
   )
@@ -46,7 +48,7 @@ case class PostgresqlConfig(
         config.setDriverClassName(PostgresqlConfig.JDBCDriverName)
         config.setJdbcUrl(jdbcUrl)
         config.setUsername(username)
-        config.setPassword(password)
+        config.setPassword(password.value)
         modConfig(config)
       },
       logHandler,
@@ -59,5 +61,13 @@ object PostgresqlConfig {
 
   /** Loads the PostgreSQL JDBC driver. */
   def loadJDBCPostgresqlDriver: IO[Unit] =
-    IO(Class.forName(JDBCDriverName)).void
+    IO.blocking(Class.forName(JDBCDriverName)).void
+
+  given cirisConfig[F[_]](using prefix: EnvConfigPrefix): ConfigValue[F, PostgresqlConfig] = (
+    ciris.env(prefix("POSTGRESQL_USER")).as[String].default("postgres"),
+    ciris.env(prefix("POSTGRESQL_PASSWORD")).as[String].secret,
+    ciris.env(prefix("POSTGRESQL_DATABASE")).as[String],
+    ciris.env(prefix("POSTGRESQL_HOST")).as[Host].default(host"localhost"),
+    ciris.env(prefix("POSTGRESQL_PORT")).as[Port].default(port"5432"),
+  ).parMapN(apply)
 }
