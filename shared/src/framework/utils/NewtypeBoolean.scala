@@ -8,6 +8,8 @@ import framework.exts.*
 
 /** A newtype wrapping a [[Boolean]]. */
 trait NewtypeBoolean extends Newtype[Boolean] {
+  def create(input: Boolean): Type = make(input).getOrThrow
+
   given Show[Type] = unwrap(_).show
   given CanEqual[Type, Type] = CanEqual.derived
 
