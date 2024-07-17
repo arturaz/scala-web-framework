@@ -6,7 +6,8 @@ export cats.effect.{IO, Resource, SyncIO}
 export sttp.tapir.Schema
 
 export cats.syntax.show.{showInterpolator, toShow}
-export cats.syntax.invariant.toInvariantOps
+export cats.syntax.invariant.*
+export cats.syntax.apply.*
 
 /** A type alias that allows writing code like this:
   *
