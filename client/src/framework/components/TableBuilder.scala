@@ -68,7 +68,10 @@ object TableBuilder {
     columns: Seq[Column[Data]],
     tableModifiers: Seq[Modifier[Table]],
     onNoEntriesFound: Seq[Modifier[TableCell]] = Seq(cls := "text-center", "No entries found"),
-    rowAmender: ((Key, Data, Signal[Data]) => Seq[Modifier[TableRow]]) = (_: Key, _: Data, _: Signal[Data]) => Seq.empty,
+    rowAmender: ((Key, Data, Signal[Data]) => Seq[Modifier[TableRow]]) =
+      (_: Key, _: Data, _: Signal[Data]) => Seq.empty,
+    header: Seq[TableRow] = Seq.empty,
+    footer: Seq[TableRow] = Seq.empty,
   ) {
 
     /** Sets the [[rowAmender]]. */
@@ -79,23 +82,32 @@ object TableBuilder {
     def amendEachRow(amender: Signal[Data] => Seq[Modifier[TableRow]]): Builder[Data, Key] =
       copy(rowAmender = (_, _, data) => amender(data))
 
-    def render: Table = table(
-      tableModifiers,
-      thead(columns.flatMap(_.headerSeq)*),
-      tbody(
-        child.maybe <-- datas
-          .map(_.isEmpty)
-          .splitBooleanAsOption(_ => tr(td(colSpan := columns.size, onNoEntriesFound))),
-        children <-- {
-          def project(key: Key, initial: Data, signal: Signal[Data]): TableRow = tr(
-            rowAmender(key, initial, signal),
-            columns.flatMap(_.cellSeq(signal)),
-          )
+    def withHeader(header: Seq[TableRow]): Builder[Data, Key] = copy(header = header)
 
-          dataSplitter(datas, project)
-        },
-      ),
-    )
+    def withFooter(footer: Seq[TableRow]): Builder[Data, Key] = copy(footer = footer)
+
+    def render: Table = {
+      val isEmpty = datas.map(_.isEmpty)
+      val nonEmpty = isEmpty.invert
+
+      table(
+        tableModifiers,
+        thead(columns.flatMap(_.headerSeq)*),
+        tbody(
+          child.maybe <-- isEmpty.splitBooleanAsOption(_ => tr(td(colSpan := columns.size, onNoEntriesFound))),
+          children <-- nonEmpty.splitBooleanOrEmpty(_ => header),
+          children <-- {
+            def project(key: Key, initial: Data, signal: Signal[Data]): TableRow = tr(
+              rowAmender(key, initial, signal),
+              columns.flatMap(_.cellSeq(signal)),
+            )
+
+            dataSplitter(datas, project)
+          },
+          children <-- nonEmpty.splitBooleanOrEmpty(_ => footer),
+        ),
+      )
+    }
   }
   object Builder {
     given Conversion[Builder[?, ?], Table] = _.render
