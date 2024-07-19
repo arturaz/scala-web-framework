@@ -31,9 +31,7 @@ class ModificationRequestTracker(status: Var[ModificationRequestTracker.Status])
   val canCancelBool: Signal[Boolean] = canCancel.map(_.isDefined)
 
   /** Launches a request. */
-  def launch[A, AuthError](
-    request: EitherT[IO, NetworkOrAuthError[AuthError], A]
-  ): IO[ModificationRequestTracker.Result[AuthError, A]] = {
+  def launch[A, Err](request: EitherT[IO, Err, A]): IO[ModificationRequestTracker.Result[Err, A]] = {
     for {
       fiber <- (for {
         _ <- IO(status.now()).flatMap {
@@ -48,8 +46,8 @@ class ModificationRequestTracker(status: Var[ModificationRequestTracker.Status])
       result <- outcome match {
         case Outcome.Succeeded(fa) =>
           fa.map {
-            case Left(e)  => ModificationRequestTracker.Result.NetworkOrAuthError(e)
-            case Right(a) => ModificationRequestTracker.Result.Finished(a)
+            case Left(err) => ModificationRequestTracker.Result.Error(err)
+            case Right(a)  => ModificationRequestTracker.Result.Finished(a)
           }
         case Outcome.Errored(e) => IO.raiseError(e)
         case Outcome.Canceled() => IO.pure(ModificationRequestTracker.Result.Cancelled)
@@ -60,11 +58,10 @@ class ModificationRequestTracker(status: Var[ModificationRequestTracker.Status])
 object ModificationRequestTracker {
   def apply(): ModificationRequestTracker = new ModificationRequestTracker(Var(Status.Standby))
 
-  sealed trait Result[+AuthError, +A] derives CanEqual
+  sealed trait Result[+Err, +A] derives CanEqual
   object Result {
     case object Cancelled extends Result[Nothing, Nothing]
-    case class NetworkOrAuthError[+AuthError](err: framework.utils.NetworkOrAuthError[AuthError])
-        extends Result[AuthError, Nothing]
+    case class Error[+Err](err: Err) extends Result[Err, Nothing]
     case class Finished[+A](response: A) extends Result[Nothing, A]
   }
 
