@@ -9,6 +9,7 @@ import com.raquo.waypoint.Router
 import com.raquo.laminar.modifiers.EventListener
 import org.scalajs.dom.MouseEvent
 import scala.util.chaining.*
+import scala.annotation.targetName
 
 /** Navigates to the given page.
   *
@@ -18,19 +19,28 @@ import scala.util.chaining.*
 def navigateTo[BasePage, AppPage <: BasePage](signal: Signal[AppPage])(using
   router: RouterOps[BasePage]
 ): Binder[HtmlElement] =
+  navigateTo(signal.map(Some.apply))
+
+@targetName("navigateToOption")
+def navigateTo[BasePage, AppPage <: BasePage](signal: Signal[Option[AppPage]])(using
+  router: RouterOps[BasePage]
+): Binder[HtmlElement] =
   Binder { el =>
     val isLinkElement = el.ref.isInstanceOf[dom.html.Anchor]
 
     if (isLinkElement) {
       try {
-        val urlSignal = signal.map(router.absoluteUrlForPage)
+        val urlSignal = signal.map(_.fold("")(router.absoluteUrlForPage))
         el.amend(href <-- urlSignal)
       } catch {
         case NonFatal(err) => logError(s"navigateTo: $err")
       }
     }
 
-    val binder = navigateToEventProcessor(isLinkElement).compose(_.sample(signal)) --> router.pushState
+    val binder = navigateToEventProcessor(isLinkElement).compose(_.sample(signal)) --> {
+      case None       => ()
+      case Some(page) => router.pushState(page)
+    }
     binder.bind(el)
   }
 
