@@ -352,7 +352,7 @@ object server extends FrameworkScalaModule {
     // Typesafe doobie (for SQL queries)
     // https://arturaz.github.io/doobie-typesafe
     // https://mvnrepository.com/artifact/io.github.arturaz/doobie-typesafe
-    ivy"io.github.arturaz::doobie-typesafe:0.3-c5b1b72-20240702T133825Z-SNAPSHOT",
+    ivy"io.github.arturaz::doobie-typesafe:0.3-c5b1b72-20240719T145942Z-SNAPSHOT",
 
     // Functional Configurations for Scala
     // https://cir.is/
