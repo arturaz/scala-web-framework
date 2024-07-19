@@ -28,7 +28,9 @@ object db {
     ConnectionIO,
     Fragment,
     FragmentExtensions,
+    Get,
     Meta,
+    Put,
     Query,
     Query0,
     Read,
@@ -75,12 +77,12 @@ object db {
     } yield ()
   }
 
-  given ulidRead: Read[ULID] = Read[UUID].map(uuid => ULID.fromUUID(uuid))
-  given ulidWrite: Write[ULID] = Write[UUID].contramap(_.uuid)
+  given ulidGet: Get[ULID] = Get[UUID].map(uuid => ULID.fromUUID(uuid))
+  given ulidPut: Put[ULID] = Put[UUID].contramap(_.uuid)
 
-  given ulidWrapperRead[Wrapper](using newType: neotype.Newtype.WithType[ULID, Wrapper]): Read[Wrapper] =
-    Read[ULID].map(newType.make(_).getOrThrow)
+  given ulidWrapperGet[Wrapper](using newType: neotype.Newtype.WithType[ULID, Wrapper]): Get[Wrapper] =
+    Get[ULID].map(newType.make(_).getOrThrow)
 
-  given ulidWrapperWrite[Wrapper](using newType: neotype.Newtype.WithType[ULID, Wrapper]): Write[Wrapper] =
-    Write[ULID].contramap(newType.unwrap)
+  given ulidWrapperPut[Wrapper](using newType: neotype.Newtype.WithType[ULID, Wrapper]): Put[Wrapper] =
+    Put[ULID].contramap(newType.unwrap)
 }
