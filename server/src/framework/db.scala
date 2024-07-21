@@ -47,6 +47,16 @@ object db {
   object ConnectionIO {
     // Aliases so you could do `ConnectionIO.pure` and friends.
     export doobie.FC.{pure, raiseError, unit}
+
+    /** Runs the given [[SyncIO]] as a part of the transaction. */
+    def from[A](io: SyncIO[A]): ConnectionIO[A] =
+      doobie.FC.delay(io.unsafeRunSync())
+  }
+
+  extension [A](io: SyncIO[A]) {
+
+    /** Runs this [[SyncIO]] as a part of the transaction. */
+    def toConnectionIO: ConnectionIO[A] = ConnectionIO.from(io)
   }
 
   enum SqlOrder derives CanEqual {
