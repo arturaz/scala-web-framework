@@ -83,7 +83,10 @@ sealed abstract class EditForm[TVar[_], A](
   def sendValidatedAuthedToEndpointIO[AuthData, ValidatedInput, AuthError, Output, Requirements >: Effect[IO]](
     authDataIO: IO[AuthData],
     endpoint: Endpoint[AuthData, ValidatedInput, AuthError, Output, Requirements],
-  )(using PartialTransformer[A, ValidatedInput], AppBaseUri) =
+  )(using
+    PartialTransformer[A, ValidatedInput],
+    AppBaseUri,
+  ): Signal[Option[EitherT[IO, NetworkOrAuthError[AuthError], Response[WithInput[ValidatedInput, Output]]]]] =
     sendValidatedAuthedIO(
       authDataIO,
       (authData, validatedInput: ValidatedInput) => endpoint.toReq(authData, validatedInput).io,
