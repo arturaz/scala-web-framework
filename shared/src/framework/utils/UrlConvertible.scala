@@ -22,7 +22,7 @@ object UrlConvertible {
 
   /** Example:
     * {{{
-    *   given codec: Codec[String, Wrapped, CodecFormat.TextPlain] = ???
+    *   given codec: Codec[String, Wrapped, CodecFormat.TextPlain] = ...
     *   given urlConvertible: UrlConvertible[Wrapped, urldsl.errors.DummyError] = UrlConvertible.fromCodec
     * }}}
     */

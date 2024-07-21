@@ -12,7 +12,7 @@ export cats.syntax.apply.*
 /** A type alias that allows writing code like this:
   *
   * {{{
-  *   def myFn[A: CanEqual1]: Int = ???
+  *   def myFn[A: CanEqual1]: Int = ...
   * }}}
   *
   * @see
