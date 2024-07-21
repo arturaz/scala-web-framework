@@ -9,6 +9,14 @@ def log(msg: Any)(using definedAt: DefinedAt): Unit = {
   )
 }
 
+/** Logs a warning message. */
+def logWarning(warning: Any)(using definedAt: DefinedAt): Unit = {
+  println(
+    s"""[WARN] $warning
+       |[WARN]   @ $definedAt""".stripMargin
+  )
+}
+
 /** Logs an error message. */
 def logError(err: Any)(using definedAt: DefinedAt): Unit = {
   Console.err.println(
@@ -19,7 +27,8 @@ def logError(err: Any)(using definedAt: DefinedAt): Unit = {
 
 def logAt(level: LogLevel, msg: Any)(using definedAt: DefinedAt): Unit =
   level match
-    case LogLevel.Info  => log(msg)
-    case LogLevel.Error => logError(msg)
+    case LogLevel.Info    => log(msg)
+    case LogLevel.Warning => logWarning(msg)
+    case LogLevel.Error   => logError(msg)
 
-enum LogLevel derives CanEqual { case Info, Error }
+enum LogLevel derives CanEqual { case Info, Warning, Error }
