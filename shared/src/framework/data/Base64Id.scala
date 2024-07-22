@@ -22,7 +22,7 @@ import urldsl.errors.DummyError
   *   the raw byte array.
   */
 final case class Base64Id(bytes: IArray[Byte]) {
-  override def toString = s"${sourcecode.Enclosing.here.show}(${asString.show})"
+  override def toString = s"Base64Id(${asString.show})"
 
   override def equals(obj: Any): Boolean = obj match
     case that: Base64Id => bytes.sameElements(that.bytes)
