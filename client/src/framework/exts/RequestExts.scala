@@ -9,11 +9,12 @@ import sttp.client3.{Request, Response}
 
 import scala.annotation.targetName
 import scala.scalajs.js.JavaScriptException
+import framework.sourcecode.DefinedAt
 
 extension [Output, Requirements >: Effect[IO]](req: Request[Output, Requirements]) {
 
   /** Sends the request. */
-  def io: EitherT[IO, NetworkError, Response[Output]] =
+  def io(using DefinedAt): EitherT[IO, NetworkError, Response[Output]] =
     req.mapResponse(output => Right(output): Either[NetworkError, Output]).io
 }
 
@@ -22,7 +23,7 @@ extension [Output, Requirements >: Effect[IO]](req: Request[Either[NetworkError,
 
   /** Sends the request. */
   @targetName("ioWithNetworkError")
-  def io: EitherT[IO, NetworkError, Response[Output]] =
+  def io(using DefinedAt): EitherT[IO, NetworkError, Response[Output]] =
     req.mapResponse(_.left.map(_.asNetworkOrAuthError)).io.leftMap {
       case NetworkOrAuthError.NetworkError(err) => err
       case NetworkOrAuthError.AuthError(_)      => throw new IllegalStateException("impossible")
@@ -40,7 +41,7 @@ extension [AuthError, Output, Requirements >: Effect[IO]](
 
   /** Sends the request. */
   @targetName("ioWithAuthError")
-  def io: EitherT[IO, NetworkOrAuthError[AuthError], Response[Output]] = {
+  def io(using DefinedAt): EitherT[IO, NetworkOrAuthError[AuthError], Response[Output]] = {
     val id = RequestDebugCounter.counter
     RequestDebugCounter.counter += 1
 
