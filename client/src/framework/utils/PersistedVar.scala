@@ -41,6 +41,11 @@ class PersistedVar[A](
   def persister(submitting: EventStream[Unit], underlyingDebounceMs: Int = 100): Binder.Base =
     persistEvent(submitting, underlyingDebounceMs) --> persist
 
+  def setAndPersist(value: A): Unit = {
+    underlying.set(value)
+    persist(value)
+  }
+
   def persist(value: A): Unit = {
     val serialized = value.asJson.noSpaces
     storage.setItem(persistenceKey, serialized)
