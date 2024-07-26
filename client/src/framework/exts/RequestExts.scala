@@ -10,7 +10,10 @@ import sttp.client3.{Request, Response}
 import scala.annotation.targetName
 import scala.scalajs.js.JavaScriptException
 import framework.sourcecode.DefinedAt
+import sttp.capabilities.Streams
+import sttp.capabilities.fs2.Fs2Streams
 
+/** Requests that cannot fail. */
 extension [Output, Requirements >: Effect[IO]](req: Request[Output, Requirements]) {
 
   /** Sends the request. */
@@ -18,7 +21,7 @@ extension [Output, Requirements >: Effect[IO]](req: Request[Output, Requirements
     req.mapResponse(output => Right(output): Either[NetworkError, Output]).io
 }
 
-/** Request that can fail. */
+/** Requests that can fail. */
 extension [Output, Requirements >: Effect[IO]](req: Request[Either[NetworkError, Output], Requirements]) {
 
   /** Sends the request. */
@@ -34,7 +37,7 @@ private object RequestDebugCounter {
   var counter = 0
 }
 
-/** Request that can fail with an authentication error. */
+/** Requests that can fail with an authentication error. */
 extension [AuthError, Output, Requirements >: Effect[IO]](
   req: Request[Either[NetworkOrAuthError[AuthError], Output], Requirements]
 ) {

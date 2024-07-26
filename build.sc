@@ -287,6 +287,11 @@ object client extends FrameworkScalaJSModule {
     // http://cquiroz.github.io/scala-java-time/
     // https://mvnrepository.com/artifact/io.github.cquiroz/scala-java-time
     ivy"io.github.cquiroz::scala-java-time::2.6.0",
+
+    // Idiomatic Cats Effect and FS2 integrations for Web APIs via scala-js-dom.
+    // https://github.com/armanbilge/fs2-dom
+    // https://mvnrepository.com/artifact/com.armanbilge/fs2-dom
+    ivy"com.armanbilge::fs2-dom::0.1.0-M1",
   )
 }
 
@@ -315,6 +320,8 @@ object server extends FrameworkScalaModule {
     ivy"org.http4s::http4s-ember-server:${Versions.Http4s}",
     // https://mvnrepository.com/artifact/org.http4s/http4s-ember-client
     ivy"org.http4s::http4s-ember-client:${Versions.Http4s}",
+    // https://mvnrepository.com/artifact/org.http4s/http4s-circe
+    ivy"org.http4s::http4s-circe:${Versions.Http4s}",
 
     // Pure Scala Logging library
     // https://github.com/outr/scribe

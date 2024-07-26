@@ -1,5 +1,8 @@
 package framework.prelude
 
+import sttp.model.Uri
+import framework.exts.fromKeyCodecs
+
 // Prefix types with `Circe` to avoid confusion with `tapir`s `Codec`.
 export io.circe.{
   Codec as CirceCodec,
@@ -12,3 +15,8 @@ export framework.utils.CirceKeyCodec
 
 export io.circe.syntax.{EncoderOps, KeyOps}
 export io.circe.parser.{decode as decodeJson, decodeAccumulating as decodeJsonAccumulating, parse as parseJson}
+
+given CirceKeyEncoder[Uri] = CirceKeyEncoder.instance(_.toString)
+given CirceKeyDecoder[Uri] = CirceKeyDecoder.instance(Uri.parse(_).toOption)
+
+given CirceCodec[Uri] = CirceCodec.fromKeyCodecs

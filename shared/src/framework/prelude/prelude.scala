@@ -9,6 +9,8 @@ export cats.syntax.show.{showInterpolator, toShow}
 export cats.syntax.invariant.*
 export cats.syntax.apply.*
 
+export neotype.Newtype
+
 /** A type alias that allows writing code like this:
   *
   * {{{

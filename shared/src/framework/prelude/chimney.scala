@@ -1,7 +1,8 @@
 package framework.prelude
 
+import cats.kernel.{Order, Semigroup}
 import io.scalaland.chimney.Transformer
-import cats.kernel.Order
+import io.scalaland.chimney.partial.Result.Errors
 
 /** An identity transformer. */
 given identityTransformer[A]: Transformer[A, A] = a => a
@@ -22,3 +23,5 @@ given nonEmptyListTransformer[From, To](using
 
 given nonEmptySetTransformer[A, B: Order](using t: Transformer[A, B]): Transformer[NonEmptySet[A], NonEmptySet[B]] =
   _.map(t.transform)
+
+given Semigroup[Errors] = (a, b) => Errors(a.errors ++ b.errors)

@@ -93,8 +93,7 @@ trait UnvalidatedNewtypeOf[
 
   given partialTransformer: PartialTransformer[Type, TValidatedWrapper] = PartialTransformer(transformer.transform(_))
 
-  given Validatable[Type] with
-    override def validate(value: Type): Option[Errors] = partialTransformer.transform(value).asEither.left.toOption
+  given Validatable[Type] = Validatable.fromPartialTransformer(partialTransformer)
 }
 object UnvalidatedNewtypeOf {
 

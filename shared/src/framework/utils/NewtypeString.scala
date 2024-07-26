@@ -5,6 +5,7 @@ import neotype.Newtype
 import io.scalaland.chimney.Transformer
 import framework.exts.*
 import framework.prelude.*
+import cats.kernel.Order
 
 /** A newtype wrapping a [[String]]. */
 trait NewtypeString extends Newtype[String] {
@@ -12,6 +13,7 @@ trait NewtypeString extends Newtype[String] {
   given CanEqual[Type, Type] = CanEqual.derived
 
   given Ordering[Type] = Ordering.by(unwrap)
+  given Order[Type] = Order.fromOrdering
 
   given tapirCodec: TapirCodec[String, Type, TapirCodecFormat.TextPlain] =
     TapirCodec.string.map(make(_).getOrThrow)(unwrap)

@@ -17,6 +17,7 @@ import scala.concurrent.{ExecutionContext, Future}
 import sttp.client3.FetchOptions
 
 import org.scalajs.dom.RequestCredentials
+import sttp.capabilities.fs2.Fs2Streams
 
 given executionContext: ExecutionContext = scala.scalajs.concurrent.JSExecutionContext.Implicits.queue
 given ioRuntime: IORuntime = IORuntime.global

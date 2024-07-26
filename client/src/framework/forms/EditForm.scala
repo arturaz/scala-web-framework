@@ -65,7 +65,10 @@ sealed abstract class EditForm[TVar[_], A](
     authDataIO.map(authData => (authData, validatedInput))
   }
 
-  /** Validates the form data and if that is valid sends it to the given endpoint. */
+  /** Validates the form data and if that is valid sends it to the given endpoint.
+    *
+    * You will most likely need to specify the [[ValidatedInput]] type parameter somewhere.
+    */
   def sendValidatedAuthedIO[AuthData, ValidatedInput, AuthError, Output](
     authDataIO: IO[AuthData],
     createRequest: (AuthData, ValidatedInput) => EitherT[IO, NetworkOrAuthError[AuthError], Response[Output]],
