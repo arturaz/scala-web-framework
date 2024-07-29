@@ -78,10 +78,10 @@ trait UnvalidatedNewtypeOf[
   given Conversion[Type, TValidatedUnderlying] = a => a
 
   /** [[Transformer]] from the newtype to the raw type. */
-  given Transformer[Type, TValidatedUnderlying] = a => a
+  given toUnderlying: Transformer[Type, TValidatedUnderlying] = a => a
 
   /** [[Transformer]] from the validated newtype to the unvalidated newtype. */
-  given Transformer[TValidatedWrapper, Type] = validated => companion.unwrap(validated)
+  given fromValidated: Transformer[TValidatedWrapper, Type] = validated => companion.unwrap(validated)
 
   given empty(using empty: Empty[TValidatedUnderlying]): Empty[Type] = Empty(apply(empty.empty))
 

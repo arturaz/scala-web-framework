@@ -3,22 +3,25 @@
 // import com.goyeau.mill.scalafix.ScalafixModule
 
 import coursier.maven.MavenRepository
-import mill.scalalib.scalafmt.ScalafmtModule
-import java.nio.file.Files
+import mill._
 import mill.api.Logger
+import mill.scalajslib.api.{ModuleKind, ModuleSplitStyle, Report}
+import mill.scalalib.scalafmt.ScalafmtModule
 import os.{Path, RelPath}
-import mill.scalajslib.api.Report
-import mill.scalajslib.api.ModuleKind
-import mill.scalajslib.api.ModuleSplitStyle
-import mill._, scalalib._, scalajslib._
+
+import java.nio.file.Files
+
+import scalalib._
+import scalajslib._
 
 /** Run `mill mill.scalalib.Dependency/showUpdates` to check for new versions. */
 object Versions {
 
-  /** [[https://scala-lang.org]]. See which versions are supported by Metals at
-    * https://scalameta.org/metals/docs/editors/vscode#requirements.
+  /** [[https://scala-lang.org]].
+    *
+    * See the newest versions in https://github.com/scala/scala3/releases.
     */
-  final val Scala = "3.4.2"
+  final val Scala = "3.5.0-RC5"
 
   /** [[https://scala-js.org]] */
   final val ScalaJS = "1.16.0"
