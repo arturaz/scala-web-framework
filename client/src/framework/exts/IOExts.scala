@@ -4,7 +4,7 @@ import framework.prelude.{executionContext, ioRuntime, logError}
 import com.raquo.airstream.core.EventStream
 import cats.effect.IO
 
-extension [A](io: IO[A]) {
+implicit class IOExts[A](private val io: IO[A]) extends AnyVal {
 
   /** Launches the [[IO]], emiting the event in the [[EventStream]] when it produces a result. */
   def toEventStream(): EventStream[A] = EventStream.fromFuture(io.unsafeToFuture())
