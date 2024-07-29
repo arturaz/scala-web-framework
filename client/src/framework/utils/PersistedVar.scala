@@ -81,6 +81,8 @@ class PersistedVar[A](
   }
 }
 object PersistedVar {
+  given [A]: Conversion[PersistedVar[A], Var[A]] = _.underlying
+
   def apply[A](
     persistenceKey: String,
     defaultValue: => A,

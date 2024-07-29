@@ -1,6 +1,10 @@
 package framework.utils
 
 import com.raquo.airstream.split.SplittableSignal
+import monocle.macros.GenLens
+import monocle.Lens
+import monocle.Focus.KeywordContext
+import monocle.Focus.MkFocus
 
 /** Like [[Var.zoom]] but is not required to have an [[com.raquo.airstream.ownership.Owner]]. */
 trait UpdatableSignal[A] extends ZoomedOwnerlessSignal[A] { self =>
@@ -25,15 +29,43 @@ trait UpdatableSignal[A] extends ZoomedOwnerlessSignal[A] { self =>
   def bimap[PartOfA](
     get: A => PartOfA
   )(set: UpdatableSignal.PartSetter[A, PartOfA]): UpdatableSignal[PartOfA] =
+    bimap(Lens(get)(partOfA => a => set(a, partOfA)))
+
+  /** Returns a new [[UpdatableSignal]] which is mapped.
+    *
+    * Example:
+    * {{{
+    *   lineItem.bimap(_.name)((item, value) => item.copy(name = value))
+    * }}}
+    */
+  def bimap[PartOfA](lens: Lens[A, PartOfA]): UpdatableSignal[PartOfA] =
     UpdatableSignal[PartOfA](
-      signal.map(get),
-      () => get(now()),
+      signal.map(lens.get),
+      () => lens.get(now()),
       partOfA => {
         val a = now()
-        val newA = set(a, partOfA)
+        val newA = lens.replace(partOfA)(a)
         setTo(newA)
       },
     )
+
+  /** Does the mapping with a macro, generating the lens from the function `f`.
+    *
+    * Example:
+    * {{{
+    *   lineItem.bimapGenLens(_(_.name))
+    * }}}
+    *
+    * or
+    *
+    * {{{
+    *   lineItem.bimapGenLens(mk => mk(_.name))
+    * }}}
+    */
+  inline def bimapGenLens[PartOfA](inline f: MkFocus[A] => Lens[A, PartOfA]): UpdatableSignal[PartOfA] = {
+    val lens = f(GenLens[A])
+    bimap(lens)
+  }
 
   /** Returns a new [[UpdatableSignal]] which is constructed from a [[Signal]] (obtained via one of the
     * [[SplittableSignal.split]] methods) and an update function.
@@ -94,8 +126,8 @@ object UpdatableSignal {
     }
   }
 
-  /** Creates an instance from a [[Var]] and mapping functions. */
   given fromVar[A]: Conversion[Var[A], UpdatableSignal[A]] = rxVar => apply(rxVar.signal, rxVar.now, rxVar.set)
+  given fromPersistedVar[A]: Conversion[PersistedVar[A], UpdatableSignal[A]] = rxVar => fromVar(rxVar.underlying)
 
   extension [A](s: UpdatableSignal[NonEmptyVector[A]]) {
 
