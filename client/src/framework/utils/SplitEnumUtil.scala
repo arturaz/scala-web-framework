@@ -5,6 +5,8 @@ package framework.utils
 import scala.quoted.*
 
 // Needs to be in an extra files since macros need to be in an extra file
-object SplitEnumUtil:
+object SplitEnumUtil {
   def nameOf[A](using t: Type[A], ctx: Quotes): Expr[String] = Expr(Type.show[A])
+
   inline def nameOuter[A] = ${ nameOf[A] }
+}

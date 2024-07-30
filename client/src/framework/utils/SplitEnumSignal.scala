@@ -6,7 +6,7 @@ import com.raquo.laminar.api.L.*
 import scala.deriving.*
 import scala.compiletime.*
 
-object SplitEnum {
+object SplitEnumSignal {
   final case class Splitter[Input, Todo <: Tuple, Result](
     sig: Signal[Input],
     keyer: Input => Int,
