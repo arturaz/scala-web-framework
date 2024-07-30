@@ -62,46 +62,32 @@ trait UpdatableSignal[A] extends ZoomedOwnerlessSignal[A] { self =>
     *   lineItem.bimapGenLens(mk => mk(_.name))
     * }}}
     */
-  inline def bimapGenLens[PartOfA](inline f: MkFocus[A] => Lens[A, PartOfA]): UpdatableSignal[PartOfA] = {
+  def bimapGenLens[PartOfA](f: MkFocus[A] => Lens[A, PartOfA]): UpdatableSignal[PartOfA] = {
     val lens = f(GenLens[A])
     bimap(lens)
   }
 
-  /** Returns a new [[UpdatableSignal]] which is constructed from a [[Signal]] (obtained via one of the
-    * [[SplittableSignal.split]] methods) and an update function.
+  /** Returns a new [[UpdatableSignal]] for the [[PartOfA]] after you invoke `splitEnum`.
     *
     * Example:
     * {{{
-    *   val lineItems: UpdatableSignal[NonEmptyVector[LineItem]] = ...
-    *
-    *   div(
-    *     children <-- lineItems.signal.splitByIndex((idx, _, signal) =>
-    *       LineItem(
-    *         lineItems.bimapFromSplit(signal)(_.updatedWith(idx, _)),
-    *       )
-    *     )
-    *   )
+    *  updatableSignal.signal.splitEnum
+    *    .handle { (_, partSignal) => // handle enum case A
+    *      val partUpdatableSignal = updatableSignal.zoomAfterSplitEnum(partSignal)
+    *      ...
+    *    }
+    *    .handle { (_, partSignal) => // handle enum case B
+    *      ...
+    *    }
+    *    .close
     * }}}
-    *
-    * @param signal
-    *   the [[Signal]] that represents a part of [[A]], usually obtained via one of the `split` methods.
-    * @param update
-    *   the function that updates the underlying data source. The first argument is the current value of
-    *   [[self.signal]], the second argument is a function that updates the given part of [[A]].
     */
-  // TODO: this probably needs a better name.
-  def bimapFromSplit[PartOfA](signal: Signal[PartOfA])(
-    get: A => PartOfA,
-    update: UpdatableSignal.PartSetter[A, PartOfA],
-  ): UpdatableSignal[PartOfA] = UpdatableSignal[PartOfA](
-    signal,
-    () => get(now()),
-    partOfA => {
-      val a = now()
-      val newA = update(a, partOfA)
-      setTo(newA)
-    },
-  )
+  def zoomAfterSplitEnum[PartOfA <: A](signal: Signal[PartOfA]): UpdatableSignal[PartOfA] =
+    UpdatableSignal(
+      signal,
+      () => self.now().asInstanceOf[PartOfA],
+      self.setTo,
+    )
 }
 object UpdatableSignal {
 
@@ -131,9 +117,7 @@ object UpdatableSignal {
 
   extension [A](s: UpdatableSignal[NonEmptyVector[A]]) {
 
-    /** A version of [[UpdatableSignal.bimapFromSplit]] for [[NonEmptyVector]]s.
-      *
-      * Example:
+    /** Example:
       * {{{
       * def render(goodsEntries: UpdatableSignal[NonEmptyVector[GoodsEntry]]) = {
       *   val tableRows = goodsEntries.signal
