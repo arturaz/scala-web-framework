@@ -8,6 +8,9 @@ import com.raquo.laminar.modifiers.Binder
 import org.scalajs.dom.{window, Storage}
 
 import scala.util.{Failure, Success, Try}
+import alleycats.Empty
+import cats.kernel.Semigroup
+import com.raquo.laminar.modifiers.Modifier
 
 /** A [[Var]] that is persisted to the [[Storage]].
   *
@@ -37,10 +40,6 @@ class PersistedVar[A](
       )
       .distinct
 
-  /** A binding that when bound to the DOM will start persisting the [[Var]]. */
-  def persister(submitting: EventStream[Unit], underlyingDebounceMs: Int = 100): Binder.Base =
-    persistEvent(submitting, underlyingDebounceMs) --> persist
-
   def setAndPersist(value: A): Unit = {
     underlying.set(value)
     persist(value)
@@ -53,11 +52,7 @@ class PersistedVar[A](
 
   /** A version of [[persistEvent]] that takes a [[Signal]]. */
   def persistEventFromSignal(submitting: Signal[Boolean], underlyingDebounceMs: Int = 100): EventStream[A] =
-    persistEvent(submitting.changes.filter(identity).mapToUnit, underlyingDebounceMs)
-
-  /** A version of [[persister]] that takes a [[Signal]]. */
-  def persisterFromSignal(submitting: Signal[Boolean], underlyingDebounceMs: Int = 100): Binder.Base =
-    persistEventFromSignal(submitting, underlyingDebounceMs) --> persist
+    persistEvent(submitting.changes.collectTrues, underlyingDebounceMs)
 
   def isDifferentFromDefault: Boolean =
     underlying.signal.now() != defaultValueVar.now()
@@ -109,17 +104,94 @@ object PersistedVar {
     new PersistedVar(Var(currentValue), persistenceKey, storage, Var(defaultValue))
   }
 
-  /** Persists to the [[https://developer.mozilla.org/en-US/docs/Web/API/Window/sessionStorage session storage]]. */
+  trait Persister {
+
+    /** A binding that when bound to the DOM will start persisting. */
+    def apply(submitting: EventStream[Unit], underlyingDebounceMs: Int = 100): Seq[Binder.Base]
+
+    /** A binding that when bound to the DOM will start persisting. */
+    def fromSignal(submitting: Signal[Boolean], underlyingDebounceMs: Int = 100): Seq[Binder.Base]
+  }
+  object Persister {
+
+    /** Does nothing. */
+    val noOp: Persister = new Persister {
+      override def apply(submitting: EventStream[Unit], underlyingDebounceMs: Int): Seq[Binder.Base] = Seq.empty
+
+      override def fromSignal(submitting: Signal[Boolean], underlyingDebounceMs: Int): Seq[Binder.Base] = Seq.empty
+    }
+
+    given Empty[Persister] = Empty(noOp)
+
+    case class ForVar(pVar: PersistedVar[?]) extends Persister {
+      override def apply(submitting: EventStream[Unit], underlyingDebounceMs: Int): Seq[Binder.Base] =
+        Seq(pVar.persistEvent(submitting, underlyingDebounceMs) --> pVar.persist)
+
+      override def fromSignal(submitting: Signal[Boolean], underlyingDebounceMs: Int): Seq[Binder.Base] =
+        Seq(pVar.persistEventFromSignal(submitting, underlyingDebounceMs) --> pVar.persist)
+    }
+
+    given Semigroup[Persister] with {
+      override def combine(x: Persister, y: Persister): Persister = new Persister {
+        override def apply(submitting: EventStream[Unit], underlyingDebounceMs: Int): Seq[Binder.Base] = {
+          x(submitting, underlyingDebounceMs) ++ y(submitting, underlyingDebounceMs)
+        }
+
+        override def fromSignal(submitting: Signal[Boolean], underlyingDebounceMs: Int): Seq[Binder.Base] = {
+          x.fromSignal(submitting, underlyingDebounceMs) ++ y.fromSignal(submitting, underlyingDebounceMs)
+        }
+      }
+    }
+  }
+
+  /** A [[Persister]] that has been already provided all it's arguments. */
+  trait AppliedPersister {
+    def binding: Seq[Binder.Base]
+  }
+  object AppliedPersister {
+
+    /** Does nothing. */
+    val noOp: AppliedPersister = new AppliedPersister { def binding = Seq.empty }
+
+    given Empty[AppliedPersister] = Empty(noOp)
+
+    def apply(binding: Seq[Binder.Base]): AppliedPersister = {
+      val b = binding
+      new AppliedPersister { def binding = b }
+    }
+
+    given Semigroup[AppliedPersister] with {
+      override def combine(x: AppliedPersister, y: AppliedPersister): AppliedPersister = new AppliedPersister {
+        override def binding = x.binding ++ y.binding
+      }
+    }
+
+    given Conversion[AppliedPersister, Modifier.Base] = p => L.seqToModifier(p.binding)
+  }
+
+  /** Persists to the [[https://developer.mozilla.org/en-US/docs/Web/API/Window/sessionStorage session storage]].
+    *
+    * @note
+    *   Returns the [[Persister]] as a reminder that you have to apply it so it would actually persist.
+    */
   def session[A](
     persistenceKey: String,
     defaultValue: => A,
-  )(using CirceDecoder[A], CirceEncoder[A], CanEqual[A, A]): PersistedVar[A] =
-    apply(persistenceKey, defaultValue, window.sessionStorage)
+  )(using CirceDecoder[A], CirceEncoder[A], CanEqual[A, A]): (PersistedVar[A], Persister) = {
+    val pVar = apply(persistenceKey, defaultValue, window.sessionStorage)
+    (pVar, Persister.ForVar(pVar))
+  }
 
-  /** Persists to the [[https://developer.mozilla.org/en-US/docs/Web/API/Window/localStorage local storage]]. */
+  /** Persists to the [[https://developer.mozilla.org/en-US/docs/Web/API/Window/localStorage local storage]].
+    *
+    * @note
+    *   Returns the [[Persister]] as a reminder that you have to apply it so it would actually persist.
+    */
   def local[A](
     persistenceKey: String,
     defaultValue: => A,
-  )(using CirceDecoder[A], CirceEncoder[A], CanEqual[A, A]): PersistedVar[A] =
-    apply(persistenceKey, defaultValue, window.localStorage)
+  )(using CirceDecoder[A], CirceEncoder[A], CanEqual[A, A]): (PersistedVar[A], Persister) = {
+    val pVar = apply(persistenceKey, defaultValue, window.localStorage)
+    (pVar, Persister.ForVar(pVar))
+  }
 }

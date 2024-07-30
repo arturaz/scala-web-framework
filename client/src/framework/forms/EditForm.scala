@@ -138,11 +138,6 @@ object EditForm {
 
     override def changeVarDefaultTo(newDefault: A): Unit = persistedVar.changeDefaultTo(newDefault)
 
-    /** The persister that will persist the form data when mounted to DOM. */
-    def persister: Binder[ReactiveElement[Element]] =
-      // Only persist when we send the primary request.
-      persistedVar.persisterFromSignal(requestTracker.submitting)
-
     override def asPersisted: Option[Persisted[A]] = Some(this)
   }
 
@@ -162,9 +157,26 @@ object EditForm {
     override def asPersisted: Option[Persisted[A]] = None
   }
 
-  /** @see [[Persisted]] */
-  def apply[A](persistedVar: PersistedVar[A]): Persisted[A] =
-    new Persisted(persistedVar)
+  /** @see
+    *   [[Persisted]].
+    *
+    * @param persistedVar
+    *   The return type you get from [[PersistedVar]] constructors.
+    */
+  def apply[A](
+    persistedVar: (PersistedVar[A], PersistedVar.Persister)
+  ): (Persisted[A], PersistedVar.AppliedPersister) = {
+    val (pVar, persister) = persistedVar
+
+    val pForm = new Persisted(pVar)
+
+    val appliedPersister = PersistedVar.AppliedPersister(
+      // Only persist when we send the primary request, not the additional ones
+      persister.fromSignal(pForm.requestTracker.submitting)
+    )
+
+    (pForm, appliedPersister)
+  }
 
   /** @see [[NotPersisted]] */
   def apply[A](rxVar: Var[A], additionalSubmitting: Signal[Boolean]): NotPersisted[A] =
