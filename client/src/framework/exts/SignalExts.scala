@@ -3,15 +3,11 @@ package framework.exts
 import cats.effect.IO
 import com.raquo.airstream.core.{Observer, Signal}
 import com.raquo.airstream.ownership.ManualOwner
-import scala.deriving.Mirror
 import framework.utils.SplitEnumSignal
-import com.raquo.airstream.misc.StreamFromSignal
+
+import scala.deriving.Mirror
 
 extension [A](signal: Signal[A]) {
-
-  /** Returns this [[Signal]] as an [[EventStream]]. */
-  def toEventStream: EventStream[A] =
-    new StreamFromSignal(signal, changesOnly = false)
 
   /** Subscribes to a [[Signal]] to receive the first value and immediately unsubscribes. */
   def toIO: IO[A] = {
