@@ -20,4 +20,7 @@ object Validatable {
 
   def fromPartialTransformer[A](t: PartialTransformer[A, ?]): Validatable[A] =
     of(t.transform(_).asEither.left.toOption)
+
+  /** Always passes validation. */
+  val alwaysValid: Validatable[Any] = of(_ => None)
 }
