@@ -1,5 +1,8 @@
 package framework.localization
 
+import cats.Functor
+import cats.syntax.functor.*
+
 /** Mix this into a package object to gain localization support for your selected [[LocaleEnum]].
   */
 trait LocalizationSupport[LocaleEnum] {
@@ -49,4 +52,24 @@ trait LocalizationSupport[LocaleEnum] {
 
     given [A](using lto: LocalizedTextOf[A]): LocalizedTextOf[Option[A]] = of(locale => lto.text(using locale))
   }
+
+  extension [F[_], A](fa: F[A]) {
+    def mapWithLocalizedText[B](f: A => B)(using
+      lto: LocalizedTextOf[A]
+    )(using Functor[F], LocaleEnum): F[(B, String)] =
+      fa.map { a =>
+        val b = f(a)
+        (b, lto.text)
+      }
+
+    def mapWithLocalizedText[B](
+      f: (A, String) => B
+    )(using lto: LocalizedTextOf[A])(using Functor[F], LocaleEnum): F[(B, String)] =
+      fa.map { a =>
+        val text = lto.text
+        val b = f(a, text)
+        (b, text)
+      }
+  }
+
 }
