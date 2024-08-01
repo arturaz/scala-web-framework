@@ -33,8 +33,6 @@ given sttpBackend: SttpBackend[IO, WebSockets] =
     )
   )
 
-given uriShow: Show[Uri] = _.toString
-
 given ioToFutureFunctionK: (IO ~> Future) = new FunctionK[IO, Future] {
   def apply[A](fa: IO[A]): Future[A] = fa.unsafeToFuture()
 }
