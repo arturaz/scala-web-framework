@@ -1,5 +1,7 @@
 package framework.prelude
 
+import scala.annotation.nowarn
+
 export cats.{~>, Id, Show}
 export cats.data.{EitherT, NonEmptyChain, NonEmptyList, NonEmptyMap, NonEmptySet, NonEmptyVector, OptionT}
 export cats.effect.{IO, Resource, SyncIO}
@@ -8,6 +10,12 @@ export sttp.tapir.Schema
 export cats.syntax.show.{showInterpolator, toShow}
 export cats.syntax.invariant.*
 export cats.syntax.apply.*
+export cats.syntax.reducible.*
+export cats.syntax.functor.*
+export cats.syntax.flatMap.*
+export cats.syntax.comonad.*
+
+export alleycats.syntax.all.*
 
 export neotype.Newtype
 
