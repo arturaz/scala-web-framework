@@ -10,6 +10,7 @@ import java.time.temporal.ChronoUnit
 import framework.exts.{*, given}
 import framework.prelude.{*, given}
 import cats.syntax.either.*
+import framework.utils.FrameworkPlatform
 
 /** A timestamp in the UTC timezone with the precision of milliseconds.
   *
@@ -17,6 +18,8 @@ import cats.syntax.either.*
   * precision.
   */
 case class FrameworkDateTime private (ldt: LocalDateTime) extends AnyVal {
+  def toDate: FrameworkDate = FrameworkDate(ldt.toLocalDate)
+
   def toZonedDateTime: ZonedDateTime = ldt.atZone(FrameworkDateTime.utc)
   def toInstant: Instant = toZonedDateTime.toInstant
 
@@ -31,6 +34,10 @@ object FrameworkDateTime {
     new FrameworkDateTime(ldt.truncatedTo(ChronoUnit.MILLIS))
 
   def now(): FrameworkDateTime = apply(LocalDateTime.now(utc))
+
+  /** Returns the current date from the clients local timezone. */
+  def nowClient(): FrameworkDateTime = apply(FrameworkPlatform.localDateTimeNowClient())
+
   val nowIO: SyncIO[FrameworkDateTime] = SyncIO(now())
 
   given Ordering[FrameworkDateTime] = Ordering.by(_.ldt)
