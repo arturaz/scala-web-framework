@@ -68,6 +68,9 @@ trait LocalizationSupport[LocaleEnum] {
 
     given ltoOfOption[A](using lto: LocalizedTextOf[A]): LocalizedTextOf[Option[A]] =
       of(locale => lto.text(using locale))
+
+    /** Returns the [[LocalizedTextOf]] for the type of the value. */
+    inline def forValue[A](value: A)(using lto: LocalizedTextOf[A]): LocalizedTextOf[A] = lto
   }
 
   extension [F[_], A](fa: F[A]) {
