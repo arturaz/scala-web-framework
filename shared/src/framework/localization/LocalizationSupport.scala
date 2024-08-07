@@ -7,14 +7,34 @@ import cats.syntax.functor.*
   */
 trait LocalizationSupport[LocaleEnum] {
 
-  /** A localized text with no arguments for the type [[A]]. */
-  trait LocalizedTextOf[A] {
+  /** A simple localized value not associated to a type.
+    *
+    * Example:
+    * {{{
+    * val Issuer = LocalizedText { case AppLocale.En => "Issuer" }
+    * }}}
+    */
+  trait LocalizedText {
 
     /** The localized text. */
     def text(using LocaleEnum): String
 
     /** The localized text, lowercased. */
     def textLO(using locale: LocaleEnum): String = text.toLowerCase()
+
+    /** The localized text, uppercased. */
+    def textUP(using locale: LocaleEnum): String = text.toUpperCase()
+  }
+  object LocalizedText {
+
+    /** Creates a new instance. */
+    def apply(localize: LocaleEnum => String): LocalizedText = new LocalizedText {
+      override def text(using locale: LocaleEnum): String = localize(locale)
+    }
+  }
+
+  /** A localized text with no arguments for the type [[A]]. */
+  trait LocalizedTextOf[A] extends LocalizedText {
 
     /** Converts the instance to be for another type. Useful when you want to share the implementation between multiple
       * types.
@@ -42,15 +62,8 @@ trait LocalizationSupport[LocaleEnum] {
       }
     }
 
-    /** Allows geting a localized text from a value.
-      *
-      * {{{
-      * LocalizedTextOf.value(postalCode) // "Postal Code"
-      * }}}
-      */
-    def value[A](value: A)(using lto: LocalizedTextOf[A], locale: LocaleEnum): String = lto.text
-
-    given [A](using lto: LocalizedTextOf[A]): LocalizedTextOf[Option[A]] = of(locale => lto.text(using locale))
+    given ltoOfOption[A](using lto: LocalizedTextOf[A]): LocalizedTextOf[Option[A]] =
+      of(locale => lto.text(using locale))
   }
 
   extension [F[_], A](fa: F[A]) {
