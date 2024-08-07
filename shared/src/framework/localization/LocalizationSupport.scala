@@ -2,6 +2,7 @@ package framework.localization
 
 import cats.Functor
 import cats.syntax.functor.*
+import cats.Show
 
 /** Mix this into a package object to gain localization support for your selected [[LocaleEnum]].
   */
@@ -31,6 +32,9 @@ trait LocalizationSupport[LocaleEnum] {
     def apply(localize: LocaleEnum => String): LocalizedText = new LocalizedText {
       override def text(using locale: LocaleEnum): String = localize(locale)
     }
+
+    given (using LocaleEnum): Conversion[LocalizedText, String] = _.text
+    given (using LocaleEnum): Show[LocalizedText] = _.text
   }
 
   /** A localized text with no arguments for the type [[A]]. */
