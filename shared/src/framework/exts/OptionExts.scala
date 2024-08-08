@@ -1,6 +1,7 @@
 package framework.exts
 
 import alleycats.Empty
+import scala.reflect.ClassTag
 
 extension [A](opt: Option[A]) {
 
@@ -8,4 +9,7 @@ extension [A](opt: Option[A]) {
   inline def getOrEmpty(using e: Empty[A]): A = opt match
     case None        => e.empty
     case Some(value) => value
+
+  def toIArray(using ClassTag[A]): IArray[A] =
+    IArray.from(opt)
 }
