@@ -194,4 +194,35 @@ object PersistedVar {
     val pVar = apply(persistenceKey, defaultValue, window.localStorage)
     (pVar, Persister.ForVar(pVar))
   }
+
+  /** Returns [[PersistedVar]] if the condition is true.
+    *
+    * Example:
+    * {{{
+    * val (columnDiscount, columnDiscountPersister) = PersistedVar.when(newDocument)(
+    *   PersistedVar.session("InvoiceLineItemColumnEnabled-Discount", false),
+    *   lineItems.now().exists(_.hasDiscount),
+    * )
+    * }}}
+    */
+  def when[A](condition: Boolean)(
+    whenTrue: => (PersistedVar[A], Persister),
+    whenFalse: => A,
+  ): (MaybePersistedVar[A], Persister) = {
+    if (condition) {
+      val (pVar, p) = whenTrue
+      (pVar, p)
+    } else (Var(whenFalse), Persister.noOp)
+  }
+
+  /** Returns [[PersistedVar]] if the condition is false.
+    *
+    * @see
+    *   [[when]]
+    */
+  def unless[A](condition: Boolean)(
+    whenTrue: => A,
+    whenFalse: => (PersistedVar[A], Persister),
+  ): (MaybePersistedVar[A], Persister) =
+    when(!condition)(whenFalse, whenTrue)
 }
