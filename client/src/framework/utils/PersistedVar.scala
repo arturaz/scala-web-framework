@@ -146,6 +146,8 @@ object PersistedVar {
 
   /** A [[Persister]] that has been already provided all it's arguments. */
   trait AppliedPersister {
+
+    /** Returns the [[Binder]]s that should be applied to the DOM so that persisting is started. */
     def binding: Seq[Binder.Base]
   }
   object AppliedPersister {
