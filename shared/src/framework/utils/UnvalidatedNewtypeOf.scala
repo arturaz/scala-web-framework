@@ -74,6 +74,23 @@ trait UnvalidatedNewtypeOf[
     */
   given Transformer[TValidatedUnderlying, Type] = a => a
 
+  /** Allows transforming from the empty value to the [[Option]] of the newtype.
+    *
+    * For example: "" -> None, "foo" -> Some(WrappedFoo("foo"))
+    */
+  given underlyingToUnvalidatedOption(using
+    empty: Empty[TValidatedUnderlying]
+  ): Transformer[TValidatedUnderlying, Option[Type]] = underlying =>
+    if (underlying == empty.empty) None
+    else Some(apply(underlying))
+
+  /** Allows transforming from the [[Option]] of the newtype to the empty value.
+    *
+    * For example: None -> "", Some(WrappedFoo("foo")) -> "foo"
+    */
+  given optionToUnderlying(using empty: Empty[TValidatedUnderlying]): Transformer[Option[Type], TValidatedUnderlying] =
+    _.getOrElse(empty.empty)
+
   /** Implicit [[Conversion]] from the newtype to the raw type. */
   given Conversion[Type, TValidatedUnderlying] = a => a
 
