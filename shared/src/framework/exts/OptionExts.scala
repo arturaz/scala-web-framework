@@ -2,6 +2,8 @@ package framework.exts
 
 import alleycats.Empty
 import scala.reflect.ClassTag
+import cats.Show
+import cats.syntax.show.*
 
 extension [A](opt: Option[A]) {
 
@@ -16,4 +18,11 @@ extension [A](opt: Option[A]) {
 
   inline def containsSafe[A1 >: A](elem: A1)(using CanEqual[A, A1]): Boolean =
     opt.contains(elem)
+
+  /** Shows the value if present or an empty string if the [[Option]] is [[None]]. */
+  inline def showOrEmpty(using Show[A]): String =
+    opt match {
+      case None        => ""
+      case Some(value) => value.show
+    }
 }
