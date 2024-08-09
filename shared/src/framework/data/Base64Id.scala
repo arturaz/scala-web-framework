@@ -24,9 +24,10 @@ import urldsl.errors.DummyError
 final case class Base64Id(bytes: IArray[Byte]) {
   override def toString = s"Base64Id(${asString.show})"
 
-  override def equals(obj: Any): Boolean = obj match
+  override def equals(obj: Any): Boolean = obj match {
     case that: Base64Id => bytes.sameElements(that.bytes)
     case _              => false
+  }
 
   /** Returns the id as Base64 ID without the trailing = signs. */
   lazy val asString: String =

@@ -25,7 +25,8 @@ extension [A, C[X]](value: A | C[A]) {
     * Quite useful in Laminar development.
     */
   def deunionizeSeq(using factory: Factory[A, C[A]], ct: ClassTag[A]): C[A] =
-    value match
+    value match {
       case a: A  => factory.newBuilder.addOne(a).result()
       case other => other.asInstanceOf[C[A]]
+    }
 }

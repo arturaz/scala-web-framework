@@ -78,6 +78,8 @@ trait FrameworkScalaModule extends BaseScalaModule with ScalafmtModule /*  with 
       "-language:strictEquality",
       // Increase the number of allowed inlines, we have case classes with loads of fields.
       "-Xmax-inlines:128",
+      // Disable significant indentation, it's evil and error-prone.
+      "-no-indent",
       // https://docs.scala-lang.org/sips/multi-source-extension-overloads.html#related-work
       "-experimental",
       "-language:experimental.relaxedExtensionImports",

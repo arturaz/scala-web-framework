@@ -16,9 +16,10 @@ object PageCursorDirection {
     override lazy val values: NonEmptyVector[PageCursorDirection] =
       NonEmptyVector.fromVectorUnsafe(PageCursorDirection.values.toVector)
 
-    override def toName(a: PageCursorDirection): String = a match
+    override def toName(a: PageCursorDirection): String = a match {
       case PageCursorDirection.Backward => "bwd"
       case PageCursorDirection.Forward  => "fwd"
+    }
   }
 
   given circeKeyCodec: CirceKeyCodec[PageCursorDirection] = namedEnum.circeKeyCodec

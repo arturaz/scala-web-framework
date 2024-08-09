@@ -56,10 +56,11 @@ object CirceKeyCodec {
       override def apply(key: A): String = enc(key)
     }
 
-  given invariant: Invariant[CirceKeyCodec] with
+  given invariant: Invariant[CirceKeyCodec] with {
     override def imap[A, B](codec: CirceKeyCodec[A])(f: A => B)(g: B => A): CirceKeyCodec[B] =
       new CirceKeyCodec[B] {
         override def apply(key: String): Option[B] = codec(key).map(f)
         override def apply(key: B): String = codec(g(key))
       }
+  }
 }
