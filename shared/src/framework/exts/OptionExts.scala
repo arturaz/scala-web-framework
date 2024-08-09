@@ -11,6 +11,9 @@ extension [A](opt: Option[A]) {
     case Some(value) => value
   }
 
-  def toIArray(using ClassTag[A]): IArray[A] =
+  inline def toIArray(using ClassTag[A]): IArray[A] =
     IArray.from(opt)
+
+  inline def containsSafe[A1 >: A](elem: A1)(using CanEqual[A, A1]): Boolean =
+    opt.contains(elem)
 }
