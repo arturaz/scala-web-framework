@@ -282,20 +282,21 @@ object PageCursor {
       TapirCodec.string.mapDecode { str =>
         val parts = 4
         str.split(",", parts) match {
-          case Array(directionRaw, docIdRaw, tsRaw, idxRaw) =>
+          case Array(directionRaw, primaryRaw, secondaryRaw, idxRaw) =>
             for {
               direction <- PageCursorDirection.tapirCodec.decode(directionRaw)
-              primary <- primaryCodec.decode(tsRaw.stripPrefix(primaryPrefix))
-              secondary <- secondaryCodec.decode(docIdRaw.stripPrefix(secondaryPrefix))
+              primary <- primaryCodec.decode(primaryRaw.stripPrefix(primaryPrefix))
+              secondary <- secondaryCodec.decode(secondaryRaw.stripPrefix(secondaryPrefix))
               idx <- idxCodec.decode(idxRaw.stripPrefix(idxPrefix))
             } yield apply(direction, primary, secondary, idx)
           case other =>
             DecodeResult.Error(str, new Exception(show"Expected $parts parts, got ${other.length} parts"))
         }
       } { cursor =>
-        show"${PageCursorDirection.tapirCodec.encode(cursor.direction)}" +
+        show"${PageCursorDirection.tapirCodec.encode(cursor.direction)}," +
           show"$primaryPrefix${primaryCodec.encode(cursor.primary)}," +
-          show"$secondaryPrefix${secondaryCodec.encode(cursor.secondary)},$idxPrefix${idxCodec.encode(cursor.index)}"
+          show"$secondaryPrefix${secondaryCodec.encode(cursor.secondary)}," +
+          show"$idxPrefix${idxCodec.encode(cursor.index)}"
       }
     }
 
