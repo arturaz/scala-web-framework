@@ -60,6 +60,8 @@ object FrameworkDate {
     given Transformer[Type, FrameworkDate] = unwrap
     given Transformer[FrameworkDate, Type] = make(_).getOrThrow
 
+    given CanEqual1[Type] = CanEqual.derived
+
     def nowUTC(): Type = make(FrameworkDate.nowUTC()).getOrThrow
 
     /** Returns the current date from the clients local timezone. */

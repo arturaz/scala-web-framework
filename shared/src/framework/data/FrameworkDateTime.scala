@@ -42,6 +42,8 @@ object FrameworkDateTime {
 
   given Ordering[FrameworkDateTime] = Ordering.by(_.ldt)
 
+  given CanEqual1[FrameworkDateTime] = CanEqual.derived
+
   given circeCodec: CirceCodec[FrameworkDateTime] =
     CirceCodec
       .fromUsing[Long]
