@@ -41,4 +41,15 @@ export com.raquo.airstream.core.{EventStream, Signal}
 export com.raquo.airstream.state.Var
 export com.raquo.laminar.api.L
 
-export org.scalajs.dom.console
+export org.scalajs.dom.{console, window}
+
+object js {
+  type Array[A] = scalajs.js.Array[A]
+  val Array = scalajs.js.Array
+
+  type Object = scalajs.js.Object
+  val Object = scalajs.js.Object
+
+  type Dynamic = scalajs.js.Dynamic
+  val Dynamic = scalajs.js.Dynamic
+}
