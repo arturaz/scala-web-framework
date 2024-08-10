@@ -50,7 +50,7 @@ object FormFileHolder {
   ): FormFileHolder = apply(None, maxLengthInBytes, acceptableExtensions, validation)
 
   given partialTransformer: PartialTransformer[FormFileHolder, FormFile] = PartialTransformer { holder =>
-    holder.maybeFile match
+    holder.maybeFile match {
       case None => Result.fromErrorString("No file selected.")
       case Some(file) =>
         val lengthErrors = holder.maxLengthInBytes.flatMap { maxLength =>
@@ -72,6 +72,7 @@ object FormFileHolder {
         val errors = lengthErrors |+| extensionErrors |+| validationErrors
 
         Result.fromEither(errors.toLeft(FormFile(file)))
+    }
   }
 
   given Validatable[FormFileHolder] = Validatable.fromPartialTransformer(partialTransformer)

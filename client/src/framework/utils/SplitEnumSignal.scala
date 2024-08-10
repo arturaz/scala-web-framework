@@ -27,7 +27,7 @@ object SplitEnumSignal {
 
     /** Finalize the split after all cases have been handled. */
     inline def close: Signal[Result] =
-      inline erasedValue[Todo] match
+      inline erasedValue[Todo] match {
         case _: EmptyTuple.type =>
           sig.splitOne(keyer)((key, initial, subSig) => handlers(key)(initial, subSig))
 
@@ -40,6 +40,7 @@ object SplitEnumSignal {
                |Add another handler with .handle((initial: $name, signal: Signal[$name]) => result)
                |""".stripMargin
           )
+      }
   }
 
   /** Macro-based splitted for sum-types.

@@ -26,9 +26,10 @@ def logError(err: Any)(using definedAt: DefinedAt): Unit = {
 }
 
 def logAt(level: LogLevel, msg: Any)(using definedAt: DefinedAt): Unit =
-  level match
+  level match {
     case LogLevel.Info    => log(msg)
     case LogLevel.Warning => logWarning(msg)
     case LogLevel.Error   => logError(msg)
+  }
 
 enum LogLevel derives CanEqual { case Info, Warning, Error }

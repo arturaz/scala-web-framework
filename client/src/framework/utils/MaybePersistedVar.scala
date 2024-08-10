@@ -17,12 +17,14 @@ object MaybePersistedVar {
   def apply[A](union: PersistedVar[A] | Var[A]): MaybePersistedVar[A] = union
 
   extension [A](maybe: MaybePersistedVar[A]) {
-    def asPersisted: Option[PersistedVar[A]] = maybe match
+    def asPersisted: Option[PersistedVar[A]] = maybe match {
       case persisted: PersistedVar[A @unchecked] => Some(persisted)
       case _: Var[A @unchecked]                  => None
+    }
 
-    def rxVar: Var[A] = maybe match
+    def rxVar: Var[A] = maybe match {
       case persisted: PersistedVar[A @unchecked] => persisted.underlying
       case rxVar: Var[A @unchecked]              => rxVar
+    }
   }
 }

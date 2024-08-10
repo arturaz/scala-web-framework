@@ -15,7 +15,7 @@ enum NetworkError {
 
   def asNetworkOrAuthError: NetworkOrAuthError[Nothing] = NetworkOrAuthError.NetworkError(this)
 
-  override def toString(): String = this match
+  override def toString(): String = this match {
     // Make sure we show the chain of all causes of the error../mill
     case DecodeError(DecodeResult.Error(original, error)) =>
       show"""|NetworkError.DecodeError(DecodeResult.Error(
@@ -26,4 +26,5 @@ enum NetworkError {
 
     case DecodeError(other) => s"NetworkError.DecodeError($other)"
     case JsError(err)       => s"NetworkError.JsError($err)"
+  }
 }
