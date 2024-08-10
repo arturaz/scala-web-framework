@@ -12,9 +12,10 @@ extension [PrimaryColumn, SecondaryColumn, PageSize](cursor: PageCursor[PrimaryC
   def sqlWhereFragment(colPrimary: Column[PrimaryColumn], colSecondary: Column[SecondaryColumn], order: SqlOrder)(using
     Write[PrimaryColumn],
     Write[SecondaryColumn],
-  ): Fragment = cursor.cursor match
+  ): Fragment = cursor.cursor match {
     case None         => sql"1=1"
     case Some(cursor) => cursor.sqlWhereFragment(colPrimary, colSecondary, order)
+  }
 
   /* Produces the SQL fragment for `ORDER BY` clause that orders by timestamp and then id if the timestamps match. */
   def sqlOrderFragment(
@@ -39,9 +40,10 @@ extension [PrimaryColumn, SecondaryColumn, PageSize](cursor: PageCursor[PrimaryC
     * This is needed for [[PageCursorDirection.Backward]] to correctly render the fetched results.
     */
   def processResults[C[X] <: Seq[X], A](data: C[A])(using factory: collection.Factory[A, C[A]]): C[A] = {
-    cursor.direction match
+    cursor.direction match {
       case PageCursorDirection.Backward => data.reverseIterator.to(factory)
       case PageCursorDirection.Forward  => data
+    }
   }
 
   /** Produces the SQL fragment that limits the number of documents in the current page. */
@@ -210,7 +212,7 @@ extension (c: PageCursor.type) {
 
       val whereSql = whereFragment.getOrElse(sql"1=1")
 
-      val (prevCondition, nextCondition) = order match
+      val (prevCondition, nextCondition) = order match {
         case SqlOrder.Asc =>
           (
             sql"$primaryCol <= $firstPrimary AND ($primaryCol < $firstPrimary OR $secondaryCol < $firstSecondary)",
@@ -221,6 +223,7 @@ extension (c: PageCursor.type) {
             sql"$primaryCol >= $firstPrimary AND ($primaryCol > $firstPrimary OR $secondaryCol > $firstSecondary)",
             sql"$primaryCol <= $lastPrimary AND ($primaryCol < $lastPrimary OR $secondaryCol < $lastSecondary)",
           )
+      }
 
       val q = sql"""
         SELECT 
@@ -257,9 +260,10 @@ extension [PrimaryColumn, SecondaryColumn](cursor: PageCursor.Cursor[PrimaryColu
     Write[PrimaryColumn],
     Write[SecondaryColumn],
   ): Fragment =
-    (cursor.direction, order) match
+    (cursor.direction, order) match {
       case (PageCursorDirection.Backward, SqlOrder.Asc) | (PageCursorDirection.Forward, SqlOrder.Desc) =>
         sql"($colPrimary < ${cursor.primary} OR ($colPrimary = ${cursor.primary} AND $colSecondary < ${cursor.secondary}))"
       case (PageCursorDirection.Forward, SqlOrder.Asc) | (PageCursorDirection.Backward, SqlOrder.Desc) =>
         sql"($colPrimary > ${cursor.primary} OR ($colPrimary = ${cursor.primary} AND $colSecondary > ${cursor.secondary}))"
+    }
 }
