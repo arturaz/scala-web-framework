@@ -14,6 +14,7 @@ export cats.syntax.reducible.*
 export cats.syntax.functor.*
 export cats.syntax.flatMap.*
 export cats.syntax.comonad.*
+export cats.syntax.monoid.*
 
 export alleycats.syntax.all.*
 
