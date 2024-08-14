@@ -2,6 +2,7 @@
 // import $ivy.`com.goyeau::mill-scalafix::0.3.2`
 // import com.goyeau.mill.scalafix.ScalafixModule
 
+import coursier.ivy.IvyRepository
 import coursier.maven.MavenRepository
 import mill._
 import mill.api.Logger
@@ -88,7 +89,12 @@ trait FrameworkScalaModule extends BaseScalaModule with ScalafmtModule /*  with 
 
   override def repositoriesTask = T.task {
     super.repositoriesTask() ++ Seq(
-      MavenRepository("https://arturaz.github.io/packages/ivy2"),
+      IvyRepository.parse(
+        "https://arturaz.github.io/packages/ivy2/[organization]/[module](_[scalaVersion])/[revision]/[type]s/[artifact](-[classifier]).[ext]"
+      ) match {
+        case Left(value)  => throw new Exception(value)
+        case Right(value) => value
+      },
       MavenRepository("https://arturaz.github.io/packages/maven/repository"),
     )
   }
