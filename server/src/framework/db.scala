@@ -88,6 +88,9 @@ object db {
     } yield ()
   }
 
+  given sttpUriPut: Get[sttp.model.Uri] = Get[String].map(sttp.model.Uri.parse(_).getOrThrow)
+  given sttpUriGet: Put[sttp.model.Uri] = Put[String].contramap(_.toString)
+
   given ulidGet: Get[ULID] = Get[UUID].map(uuid => ULID.fromUUID(uuid))
   given ulidPut: Put[ULID] = Put[UUID].contramap(_.uuid)
 
