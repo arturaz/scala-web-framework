@@ -236,7 +236,7 @@ object shared extends Module {
       //
       // Defined in shared part because sometimes you want to access client-side routes from the server.
       //
-      // SNAPSHOT includes fix for https://github.com/sherpal/url-dsl/pull/22
+      // SNAPSHOT includes https://github.com/raquo/Waypoint/pull/19
       ivy"com.raquo::waypoint::8.1.0-SNAPSHOT",
 
       // Pretty printing library
@@ -279,7 +279,7 @@ object client extends FrameworkScalaJSModule {
     // Reactive UI library for Scala.js
     // https://laminar.dev
     // https://mvnrepository.com/artifact/com.raquo/laminar
-    ivy"com.raquo::laminar::17.0.0",
+    ivy"com.raquo::laminar::17.1.0",
 
     // An implementation of ExecutionContext in terms of JavaScript's `setImmediate`.
     // https://github.com/scala-js/scala-js-macrotask-executor
