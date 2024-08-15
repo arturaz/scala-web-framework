@@ -404,20 +404,24 @@ def copyBySwap(
 ): Unit = {
   log.info(s"Copying '$src' to '$dst'")
 
-  val dstNew = Path(s"$dst.new")
-  val dstOld = Path(s"$dst.old")
+  if (os.exists(dst)) {
+    val dstNew = Path(s"$dst.new")
+    val dstOld = Path(s"$dst.old")
 
-  // Copy the files to the new directory
-  os.remove.all(dstNew)
-  os.copy(src, dstNew, replaceExisting = true, createFolders = true)
+    // Copy the files to the new directory
+    os.remove.all(dstNew)
+    os.copy(src, dstNew, replaceExisting = true, createFolders = true)
 
-  // Try to do an semi-atomic swap
-  os.remove.all(dstOld)
-  os.move(dst, dstOld)
-  os.move(dstNew, dst)
+    // Try to do an semi-atomic swap
+    os.remove.all(dstOld)
+    os.move(dst, dstOld)
+    os.move(dstNew, dst)
 
-  // Remove the old path
-  os.remove.all(dstOld)
+    // Remove the old path
+    os.remove.all(dstOld)
+  } else {
+    os.copy(src, dst, replaceExisting = true, createFolders = true)
+  }
 }
 
 /** Copies all existing and new files from [[src]] to [[dst]], removes files from [[dst]] which do not exist in [[src]]
