@@ -84,6 +84,9 @@ trait FrameworkScalaModule extends BaseScalaModule with ScalafmtModule /*  with 
       // https://docs.scala-lang.org/sips/multi-source-extension-overloads.html#related-work
       "-experimental",
       "-language:experimental.relaxedExtensionImports",
+      // https://www.scala-lang.org/2024/08/19/given-priority-change-3.7.html
+      "-source",
+      "3.7",
     )
   }
 
