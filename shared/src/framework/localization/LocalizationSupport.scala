@@ -33,6 +33,9 @@ trait LocalizationSupport[LocaleEnum] {
       override def text(using locale: LocaleEnum): String = localize(locale)
     }
 
+    /** Creates a new instance that always returns the same string. */
+    def always(str: String) = apply(_ => str)
+
     given (using LocaleEnum): Conversion[LocalizedText, String] = _.text
     given (using LocaleEnum): Show[LocalizedText] = _.text
   }
