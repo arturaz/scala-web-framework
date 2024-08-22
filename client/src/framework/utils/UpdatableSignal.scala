@@ -6,7 +6,11 @@ import monocle.Lens
 import monocle.Focus.KeywordContext
 import monocle.Focus.MkFocus
 
-/** Like [[Var.zoom]] but is not required to have an [[com.raquo.airstream.ownership.Owner]]. */
+/** Like [[Var.zoom]] but is not required to have an [[com.raquo.airstream.ownership.Owner]].
+  *
+  * @note
+  *   This probably became unnecessary after https://laminar.dev/blog/2024/08/14/laminar-v17.1.0#splitting-var-s.
+  */
 trait UpdatableSignal[A] extends ZoomedOwnerlessSignal[A] { self =>
 
   /** The current value. */
