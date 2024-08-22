@@ -27,7 +27,7 @@ trait UnvalidatedNewtypeOfDifferentUnderlying[
 ) { self =>
   opaque type Type = TUnvalidatedUnderlying
 
-  val underlyingToValidated: PartialTransformer[TUnvalidatedUnderlying, companion.Type] =
+  given underlyingToValidated: PartialTransformer[TUnvalidatedUnderlying, companion.Type] =
     toValidatedUnderlying.andThen(validatedUnderlyingToValidated)
 
   inline transparent given instance: UnvalidatedNewtypeOfDifferentUnderlying.WithType[
@@ -40,7 +40,7 @@ trait UnvalidatedNewtypeOfDifferentUnderlying[
   /** You can do this to improve generated type signatures:
     *
     * {{{
-    * object OrganizationNameForm extends UnvalidatedNewtypeOf(OrganizationName) {
+    * object OrganizationNameForm extends UnvalidatedNewtypeOfDifferentUnderlying("", OrganizationName) {
     *   override type TValidatedWrapper = OrganizationName
     * }
     * }}}
@@ -77,7 +77,10 @@ trait UnvalidatedNewtypeOfDifferentUnderlying[
   /** [[Transformer]] instead of [[Conversion]] that goes from raw type to the newtype because [[Conversion]]s are
     * implicit and we don't want that.
     */
-  given Transformer[TValidatedUnderlying, Type] = apply
+  given Transformer[TUnvalidatedUnderlying, Type] = apply
+
+  given Transformer[TValidatedWrapper, Type] =
+    validatedToUnderlying.andThen(fromValidated)
 
   /** Allows transforming from the empty value to the [[Option]] of the newtype.
     *
@@ -104,6 +107,10 @@ trait UnvalidatedNewtypeOfDifferentUnderlying[
   /** [[Transformer]] from the newtype to the raw type. */
   given toUnderlying: Transformer[Type, TUnvalidatedUnderlying] = a => a
 
+  given partialTransformer: PartialTransformer[Type, TValidatedWrapper] = PartialTransformer(
+    underlyingToValidated.transform(_)
+  )
+
   given empty(using empty: Empty[TUnvalidatedUnderlying]): Empty[Type] = Empty(apply(empty.empty))
 
   given circeCodec(using
@@ -111,10 +118,6 @@ trait UnvalidatedNewtypeOfDifferentUnderlying[
     encoder: CirceEncoder[TUnvalidatedUnderlying],
   ): CirceCodec[Type] =
     CirceCodec.from(decoder, encoder).imap(apply)(unwrap)
-
-  given partialTransformer: PartialTransformer[Type, TValidatedWrapper] = PartialTransformer(
-    underlyingToValidated.transform(_)
-  )
 
   given Validatable[Type] = Validatable.fromPartialTransformer(partialTransformer)
 }
@@ -151,10 +154,10 @@ object UnvalidatedNewtypeOfDifferentUnderlying {
       * Returns [[String]] on failure because [[neotype.Newtype.make]] returns an [[Either]] of [[String]].
       */
     def validate: Either[String, newType.TValidatedWrapper] =
-      newType.toValidated.transform(unwrap).asEither.left.map(_.errors.head.message.asString)
+      newType.underlyingToValidated.transform(unwrap).asEither.left.map(_.errors.head.message.asString)
 
     /** Validates the value and returns the wrapped value if successful. */
     def validateAsOption: Option[newType.TValidatedWrapper] =
-      newType.toValidated.transform(unwrap).asOption
+      newType.underlyingToValidated.transform(unwrap).asOption
   }
 }
