@@ -22,7 +22,7 @@ object Versions {
     *
     * See the newest versions in https://github.com/scala/scala3/releases.
     */
-  final val Scala = "3.5.0-RC7"
+  final val Scala = "3.5.0"
 
   /** [[https://scala-js.org]] */
   final val ScalaJS = "1.16.0"
