@@ -6,10 +6,18 @@ extension [A](iterator: Iterator[A]) {
 
   /** Inserts a separator between the elements of the iterator. Returns an empty iterator if the source iterator is
     * empty.
-    *
-    * TODO: test
     */
   def intersperse[B >: A](b: B): Iterator[B] = {
+    if (iterator.isEmpty) Iterator.empty
+    else {
+      val first = iterator.next()
+
+      Iterator(first) ++ iterator.flatMap(a => Iterator(b, a))
+    }
+  }
+
+  /** As [[intersperse]], but the element is computed lazily. */
+  def intersperseLazy[B >: A](b: => B): Iterator[B] = {
     if (iterator.isEmpty) Iterator.empty
     else {
       val first = iterator.next()
