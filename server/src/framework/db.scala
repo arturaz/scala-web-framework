@@ -20,6 +20,7 @@ object db {
   export doobie.postgres.implicits.*
   export doobie.postgres.circe.jsonb.implicits.*
   export doobie.{
+    insertInto,
     updateTable,
     AliasedTableDefinition,
     Column,
