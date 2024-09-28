@@ -24,6 +24,10 @@ object Versions {
     */
   final val Scala = "3.5.0"
 
+  /** Look up the version compatible with [[Scala]] version in https://mvnrepository.com/artifact/com.lihaoyi/ammonite.
+    */
+  final val Ammonite = "3.0.0-M2-30-486378af"
+
   /** [[https://scala-js.org]] */
   final val ScalaJS = "1.16.0"
 
@@ -42,6 +46,8 @@ object Versions {
 /** Barebones Scala build. */
 trait BaseScalaModule extends ScalaModule {
   override def scalaVersion = Versions.Scala
+
+  override def ammoniteVersion = Versions.Ammonite
 }
 
 /** Barebones Scala.js build. */
@@ -69,8 +75,10 @@ trait FrameworkScalaModule extends BaseScalaModule with ScalafmtModule /*  with 
       "-feature",
       // Warn if a non-unit value is being discarded implicitly
       "-Wvalue-discard",
+      // https://github.com/scala/scala3/pull/18093
+      "-Wimplausible-patterns",
       // Treat warnings as errors
-      "-Xfatal-warnings",
+      "-Werror",
       // Allow implicit conversions
       "-language:implicitConversions",
       // Allow higher-kinded types
