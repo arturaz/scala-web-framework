@@ -27,7 +27,7 @@ case class PostgresqlConfig(
   def flywayResource(
     config: Fly4sConfig = Fly4sConfig.default,
     classLoader: ClassLoader = Thread.currentThread.getContextClassLoader,
-  ) = Fly4s.make[IO](
+  ): Resource[IO, Fly4s[IO]] = Fly4s.make[IO](
     url = jdbcUrl,
     user = Some(username),
     password = Some(password.value.toCharArray),
