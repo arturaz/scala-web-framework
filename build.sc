@@ -22,7 +22,7 @@ object Versions {
     *
     * See the newest versions in https://github.com/scala/scala3/releases.
     */
-  final val Scala = "3.5.0"
+  final val Scala = "3.5.2"
 
   /** Look up the version compatible with [[Scala]] version in https://mvnrepository.com/artifact/com.lihaoyi/ammonite.
     */
@@ -89,9 +89,6 @@ trait FrameworkScalaModule extends BaseScalaModule with ScalafmtModule /*  with 
       "-Xmax-inlines:128",
       // Disable significant indentation, it's evil and error-prone.
       "-no-indent",
-      // https://docs.scala-lang.org/sips/multi-source-extension-overloads.html#related-work
-      "-experimental",
-      "-language:experimental.relaxedExtensionImports",
       // https://www.scala-lang.org/2024/08/19/given-priority-change-3.7.html
       "-source",
       "3.7",
