@@ -5,6 +5,12 @@ import doobie.util.{Read, Write}
 import doobie.postgres.implicits.*
 import jkugiya.ulid.ULID
 import java.util.UUID
+import framework.config.PostgresqlConfig
+import scribe.Scribe
+import scribe.mdc.MDC
+import scribe.Level
+import fly4s.Fly4s
+import cats.data.Validated
 
 /** Allows you to get all DB related stuff in one place.
   *
@@ -100,4 +106,51 @@ object db {
 
   given ulidWrapperPut[Wrapper](using newType: neotype.Newtype.WithType[ULID, Wrapper]): Put[Wrapper] =
     Put[ULID].contramap(newType.unwrap)
+
+  /** @return
+    *   `true` if migrations were applied, `false` otherwise
+    */
+  def runDbMigrations(
+    flywayResource: Resource[IO, Fly4s[IO]],
+    recreateSchemaAndRetryOnFailure: Boolean,
+    log: Scribe[IO],
+    logLevel: Level = Level.Info,
+  )(using transactor: Transactor[IO], mdc: MDC): IO[Boolean] =
+    log.log(logLevel, mdc, "Migrating SQL database...") *>
+      flywayResource.use { fly4s =>
+        def tryMigration(recreateSchemaAndRetryOnFailure: Boolean): IO[Boolean] = {
+          fly4s.validateAndMigrate.flatMap {
+            case Validated.Valid(result) =>
+              log
+                .log(
+                  logLevel,
+                  mdc,
+                  show"${result.migrationsExecuted} SQL migration(s) applied in ${result.getTotalMigrationTime}ms",
+                )
+                .as(true)
+
+            case Validated.Invalid(errors) =>
+              val errorStrings = errors.iterator.map { err =>
+                show"""|${err.version} @ ${err.filepath}
+                       |  Migration description: ${err.description}
+                       |  Error code: ${err.errorDetails.errorCode.toString()}
+                       |  Error message: ${err.errorDetails.errorMessage}
+                       |""".stripMargin
+              }
+
+              log.error(s"SQL migration(s) failed:\n${errorStrings.mkString("\n")}") *>
+                (if (recreateSchemaAndRetryOnFailure)
+                   log.log(
+                     logLevel,
+                     mdc,
+                     "Recreating SQL schema and retrying migrations...",
+                   ) *> db.recreateCurrentSchema.perform *>
+                     log.log(logLevel, mdc, "SQL schema recreated, retrying migration.") *>
+                     tryMigration(recreateSchemaAndRetryOnFailure = false)
+                 else log.log(logLevel, mdc, "SQL migrations failed.").as(false))
+          }
+        }
+
+        tryMigration(recreateSchemaAndRetryOnFailure)
+      }
 }
