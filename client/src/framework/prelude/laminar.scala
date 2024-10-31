@@ -2,6 +2,8 @@ package framework.prelude
 
 import com.raquo.laminar.modifiers.Modifier
 import org.scalajs.dom.{IntersectionObserver, IntersectionObserverEntry}
+import com.raquo.laminar.modifiers.RenderableText
+import framework.localization.LocalizationSupport
 
 /** Runs the callback when the element becomes visible. */
 def onVisible[A <: L.Element](callback: (A, IntersectionObserverEntry) => Unit) = Modifier[A] { elem =>
@@ -22,3 +24,9 @@ def onVisible[A <: L.Element](callback: (A, IntersectionObserverEntry) => Unit) 
     entries.find(_.isIntersecting).foreach(entry => callback(elem, entry))
   }.observe(elem.ref)
 }
+
+/** Provides a [[RenderableText]] instance for [[LocalizedText]] given that you have [[LocalEnum]] in scope. */
+given renderableTextForLocalizedText[LocaleEnum](using
+  LocaleEnum
+): RenderableText[LocalizationSupport[LocaleEnum]#LocalizedText] =
+  RenderableText(_.text)
