@@ -117,6 +117,33 @@ trait FrameworkScalaModule extends BaseScalaModule with ScalafmtModule /*  with 
 /** ScalaJS module for our own non-generated code. */
 trait FrameworkScalaJSModule extends FrameworkScalaModule with BaseScalaJSModule
 
+/** ScalaJS module for the web client which uses Vite. */
+trait FrameworkScalaJSViteModule extends FrameworkScalaJSModule {
+  /** The name of the web client directory relative to the workspace root. */
+  def clientDirName: String
+
+  override def fastLinkJS = T {
+    copyGeneratedJS(super.fastLinkJS(), T.workspace, T.log)
+  }
+
+  override def fullLinkJS = T {
+    copyGeneratedJS(super.fullLinkJS(), T.workspace, T.log)
+  }
+
+  private def copyGeneratedJS(
+    report: Report,
+    workspace: Path,
+    log: Logger,
+  ): Report = {
+    val src = report.dest.path
+    val dstDir = workspace / clientDirName / "vite" / "scala_output"
+
+    copyBySwap(src, dstDir, log)
+
+    report
+  }
+}
+
 /** A module shared between JVM and JS. */
 trait FrameworkPlatformModule extends FrameworkScalaModule with PlatformScalaModule
 
