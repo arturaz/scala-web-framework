@@ -1,6 +1,5 @@
 package framework.components
 
-import framework.components.FormRender
 import squants.market.{Currency, Money, MoneyContext}
 
 import java.text.DecimalFormat
