@@ -433,7 +433,7 @@ object FormInput {
     title: String,
     selected: ZoomedOwnerlessSignal[Option[A]],
     options: Vector[(A, String)],
-    beforeSelect: Seq[Modifier[ReactiveHtmlElement[html.Element]]] = Seq.empty,
+    beforeSelect: Seq[Modifier.Base] = Seq.empty,
     beforeChange: () => Boolean = () => true,
   )(using CanEqual[A, A]) = {
     label(
