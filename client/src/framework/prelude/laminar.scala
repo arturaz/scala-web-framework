@@ -26,7 +26,7 @@ def onVisible[A <: L.Element](callback: (A, IntersectionObserverEntry) => Unit) 
 }
 
 /** Provides a [[RenderableText]] instance for [[LocalizedText]] given that you have [[LocalEnum]] in scope. */
-given renderableTextForLocalizedText[LocaleEnum](using
-  LocaleEnum
-): RenderableText[LocalizationSupport[LocaleEnum]#LocalizedText] =
+given renderableTextForLocalizedText(using l18n: LocalizationSupport)(using
+  l18n.LocaleEnum
+): RenderableText[l18n.LocalizedText] =
   RenderableText(_.text)

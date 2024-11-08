@@ -45,6 +45,13 @@ object Versions {
   final val Ciris = "3.6.0"
 }
 
+object Libraries {
+  // The Scala API for Quantities, Units of Measure and Dimensional Analysis
+  // https://github.com/typelevel/squants
+  // https://mvnrepository.com/artifact/org.typelevel/squants
+  val squants = ivy"org.typelevel::squants::1.8.3"
+}
+
 /** Barebones Scala build. */
 trait BaseScalaModule extends ScalaModule {
   override def scalaVersion = Versions.Scala

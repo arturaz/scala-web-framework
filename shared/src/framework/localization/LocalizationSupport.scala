@@ -1,12 +1,24 @@
 package framework.localization
 
-import cats.Functor
 import cats.syntax.functor.*
-import cats.Show
+import cats.{Functor, Show}
 
 /** Mix this into a package object to gain localization support for your selected [[LocaleEnum]].
+  *
+  * Example:
+  * {{{
+  * package object localization extends framework.localization.LocalizationSupport {
+  *   // This line is necessary for a lot of the extension methods to work.
+  *   given this.type = this
+  *
+  *   type LocaleEnum = AppLocale
+  * }
+  * }}}
   */
-trait LocalizationSupport[LocaleEnum] {
+trait LocalizationSupport {
+
+  /** The enum that specifies your supported languages. */
+  type LocaleEnum
 
   /** A simple localized value not associated to a type.
     *
@@ -15,7 +27,7 @@ trait LocalizationSupport[LocaleEnum] {
     * val Issuer = LocalizedText { case AppLocale.En => "Issuer" }
     * }}}
     */
-  trait LocalizedText {
+  trait LocalizedText { self =>
 
     /** The localized text. */
     def text(using LocaleEnum): String
@@ -25,6 +37,11 @@ trait LocalizationSupport[LocaleEnum] {
 
     /** The localized text, uppercased. */
     def textUP(using locale: LocaleEnum): String = text.toUpperCase()
+
+    /** Applies the [[LocaleEnum]] to this instance. */
+    def applied(using locale: LocaleEnum): LocalizationSupport.AppliedLocalizedText = new {
+      override def text: String = self.text
+    }
   }
   object LocalizedText {
 
@@ -95,4 +112,19 @@ trait LocalizationSupport[LocaleEnum] {
       }
   }
 
+}
+object LocalizationSupport {
+
+  /** A [[LocalizationSupport.LocalizedText]] with [[LocalizationSupport.LocaleEnum]] already applied. */
+  trait AppliedLocalizedText {
+
+    /** The localized text. */
+    def text: String
+
+    /** The localized text, lowercased. */
+    def textLO: String = text.toLowerCase()
+
+    /** The localized text, uppercased. */
+    def textUP: String = text.toUpperCase()
+  }
 }

@@ -176,6 +176,18 @@ object clientDaisyUI extends FrameworkScalaJSModule {
   override def moduleDeps = Seq(client)
 }
 
+object clientDaisyUISquants extends FrameworkScalaJSModule {
+  override def scalacOptions: Target[Seq[String]] = T {
+    super.scalacOptions() ++ Seq(makePreludeImportsCompilerOption(ScalaDefaultImports ++ FrameworkPreludeImports))
+  }
+
+  override def moduleDeps = Seq(clientDaisyUI)  
+
+  override def ivyDeps = Agg(
+    Libraries.squants,
+  )
+}
+
 /** Code common for all projects that use this stack for the server (JVM platform). */
 object server extends FrameworkScalaModule {
   override def moduleDeps = Seq(shared.jvm)
