@@ -8,6 +8,15 @@ import framework.utils.{ModificationRequestTracker, NetworkOrAuthError}
 
 trait ButtonErrorHandler[AuthError] extends (NetworkOrAuthError[AuthError] => Unit)
 
+trait SendButtonContents {
+
+  /** E.g. "Form contains invalid fields." */
+  def formHasInvalidFields: String
+
+  /** Button contents for a the send button. */
+  def buttonContents: ButtonContents
+}
+
 extension (tracker: ModificationRequestTracker) {
 
   /** Returns a [[Signal]] that tells whether the button should be disabled. */
@@ -31,22 +40,23 @@ extension (tracker: ModificationRequestTracker) {
   def sendButton[AuthError, A](
     sendSignal: SendSignal[AuthError, A],
     formIsSubmitting: Signal[Boolean],
-    contents: ButtonContents,
     cssClasses: SendCancelButtonCssClasses = SendCancelButtonCssClasses.default,
   )(
     callback: A => Unit
-  )(using ButtonErrorHandler[AuthError], DefinedAt): L.Div = {
+  )(using errorHandler: ButtonErrorHandler[AuthError], definedAt: DefinedAt, contents: SendButtonContents): L.Div = {
     import L.*
 
-    Tooltip(sendSignal.canSendSignal.map(canSend => Option.unless(canSend)("Form contains invalid fields.")))(
+    Tooltip(
+      sendSignal.canSendSignal.map(canSend => Option.unless(canSend)(summon[SendButtonContents].formHasInvalidFields))
+    )(
       button(
         `type` := "button",
         cls := "btn btn-wide",
         cls <-- cssClasses.cssClasses(sendSignal.canSendSignal, tracker),
         disabled <-- tracker.disabledSignal(sendSignal, formIsSubmitting),
         children <-- tracker.submitting.flatMapSwitch {
-          case true  => contents.whenSubmitting.deunionizeSignal
-          case false => contents.whenNotSubmitting.deunionizeSignal
+          case true  => contents.buttonContents.whenSubmitting.deunionizeSignal
+          case false => contents.buttonContents.whenNotSubmitting.deunionizeSignal
         },
         handleOnClick(sendSignal, tracker.canCancel, callback),
       )
