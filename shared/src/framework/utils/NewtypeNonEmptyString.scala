@@ -1,11 +1,18 @@
 package framework.utils
 
+import cats.syntax.all.*
+
 /** A newtype wrapping a non-empty [[String]] without surrounding whitespace. */
 trait NewtypeNonEmptyString extends NewtypeString {
-
   override def validate(input: String): Boolean | String = {
-    if (input.isBlank()) "Cannot be blank."
-    else if (input != input.trim()) "Cannot contain leading or trailing whitespace."
-    else true
+    val maybeError =
+      Option
+        .when(input.isBlank())("Cannot be blank.")
+        .orElse(Option.when(input != input.trim())("Cannot contain leading or trailing whitespace."))
+
+    maybeError match {
+      case None        => super.validate(input)
+      case Some(value) => value
+    }
   }
 }
