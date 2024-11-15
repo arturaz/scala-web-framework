@@ -9,7 +9,12 @@ import framework.data.MaybeSignal
 case class PageRenderResult(
   content: MaybeSignal[L.Element],
   pageTitle: MaybeSignal[PageTitleResult] = PageTitleResult.default,
-)
+) {
+
+  /** @see [[PageTitleResult.pageTitleSignal]] */
+  def pageTitleSignal(defaultPageTitleSignal: Signal[String]): Signal[PageTitleResult.Result] =
+    pageTitle.deunionizeSignal.pageTitleSignal(defaultPageTitleSignal)
+}
 object PageRenderResult {
   given Conversion[L.Element, PageRenderResult] = fromElement(_)
 
