@@ -44,16 +44,11 @@ trait AuthPlatformForClientAndServerSideAuth {
   /** States where either client or server side authentication has failed. */
   sealed trait ClientAuthHasFailedState extends ClientAuthClientSideHasRespondedState
 
-  /** Authentication state, stored on the client.
-    *
-    * @param maybeRedirectToAfterRegistration
-    *   page to which the user should be redirected to after he/she authenticates
-    */
-  enum ClientAuthState(val maybeRedirectToAfterRegistration: Option[TPage]) derives CanEqual {
+  /** Authentication state, stored on the client. */
+  enum ClientAuthState derives CanEqual {
 
     /** We are determining whether the user is authenticated. */
-    case Loading(override val maybeRedirectToAfterRegistration: Option[TPage])
-        extends ClientAuthState(maybeRedirectToAfterRegistration)
+    case Loading(maybeRedirectToAfterRegistration: Option[TPage]) extends ClientAuthState
 
     /** The user is not authenticated with the client-side authentication provider.
       *
@@ -62,29 +57,31 @@ trait AuthPlatformForClientAndServerSideAuth {
       */
     case NotAuthenticated(
       failure: Option[TClientSideAuthFailedData],
-      override val maybeRedirectToAfterRegistration: Option[TPage],
-    ) extends ClientAuthState(maybeRedirectToAfterRegistration) with ClientAuthHasFailedState
+      maybeRedirectToAfterRegistration: Option[TPage],
+    ) extends ClientAuthState with ClientAuthHasFailedState
 
     /** The user is authenticated in client-side, but not yet validated on the server side. */
     case AuthenticatedInClientSide(
       clientData: TClientSideAuthData,
-      override val maybeRedirectToAfterRegistration: Option[TPage],
-    ) extends ClientAuthState(maybeRedirectToAfterRegistration) with ClientAuthClientSideHasSucceededState
+      maybeRedirectToAfterRegistration: Option[TPage],
+    ) extends ClientAuthState with ClientAuthClientSideHasSucceededState
 
     /** Server has told us that the user is not known in the server side and has to register with the server side. */
     case AuthenticatedInClientSideButNotServerSide(
       clientData: TClientSideAuthData,
       serverData: TServerSideAuthFailedData,
-      override val maybeRedirectToAfterRegistration: Option[TPage],
-    ) extends ClientAuthState(maybeRedirectToAfterRegistration)
-        with ClientAuthServerSideHasRespondedState
-        with ClientAuthHasFailedState
+      maybeRedirectToAfterRegistration: Option[TPage],
+    ) extends ClientAuthState with ClientAuthServerSideHasRespondedState with ClientAuthHasFailedState
 
     /** We are authenticated with both client and server sides. */
     case Authenticated(
       clientData: TClientSideAuthData,
       serverData: TServerSideAuthData,
-    ) extends ClientAuthState(None) with ClientAuthServerSideHasRespondedState
+      maybeRedirectToAfterRegistration: Option[TPage],
+    ) extends ClientAuthState with ClientAuthServerSideHasRespondedState
+
+    /** Page to which the user should be redirected to after he/she authenticates. */
+    def maybeRedirectToAfterRegistration: Option[TPage]
 
     /** Whether we are currently performing an operation that is loading the state, either from client or server side
       * auth.
@@ -138,39 +135,15 @@ trait AuthPlatformForClientAndServerSideAuth {
     /** Whether we have fully finished authenticating. */
     def isAuthenticated: Boolean = asAuthenticated.isDefined
 
-    /** Stores the application page to which we should go after server confirms our authentication.
-      *
-      * @return
-      *   [[None]] if we are already authenticated
+    /** Stores the application page to which we should go after server confirms our authentication. Does nothing if we
+      * are already authenticated.
       */
-    def withRedirectToAfterAuthentication(page: TPage): Option[ClientAuthState] = this match {
-      case v: Loading                                   => Some(v.copy(maybeRedirectToAfterRegistration = Some(page)))
-      case v: NotAuthenticated                          => Some(v.copy(maybeRedirectToAfterRegistration = Some(page)))
-      case v: AuthenticatedInClientSide                 => Some(v.copy(maybeRedirectToAfterRegistration = Some(page)))
-      case v: AuthenticatedInClientSideButNotServerSide => Some(v.copy(maybeRedirectToAfterRegistration = Some(page)))
-      case _: Authenticated                             => None
-    }
-
-    /** As [[withRedirectToAfterAuthentication]], but logs the result and always returns a new state. */
-    def withRedirectToAfterAuthenticationWithLogging(
-      page: TPage,
-      log: Any => DefinedAt ?=> Unit = log,
-      logError: Any => DefinedAt ?=> Unit = logError,
-    )(using DefinedAt, CanEqual1[TPage]): ClientAuthState = {
-      this match {
-        case ClientAuthState.WithRedirectE(Some(`page`)) =>
-          log(s"`withRedirectToAfterAuthenticationWithLogging`: ignoring, already set to $page")
-          this
-        case state =>
-          state.withRedirectToAfterAuthentication(page) match {
-            case None =>
-              logError(s"`withRedirectToAfterAuthenticationWithLogging`: can't set as $page, current state is $state")
-              this
-            case Some(state) =>
-              log(s"`withRedirectToAfterAuthenticationWithLogging`: set to $page, state is $state")
-              state
-          }
-      }
+    def withRedirectToAfterAuthentication(page: TPage): ClientAuthState = this match {
+      case v: Loading                                   => v.copy(maybeRedirectToAfterRegistration = Some(page))
+      case v: NotAuthenticated                          => v.copy(maybeRedirectToAfterRegistration = Some(page))
+      case v: AuthenticatedInClientSide                 => v.copy(maybeRedirectToAfterRegistration = Some(page))
+      case v: AuthenticatedInClientSideButNotServerSide => v.copy(maybeRedirectToAfterRegistration = Some(page))
+      case v: Authenticated                             => v
     }
 
     /** The [[TPage]] to redirect to after we are registered. */
@@ -198,25 +171,14 @@ trait AuthPlatformForClientAndServerSideAuth {
 
     /** If it's a valid transition, returns [[Some]]([[Authenticated]])), otherwise [[None]]. */
     def withAuthenticationSucceededOnServerSide(data: TServerSideAuthData): Option[ClientAuthState] = this match {
-      case v: AuthenticatedInClientSide                 => Some(Authenticated(v.clientData, data))
-      case v: AuthenticatedInClientSideButNotServerSide => Some(Authenticated(v.clientData, data))
-      case v: Authenticated                             => Some(Authenticated(v.clientData, data))
-      case _: Loading | _: NotAuthenticated             => None
+      case v: AuthenticatedInClientSide => Some(Authenticated(v.clientData, data, v.maybeRedirectToAfterRegistration))
+      case v: AuthenticatedInClientSideButNotServerSide =>
+        Some(Authenticated(v.clientData, data, v.maybeRedirectToAfterRegistration))
+      case v: Authenticated => Some(Authenticated(v.clientData, data, v.maybeRedirectToAfterRegistration))
+      case _: Loading | _: NotAuthenticated => None
     }
   }
   object ClientAuthState {
-
-    /** Extracts the redirect page from the client auth state. */
-    object WithRedirectE {
-      def unapply(state: ClientAuthState): Option[Option[TPage]] = state match {
-        case v: Loading                                   => Some(v.maybeRedirectToAfterRegistration)
-        case v: NotAuthenticated                          => Some(v.maybeRedirectToAfterRegistration)
-        case v: AuthenticatedInClientSide                 => Some(v.maybeRedirectToAfterRegistration)
-        case v: AuthenticatedInClientSideButNotServerSide => Some(v.maybeRedirectToAfterRegistration)
-        case _: Authenticated                             => None
-      }
-    }
-
     extension (signal: Signal[ClientAuthState]) {
       def splitByClientAuthState[Result](
         whenLoading: (Loading, Signal[Loading]) => Result,
@@ -245,16 +207,13 @@ trait AuthPlatformForClientAndServerSideAuth {
 
     /** The current authentication state. */
     def authSignal: Signal[ClientAuthState]
-
-    // /** Invoked when we want to set the redirect and save it to [[authStateRx]]. You probably want to use
-    //   * [[ClientAuthState.withRedirectToAfterAuthenticationWithLogging]].
-    //   */
-    // def onSetRedirect(state: ClientAuthState, page: TPage): ClientAuthState
   }
 
   /** A page which is only available to users that has finished authenticating on the client side.
     *
     * Shows a [[PageLoadingIndicator]] while waiting for authentication to finish.
+    *
+    * Stores the page to redirect to after authentication into the [[ClientAuthState]].
     *
     * @param renderForNotAuthenticated
     *   e.g. "Please log in"
@@ -289,6 +248,8 @@ trait AuthPlatformForClientAndServerSideAuth {
     val pageSignal = dataSignal.map(pageDataToAppPage)
 
     deps.authSignal
+      // Store the page to redirect to after authentication into the state.
+      .combineWithFn(pageSignal)((state, page) => state.withRedirectToAfterAuthentication(page))
       .splitByClientAuthState(
         whenLoading = (_, _) => deps.pageLoadingIndicator.pageRenderResult,
         whenAuthenticatedInClientSide = (_, _) => deps.pageLoadingIndicator.pageRenderResult,
@@ -299,16 +260,6 @@ trait AuthPlatformForClientAndServerSideAuth {
         whenAuthenticated = (initialAuth, authSignal) => renderForAuthenticated(initialAuth, authSignal, dataSignal),
       )
       .extract
-
-    // TODO RESTORE: store the redirect when not authenticated
-    // /** @see [[AppAuthenticatedPage.needToAuthenticateAndPossiblyRegister]] */
-    // protected def needToAuthenticateAndPossiblyRegister(
-    //   page: TPage,
-    //   status: AppAuthenticatedPage.AuthStatus,
-    // )(using appPageInit: AppPageInit): PageRenderResult = {
-    //   appPageInit.setRedirectToOnRegistration(page)
-    //   AppAuthenticatedPage.needToAuthenticateAndPossiblyRegister(status)
-    // }
   }
 
   /** A page which is only available to users that has finished authenticating on the server side.
