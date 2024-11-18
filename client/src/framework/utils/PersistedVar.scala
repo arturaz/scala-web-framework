@@ -104,12 +104,19 @@ object PersistedVar {
     new PersistedVar(Var(currentValue), persistenceKey, storage, Var(defaultValue))
   }
 
+  /** Persists the [[PersistedVar]] to the [[Storage]] when bound to the DOM. */
   trait Persister {
 
-    /** A binding that when bound to the DOM will start persisting. */
+    /** A binding that when bound to the DOM will start persisting.
+      *
+      * @param submitting
+      *   the [[EventStream]] that emits when the form is submitted.
+      * @param underlyingDebounceMs
+      *   the debounce time in milliseconds to wait before persisting when the [[PersistedVar]] is changed
+      */
     def apply(submitting: EventStream[Unit], underlyingDebounceMs: Int = 100): Seq[Binder.Base]
 
-    /** A binding that when bound to the DOM will start persisting. */
+    /** A variant of [[apply]] for [[Signal]] instead of [[EventStream]]. */
     def fromSignal(submitting: Signal[Boolean], underlyingDebounceMs: Int = 100): Seq[Binder.Base]
   }
   object Persister {
