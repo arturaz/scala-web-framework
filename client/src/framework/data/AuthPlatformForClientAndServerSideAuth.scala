@@ -31,7 +31,16 @@ trait AuthPlatformForClientAndServerSideAuth {
   type TServerSideAuthFailedData
 
   /** States where client-side authentication has already responded, either in success or failure. */
-  sealed trait ClientAuthClientSideHasRespondedState
+  sealed trait ClientAuthClientSideHasRespondedState {
+
+    /** @return [[Some]] if the client-side authentication provider has responded with the data. */
+    def maybeClientData: Option[TClientSideAuthData] = this match {
+      case s: ClientAuthState.NotAuthenticated                          => None
+      case s: ClientAuthState.AuthenticatedInClientSide                 => Some(s.clientData)
+      case s: ClientAuthState.AuthenticatedInClientSideButNotServerSide => Some(s.clientData)
+      case s: ClientAuthState.Authenticated                             => Some(s.clientData)
+    }
+  }
 
   /** States which have the client side authentication data, as in client-side auth has succeeded. */
   sealed trait ClientAuthClientSideHasSucceededState extends ClientAuthClientSideHasRespondedState {
@@ -82,6 +91,18 @@ trait AuthPlatformForClientAndServerSideAuth {
 
     /** Page to which the user should be redirected to after he/she authenticates. */
     def maybeRedirectToAfterRegistration: Option[TPage]
+
+    override def toString(): String = this match {
+      case Loading(maybeRedirectToAfterRegistration) => s"Loading(redirect=$maybeRedirectToAfterRegistration)"
+      case NotAuthenticated(failure, maybeRedirectToAfterRegistration) =>
+        s"NotAuthenticated(failure=$failure, redirect=$maybeRedirectToAfterRegistration)"
+      case AuthenticatedInClientSide(clientData, maybeRedirectToAfterRegistration) =>
+        s"AuthenticatedInClientSide(clientData=$clientData, redirect=$maybeRedirectToAfterRegistration)"
+      case AuthenticatedInClientSideButNotServerSide(clientData, serverData, maybeRedirectToAfterRegistration) =>
+        s"AuthenticatedInClientSideButNotServerSide(clientData=$clientData, serverData=$serverData, redirect=$maybeRedirectToAfterRegistration)"
+      case Authenticated(clientData, serverData, maybeRedirectToAfterRegistration) =>
+        s"Authenticated(clientData=$clientData, serverData=$serverData, redirect=$maybeRedirectToAfterRegistration)"
+    }
 
     /** Whether we are currently performing an operation that is loading the state, either from client or server side
       * auth.
