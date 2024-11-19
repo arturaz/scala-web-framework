@@ -24,7 +24,7 @@ trait NewtypeString extends Newtype[String] {
   /* If specified validates that the length of the string is less than or equal to the specified value. */
   def maxLength: Option[Int] = None
 
-  override def validate(input: String): Boolean | String = {
+  inline def validateString(input: String): Boolean | String = {
     val maybeError =
       maxLength.flatMap { maxLength =>
         Option.when(input.length() > maxLength)(
@@ -37,4 +37,6 @@ trait NewtypeString extends Newtype[String] {
       case Some(value) => value
     }
   }
+
+  override def validate(input: String): Boolean | String = validateString(input)
 }
