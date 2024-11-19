@@ -55,6 +55,11 @@ object shared extends Module {
       // https://mvnrepository.com/artifact/io.circe/circe-parser
       ivy"io.circe::circe-parser::${Versions.Circe}",
 
+      // JSON Web Tokens
+      // https://jwt-scala.github.io
+      // https://mvnrepository.com/artifact/com.github.jwt-scala/jwt-circe
+      ivy"com.github.jwt-scala::jwt-circe::10.0.1",
+
       // Macros for source code information
       // https://github.com/com-lihaoyi/sourcecode
       // https://mvnrepository.com/artifact/com.lihaoyi/sourcecode
