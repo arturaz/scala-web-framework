@@ -16,7 +16,7 @@ import sttp.tapir.Mapping
   *     .out(jsonBody[Boolean])
   * }}}
   */
-final case class WithId[+Id, +Data](
+case class WithId[+Id, +Data](
   id: Id,
   data: Data,
 ) {

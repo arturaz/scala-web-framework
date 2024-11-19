@@ -8,7 +8,7 @@ import io.circe.Json
 import io.circe.DecodingFailure
 import io.circe.Decoder
 
-final case class VersionedData[+TVersion, +TData](
+case class VersionedData[+TVersion, +TData](
   version: TVersion,
   data: TData,
 )

@@ -7,7 +7,7 @@ import scala.deriving.*
 import scala.compiletime.*
 
 object SplitEnumSignal {
-  final case class Splitter[Input, Todo <: Tuple, Result](
+  case class Splitter[Input, Todo <: Tuple, Result](
     sig: Signal[Input],
     keyer: Input => Int,
     handlers: Array[(Any, Any) => Result],

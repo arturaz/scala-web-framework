@@ -20,7 +20,7 @@ import scala.annotation.implicitNotFound
   "Cannot find an implicit instance of `EnvConfigPrefix`, you probably want to either use `EnvConfigPrefix.app` " +
     "or `EnvConfigPrefix.apply` in scope."
 )
-final case class EnvConfigPrefix(prefix: String) {
+case class EnvConfigPrefix(prefix: String) {
   def apply(key: String): String = show"$prefix$key"
 }
 object EnvConfigPrefix {
