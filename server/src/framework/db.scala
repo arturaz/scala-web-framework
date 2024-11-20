@@ -11,6 +11,11 @@ import scribe.mdc.MDC
 import scribe.Level
 import fly4s.Fly4s
 import cats.data.Validated
+import framework.data.*
+import java.time.LocalDateTime
+import java.time.LocalDate
+import framework.utils.seaweedfs.SeaweedFsFileId
+import io.circe.Json
 
 /** Allows you to get all DB related stuff in one place.
   *
@@ -106,6 +111,27 @@ object db {
 
   given ulidWrapperPut[Wrapper](using newType: neotype.Newtype.WithType[ULID, Wrapper]): Put[Wrapper] =
     Put[ULID].contramap(newType.unwrap)
+
+  given Get[IArray[Byte]] = Get[Array[Byte]].map(IArray.unsafeFromArray)
+  given Put[IArray[Byte]] = Put[Array[Byte]].contramap(_.unsafeArray)
+
+  given Get[FrameworkDateTime] = Get[LocalDateTime].map(FrameworkDateTime.apply)
+  given Put[FrameworkDateTime] = Put[LocalDateTime].contramap(_.ldt)
+
+  given Get[FrameworkDate] = Get[LocalDate].map(FrameworkDate.apply)
+  given Put[FrameworkDate] = Put[LocalDate].contramap(_.ld)
+
+  given Get[SeaweedFsFileId] = doobieGetForNewtype(SeaweedFsFileId)
+  given Put[SeaweedFsFileId] = doobiePutForNewtype(SeaweedFsFileId)
+
+  given versionedDataGet[Version, Data](using
+    CirceDecoder[VersionedData[Version, Data]]
+  ): Get[VersionedData[Version, Data]] =
+    Get[Json].map(_.as[VersionedData[Version, Data]].getOrThrow)
+  given versionedDataPut[Version, Data](using
+    CirceEncoder[VersionedData[Version, Data]]
+  ): Put[VersionedData[Version, Data]] =
+    Put[Json].contramap(_.asJson)
 
   /** @return
     *   `true` if migrations were applied, `false` otherwise
