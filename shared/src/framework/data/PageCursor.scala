@@ -31,7 +31,7 @@ import urldsl.errors.DummyError
   * @param pageSize
   *   the page size to ask for.
   */
-final case class PageCursor[+PrimaryColumn, +SecondaryColumn, +PageSize](
+case class PageCursor[+PrimaryColumn, +SecondaryColumn, +PageSize](
   cursor: Option[PageCursor.Cursor[PrimaryColumn, SecondaryColumn]],
   pageSize: PageSize,
 ) {
