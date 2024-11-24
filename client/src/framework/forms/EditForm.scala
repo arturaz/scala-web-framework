@@ -128,7 +128,9 @@ object EditForm {
     * Used to create resources.
     *
     * @param additionalSubmitting
-    *   by default false as usually when we create resources we just have one primary action which is "save".
+    *   Extra signal which is combined into [[EditForm.submitting]]. Can be used when we have some additional buttons
+    *   that submit network requests. By default always false as usually when we create resources we just have one
+    *   primary action which is "save".
     */
   class Persisted[A](
     persistedVar: PersistedVar[A],
