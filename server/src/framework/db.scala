@@ -16,6 +16,8 @@ import java.time.LocalDateTime
 import java.time.LocalDate
 import framework.utils.seaweedfs.SeaweedFsFileId
 import io.circe.Json
+import org.postgresql.geometric.PGpoint
+import neotype.unwrap
 
 /** Allows you to get all DB related stuff in one place.
   *
@@ -112,17 +114,20 @@ object db {
   given ulidWrapperPut[Wrapper](using newType: neotype.Newtype.WithType[ULID, Wrapper]): Put[Wrapper] =
     Put[ULID].contramap(newType.unwrap)
 
-  given Get[IArray[Byte]] = Get[Array[Byte]].map(IArray.unsafeFromArray)
-  given Put[IArray[Byte]] = Put[Array[Byte]].contramap(_.unsafeArray)
+  given iArrayGet: Get[IArray[Byte]] = Get[Array[Byte]].map(IArray.unsafeFromArray)
+  given iArrayPut: Put[IArray[Byte]] = Put[Array[Byte]].contramap(_.unsafeArray)
 
-  given Get[FrameworkDateTime] = Get[LocalDateTime].map(FrameworkDateTime.apply)
-  given Put[FrameworkDateTime] = Put[LocalDateTime].contramap(_.ldt)
+  given frameworkDateTimeGet: Get[FrameworkDateTime] = Get[LocalDateTime].map(FrameworkDateTime.apply)
+  given frameworkDateTimePut: Put[FrameworkDateTime] = Put[LocalDateTime].contramap(_.ldt)
 
-  given Get[FrameworkDate] = Get[LocalDate].map(FrameworkDate.apply)
-  given Put[FrameworkDate] = Put[LocalDate].contramap(_.ld)
+  given frameworkDateGet: Get[FrameworkDate] = Get[LocalDate].map(FrameworkDate.apply)
+  given frameworkDatePut: Put[FrameworkDate] = Put[LocalDate].contramap(_.ld)
 
-  given Get[SeaweedFsFileId] = doobieGetForNewtype(SeaweedFsFileId)
-  given Put[SeaweedFsFileId] = doobiePutForNewtype(SeaweedFsFileId)
+  given seaweedFsFileIdGet: Get[SeaweedFsFileId] = doobieGetForNewtype(SeaweedFsFileId)
+  given seaweedFsFileIdPut: Put[SeaweedFsFileId] = doobiePutForNewtype(SeaweedFsFileId)
+
+  given latLngGet: Get[LatLng] = Get[PGpoint].map(p => LatLng(Latitude(p.y), Longitude(p.x)))
+  given latLngPut: Put[LatLng] = Put[PGpoint].contramap(p => new PGpoint(p.longitude.unwrap, p.latitude.unwrap))
 
   given versionedDataGet[Version, Data](using
     CirceDecoder[VersionedData[Version, Data]]
