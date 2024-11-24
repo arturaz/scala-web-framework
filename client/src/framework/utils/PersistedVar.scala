@@ -180,6 +180,8 @@ object PersistedVar {
 
   /** Persists to the [[https://developer.mozilla.org/en-US/docs/Web/API/Window/sessionStorage session storage]].
     *
+    * Data in a `sessionStorage` is cleared when the page session ends.
+    *
     * @note
     *   Returns the [[Persister]] as a reminder that you have to apply it so it would actually persist.
     */
@@ -192,6 +194,8 @@ object PersistedVar {
   }
 
   /** Persists to the [[https://developer.mozilla.org/en-US/docs/Web/API/Window/localStorage local storage]].
+    *
+    * Data in a `localStorage` does not expire.
     *
     * @note
     *   Returns the [[Persister]] as a reminder that you have to apply it so it would actually persist.
