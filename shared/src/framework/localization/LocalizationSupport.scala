@@ -80,11 +80,23 @@ trait LocalizationSupport {
     inline def apply[A](using lto: LocalizedTextOf[A]) = lto
 
     /** Creates a new instance. */
-    def of[A](localize: LocaleEnum => String): LocalizedTextOf[A] = {
-      new LocalizedTextOf[A] {
+    def of[A](localize: LocaleEnum => String): LocalizedTextOf[A] =
+      new {
         override def text(using locale: LocaleEnum): String = localize(locale)
       }
-    }
+
+    /** Converts a [[LocalizedText]] to a [[LocalizedTextOf]].
+      *
+      * Example:
+      * {{{
+      * given LocalizedTextOf[OrganizationName] = Localization.Name
+      * }}}
+      */
+    given fromLocalizedText[A]: Conversion[LocalizedText, LocalizedTextOf[A]] =
+      localizedText =>
+        new {
+          override def text(using LocaleEnum): String = localizedText.text
+        }
 
     given ltoOfOption[A](using lto: LocalizedTextOf[A]): LocalizedTextOf[Option[A]] =
       of(locale => lto.text(using locale))
