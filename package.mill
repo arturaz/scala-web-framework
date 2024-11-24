@@ -101,9 +101,7 @@ object shared extends Module {
       // https://mvnrepository.com/artifact/com.raquo/waypoint
       //
       // Defined in shared part because sometimes you want to access client-side routes from the server.
-      //
-      // SNAPSHOT includes https://github.com/raquo/Waypoint/pull/19
-      ivy"com.raquo::waypoint::8.1.0-SNAPSHOT",
+      ivy"com.raquo::waypoint::9.0.0-M1",
 
       // Pretty printing library
       // https://github.com/com-lihaoyi/PPrint
@@ -146,6 +144,11 @@ object client extends FrameworkScalaJSModule {
     // https://laminar.dev
     // https://mvnrepository.com/artifact/com.raquo/laminar
     ivy"com.raquo::laminar::17.1.0",
+
+    // FRP library for Scala.js
+    // https://github.com/raquo/Airstream/
+    // https://mvnrepository.com/artifact/com.raquo/airstream
+    ivy"com.raquo::airstream::17.2.0-M1",
 
     // An implementation of ExecutionContext in terms of JavaScript's `setImmediate`.
     // https://github.com/scala-js/scala-js-macrotask-executor

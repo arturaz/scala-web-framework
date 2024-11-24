@@ -3,7 +3,6 @@ package framework.exts
 import cats.effect.IO
 import com.raquo.airstream.core.{Observer, Signal}
 import com.raquo.airstream.ownership.ManualOwner
-import framework.utils.SplitEnumSignal
 
 import scala.deriving.Mirror
 
@@ -23,8 +22,4 @@ extension [A](signal: Signal[A]) {
       }
     }
   }
-
-  /** @see [[SplitEnum.apply]] */
-  inline def splitEnum(using mirror: Mirror.SumOf[A]): SplitEnumSignal.Splitter[A, mirror.MirroredElemTypes, Nothing] =
-    SplitEnumSignal(signal)
 }

@@ -40,6 +40,7 @@ given ioToFutureFunctionK: (IO ~> Future) = new FunctionK[IO, Future] {
 export com.raquo.airstream.core.{EventStream, Signal}
 export com.raquo.airstream.state.Var
 export com.raquo.laminar.api.L
+export com.raquo.airstream.split.SplitMatchOneMacros.*
 
 export org.scalajs.dom.{console, window}
 
