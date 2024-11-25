@@ -4,6 +4,7 @@ import framework.utils.ModificationRequestTracker
 
 import L.*
 import framework.data.LocalLoadingStatus
+import framework.data.Email
 
 /** @param title
   *   the title of the section
@@ -57,25 +58,26 @@ enum LoginViaEmailWithOTPError {
   *   ((email, otp) => [[IO]]). Verifies the given OTP for the given email address.
   */
 def LoginViaEmailWithOTP[SendOTPResult](
-  sendOTP: String => IO[Either[LoginViaEmailWithOTPError, SendOTPResult]],
-  verifyOTP: (String, String, SendOTPResult) => IO[Either[LoginViaEmailWithOTPError, Boolean]],
-  isLoggedInSignal: Signal[LocalLoadingStatus[Option[String]]],
+  sendOTP: Email => IO[Either[LoginViaEmailWithOTPError, SendOTPResult]],
+  verifyOTP: (Email, String, SendOTPResult) => IO[Either[LoginViaEmailWithOTPError, Boolean]],
+  isLoggedInSignal: Signal[LocalLoadingStatus[Option[Email]]],
   emailInputLabel: String,
   emailInputPlaceholder: Option[String],
   loginButtonContent: Seq[Modifier[Button]],
-  beforeOtpInputLabel: (String, SendOTPResult) => Seq[Modifier[Div]],
+  beforeOtpInputLabel: (Email, SendOTPResult) => Seq[Modifier[Div]],
   otpInputLabel: String,
   otpInputPlaceholder: Option[String],
   otpCheckButtonContent: Seq[Modifier[Button]],
-  otpVerificationFailedContent: (String, SendOTPResult) => Seq[Modifier[Div]],
-  otpVerificationSucceededContent: (String, Option[SendOTPResult]) => Seq[Modifier[Div]],
+  otpVerificationFailedContent: (Email, SendOTPResult) => Seq[Modifier[Div]],
+  otpVerificationSucceededContent: (Email, Option[SendOTPResult]) => Seq[Modifier[Div]],
 ): Signal[Element] = {
 
   /** The email input. */
-  val emailRx = Var("")
+  val emailStrRx = Var("")
+  val emailRx = emailStrRx.signal.map(Email.make(_).toOption)
 
   /** Where the one-time password was sent. */
-  val oneTimePasswordSentRx = Var(Option.empty[(String, SendOTPResult)])
+  val oneTimePasswordSentRx = Var(Option.empty[(Email, SendOTPResult)])
 
   val cannotProgressToNextStepRx = Var(Option.empty[LoginViaEmailWithOTPError.CannotProgressToNextStep])
   val fatalErrorRx = Var(Option.empty[LoginViaEmailWithOTPError.FatalError])
@@ -94,18 +96,18 @@ def LoginViaEmailWithOTP[SendOTPResult](
       FormInput
         .stringWithLabel(
           emailInputLabel,
-          emailRx,
-          validation = None,
+          emailStrRx,
+          validation = None, // Maybe add validation here?
           placeholder = emailInputPlaceholder,
           inputModifiers = Seq(disabled <-- tracker.submitting),
         ),
       button(
         `type` := "submit",
         cls := "btn btn-primary",
-        cls("btn-disabled") <-- tracker.submitting,
+        cls("btn-disabled") <-- tracker.submitting.combineWithFn(emailRx.map(_.isEmpty))(_ || _),
         child.maybe <-- tracker.submitting.splitBooleanAsOption(_ => Spinner),
         loginButtonContent,
-        onClick(_.sample(emailRx.signal)) ---> { email =>
+        onClick(_.sample(emailRx).collectOpt(identity)) ---> { email =>
           tracker
             .launch(EitherT(sendOTP(email)))
             .flatMap {
@@ -125,7 +127,7 @@ def LoginViaEmailWithOTP[SendOTPResult](
     )
   }
 
-  def otpSent(email: String, result: SendOTPResult) = {
+  def otpSent(email: Email, result: SendOTPResult) = {
     val otpRx = Var("")
     val otpVerifiedRx = Var(Option.empty[Boolean])
 
