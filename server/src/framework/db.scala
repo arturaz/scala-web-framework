@@ -1,23 +1,23 @@
 package framework
 
+import cats.data.Validated
+import cats.syntax.all.*
+import doobie.postgres.implicits.*
 import doobie.syntax.SqlInterpolator.SingleFragment
 import doobie.util.{Read, Write}
-import doobie.postgres.implicits.*
-import jkugiya.ulid.ULID
-import java.util.UUID
-import framework.config.PostgresqlConfig
-import scribe.Scribe
-import scribe.mdc.MDC
-import scribe.Level
 import fly4s.Fly4s
-import cats.data.Validated
+import framework.config.PostgresqlConfig
 import framework.data.*
-import java.time.LocalDateTime
-import java.time.LocalDate
 import framework.utils.seaweedfs.SeaweedFsFileId
 import io.circe.Json
-import org.postgresql.geometric.PGpoint
+import jkugiya.ulid.ULID
 import neotype.unwrap
+import org.postgresql.geometric.PGpoint
+import scribe.mdc.MDC
+import scribe.{Level, Scribe}
+
+import java.time.{LocalDate, LocalDateTime}
+import java.util.UUID
 
 /** Allows you to get all DB related stuff in one place.
   *
@@ -137,6 +137,14 @@ object db {
     CirceEncoder[VersionedData[Version, Data]]
   ): Put[VersionedData[Version, Data]] =
     Put[Json].contramap(_.asJson)
+
+  /** Generates a [[Fragment]] that sets all columns of the [[SQLDefinition]] to their excluded values.
+    *
+    * TODO: move to `doobie-typesafe`
+    */
+  def setAllToExcluded(sqlDef: SQLDefinition[?]): Fragment = {
+    sqlDef.columns.map(column => sql"$column = ${column.excluded}").intercalate(fr",")
+  }
 
   /** @return
     *   `true` if migrations were applied, `false` otherwise
