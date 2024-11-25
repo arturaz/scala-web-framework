@@ -28,7 +28,7 @@ object Versions {
 
   /** Look up the version compatible with [[Scala]] version in https://mvnrepository.com/artifact/com.lihaoyi/ammonite.
     */
-  final val Ammonite = "3.0.0-M2-30-486378af"
+  final val Ammonite = "3.0.0-2-6342755f"
 
   /** [[https://scala-js.org]] */
   final val ScalaJS = "1.16.0"
