@@ -6,7 +6,7 @@ import framework.data.SendSignal
 import framework.sourcecode.DefinedAt
 import framework.utils.{ModificationRequestTracker, NetworkOrAuthError}
 
-trait ButtonErrorHandler[AuthError] extends (NetworkOrAuthError[AuthError] => Unit)
+trait ButtonErrorHandler[-AuthError] extends (NetworkOrAuthError[AuthError] => Unit)
 
 trait SendButtonContents {
 
