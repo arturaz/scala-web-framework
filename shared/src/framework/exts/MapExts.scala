@@ -1,6 +1,6 @@
 package framework.exts
 
-import cats.data.NonEmptyVector
+import cats.data.{NonEmptyMap, NonEmptyVector}
 
 extension [K, V](map: Map[K, Option[V]]) {
 
@@ -29,4 +29,8 @@ extension [K, V](map: Map[K, V]) {
   /** As [[Map.apply]] but throws an exception with a better error message. */
   def getUnsafe(key: K): V =
     map.get(key).getOrElse(throw new NoSuchElementException(s"Missing entry for key: $key"))
+
+  /** Converts the [[Map]] to a [[NonEmptyMap]] if possible. */
+  def toNonEmptyMap(using Ordering[K]): Option[NonEmptyMap[K, V]] =
+    NonEmptyMap.fromMap(collection.immutable.SortedMap.from(map))
 }
