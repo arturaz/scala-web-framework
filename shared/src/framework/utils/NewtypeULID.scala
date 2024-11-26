@@ -42,6 +42,9 @@ trait NewtypeULID extends Newtype[ULID] {
   given circeCodec: CirceCodec[Type] =
     Base64Id.circeCodec.iemap(fromBase64)(_.toBase64)
 
+  given circeKeyCodec: CirceKeyCodec[Type] =
+    Base64Id.circeKeyCodec.iomap(fromBase64(_).toOption)(_.toBase64)
+
   given tapirCodec: TapirCodec[String, Type, TapirCodecFormat.TextPlain] =
     Base64Id.codec.mapEither(fromBase64)(_.toBase64)
 
@@ -51,4 +54,8 @@ trait NewtypeULID extends Newtype[ULID] {
   /** Use this to define a [[Schema]] for your wrapping type. */
   def schemaFor[A]: Schema[A] =
     Base64Id.schemaFor
+
+  /** Use this to define a [[Schema]] for your wrapping type when it is used as a map key. */
+  def schemaForMap[V: Schema]: Schema[Map[Type, V]] =
+    Schema.schemaForMap(_.toBase64.asString)
 }
