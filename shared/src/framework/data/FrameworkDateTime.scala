@@ -11,6 +11,7 @@ import framework.exts.{*, given}
 import framework.prelude.{*, given}
 import cats.syntax.either.*
 import framework.utils.FrameworkPlatform
+import scala.concurrent.duration.*
 
 /** A timestamp in the UTC timezone with the precision of milliseconds.
   *
@@ -25,6 +26,9 @@ case class FrameworkDateTime private (ldt: LocalDateTime) extends AnyVal {
 
   /** Returns the timestamp in "yyyy-MM-dd HH:mm:ss" format. */
   def asString: String = s"${ldt.format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")).show} UTC"
+
+  def -(other: FrameworkDateTime): FiniteDuration =
+    ChronoUnit.MILLIS.between(other.toZonedDateTime, toZonedDateTime).millis
 }
 object FrameworkDateTime {
   private val utc = ZoneId.of("UTC")
