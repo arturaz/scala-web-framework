@@ -45,6 +45,9 @@ export com.raquo.airstream.split.SplitMatchOneMacros.*
 export org.scalajs.dom.{console, window}
 
 object js {
+  type Any = scalajs.js.Any
+  val Any = scalajs.js.Any
+
   type Array[A] = scalajs.js.Array[A]
   val Array = scalajs.js.Array
 
