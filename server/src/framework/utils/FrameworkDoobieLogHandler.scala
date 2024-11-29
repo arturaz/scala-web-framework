@@ -41,7 +41,7 @@ class FrameworkDoobieLogHandler[F[_]](scribe: Scribe[F]) extends LogHandler[F] {
           |
           |  ${renderSql(sql)}
           |  label = $label
-          |  elapsed = ${executionTime.pretty} exec + ${processingTime.pretty} processing (${(executionTime + processingTime).pretty} total)
+          |  elapsed = ${executionTime.prettyFractional} exec + ${processingTime.prettyFractional} processing (${(executionTime + processingTime).prettyFractional} total)
           |
           |${renderArgs(args)}
           |""".stripMargin
@@ -56,7 +56,7 @@ class FrameworkDoobieLogHandler[F[_]](scribe: Scribe[F]) extends LogHandler[F] {
          |
          |  ${renderSql(sql)}
          |
-         |   elapsed = ${executionTime.pretty} exec + ${processingTime.pretty} processing (failed) (${(executionTime + processingTime).pretty} total)
+         |   elapsed = ${executionTime.prettyFractional} exec + ${processingTime.prettyFractional} processing (failed) (${(executionTime + processingTime).prettyFractional} total)
          |   label = $label
          |   failure = ${throwable.getMessage}
          |
@@ -72,7 +72,7 @@ class FrameworkDoobieLogHandler[F[_]](scribe: Scribe[F]) extends LogHandler[F] {
       s"""Failed Statement Execution:
          |
          |  ${renderSql(sql)}
-         |  elapsed = ${elapsed.pretty} exec (failed)
+         |  elapsed = ${elapsed.prettyFractional} exec (failed)
          |  label = $label
          |  failure = ${throwable.getMessage}
          |
