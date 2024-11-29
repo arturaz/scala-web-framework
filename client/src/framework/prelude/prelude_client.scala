@@ -56,4 +56,8 @@ object js {
 
   type Dynamic = scalajs.js.Dynamic
   val Dynamic = scalajs.js.Dynamic
+
+  type UndefOr[A] = scalajs.js.UndefOr[A]
+
+  inline def undefined: UndefOr[Nothing] = scalajs.js.undefined
 }

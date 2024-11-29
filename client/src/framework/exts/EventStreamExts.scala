@@ -2,8 +2,11 @@ package framework.exts
 
 import com.raquo.airstream.custom.CustomSource
 import framework.sourcecode.DefinedAt
-import scala.concurrent.duration.FiniteDuration
+import org.scalajs.dom.{ErrorEvent, EventSource, MessageEvent}
+
 import java.util.concurrent.TimeUnit
+import scala.concurrent.duration.FiniteDuration
+import scala.scalajs.js.JSON
 
 extension (stream: EventStream[Boolean]) {
   def collectTrues: EventStream[Unit] = stream.collect { case true => () }
@@ -56,6 +59,26 @@ extension (obj: EventStream.type) {
             stop(startIndex, subscription)
             maybeSubscription = None
         }
+      },
+    )
+  }
+
+  /** Creates an [[EventStream]] from a DOM event source. */
+  def fromDomEventSource(
+    create: => EventSource,
+    convertError: ErrorEvent => Throwable = { evt =>
+      new Exception(s"An error occurred while getting server-sent events: ${JSON.stringify(evt, space = 2)}")
+    },
+  ): EventStream[MessageEvent] = {
+    fromCustomSourceWithSubscription(
+      start = (fireValue: CustomSource.FireValue[MessageEvent], fireError, getStartIndex, getIsStarted) => {
+        val evtSource = create
+        evtSource.onmessage = evt => fireValue(evt)
+        evtSource.onerror = evt => fireError(convertError(evt))
+        evtSource
+      },
+      stop = (_, evtSource) => {
+        evtSource.close()
       },
     )
   }
