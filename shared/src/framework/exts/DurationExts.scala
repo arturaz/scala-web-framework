@@ -8,10 +8,10 @@ import framework.prelude.{*, given}
 extension (duration: Duration) {
 
   /** Selects most appropriate TimeUnit for given duration and formats it accordingly, with 4 digits precision * */
-  def pretty: String = pretty(includeNanos = false)
+  def prettyFractional: String = prettyFractional(includeNanos = false)
 
   /** Selects most appropriate TimeUnit for given duration and formats it accordingly */
-  def pretty(includeNanos: Boolean, precision: Int = 4): String = {
+  def prettyFractional(includeNanos: Boolean, precision: Int = 4): String = {
     require(precision > 0, "precision must be > 0")
 
     duration match {

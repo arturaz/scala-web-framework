@@ -4,6 +4,7 @@ import framework.utils.ModificationRequestTracker
 
 import L.*
 import framework.data.LocalLoadingStatus
+import framework.data.Email
 
 /** @param title
   *   the title of the section
@@ -12,105 +13,135 @@ import framework.data.LocalLoadingStatus
   */
 case class LoginViaEmailWithOTPErrorTechnicalDetails(title: String, details: String)
 
-/** @param userFriendlyMessage
-  *   shown to the user
-  * @param technicalDetails
-  *   if [[Some]] shown as an expandable section of code.
-  */
-case class LoginViaEmailWithOTPError(
-  userFriendlyMessage: Seq[Modifier[Div]],
-  technicalDetails: Option[LoginViaEmailWithOTPErrorTechnicalDetails],
-)
+enum LoginViaEmailWithOTPError {
+
+  /** Shown to the user. */
+  def userFriendlyMessage: Seq[Modifier[Div]]
+
+  /** Unrecoverable error has occurred.
+    *
+    * @param technicalDetails
+    *   if [[Some]] shown as an expandable section of code.
+    */
+  case FatalError(
+    userFriendlyMessage: Seq[Modifier[Div]],
+    technicalDetails: Option[LoginViaEmailWithOTPErrorTechnicalDetails],
+  )
+
+  /** The user can progress to the next step and should stay on the current step with the message shown. */
+  case CannotProgressToNextStep(userFriendlyMessage: Seq[Modifier[Div]])
+}
 
 /** Login via email with one-time password (OTP).
   *
+  * @param isLoggedInSignal
+  *   the signal that indicates whether the user is logged in, the `String` is the email
   * @param emailInputLabel
   *   the label for the email input to which OTP will be sent
   * @param loginButtonContent
   *   the content for the login button
   * @param beforeOtpInputLabel
-  *   (email => content). The content that is shown before the OTP input.
+  *   ((email, sendOTPResult) => content). The content that is shown before the OTP input.
   * @param otpInputLabel
   *   the label for the input where user enters the OTP
   * @param otpCheckButtonContent
   *   the content for the button that checks the OTP
   * @param otpVerificationFailedContent
-  *   (email => content). The content that is shown when OTP verification fails.
+  *   ((email, sendOTPResult) => content). The content that is shown when OTP verification fails.
   * @param optVerificationSucceededContent
-  *   (email => content). The content that is shown when OTP verification succeeds.
+  *   ((email, maybeSendOTPResult) => content). The content that is shown when OTP verification succeeds. The
+  *   `maybeSendOTPResult` is `None` if the user is logged in without perform an OTP login, as in the case that a
+  *   previous session was restored.
   * @param sendOTP
   *   (email => [[IO]]). Sends an OTP to the given email address.
   * @param verifyOTP
   *   ((email, otp) => [[IO]]). Verifies the given OTP for the given email address.
   */
-def LoginViaEmailWithOTP(
-  isLoggedInSignal: Signal[LocalLoadingStatus[Option[String]]],
+def LoginViaEmailWithOTP[SendOTPResult](
+  sendOTP: Email => IO[Either[LoginViaEmailWithOTPError, SendOTPResult]],
+  verifyOTP: (Email, String, SendOTPResult) => IO[Either[LoginViaEmailWithOTPError, Boolean]],
+  isLoggedInSignal: Signal[LocalLoadingStatus[Option[Email]]],
   emailInputLabel: String,
   emailInputPlaceholder: Option[String],
   loginButtonContent: Seq[Modifier[Button]],
-  beforeOtpInputLabel: String => Seq[Modifier[Div]],
+  beforeOtpInputLabel: (Email, SendOTPResult) => Seq[Modifier[Div]],
   otpInputLabel: String,
   otpInputPlaceholder: Option[String],
   otpCheckButtonContent: Seq[Modifier[Button]],
-  otpVerificationFailedContent: String => Seq[Modifier[Div]],
-  otpVerificationSucceededContent: String => Seq[Modifier[Div]],
-  sendOTP: String => IO[Either[LoginViaEmailWithOTPError, Unit]],
-  verifyOTP: (String, String) => IO[Either[LoginViaEmailWithOTPError, Boolean]],
+  otpVerificationFailedContent: (Email, SendOTPResult) => Seq[Modifier[Div]],
+  otpVerificationSucceededContent: (Email, Option[SendOTPResult]) => Seq[Modifier[Div]],
 ): Signal[Element] = {
-  val oneTimePasswordSentRx = Var(Option.empty[String])
-  val emailRx = Var("")
-  val errorRx = Var(Option.empty[LoginViaEmailWithOTPError])
+
+  /** The email input. */
+  val emailStrRx = Var("")
+  val emailRx = emailStrRx.signal.map(Email.make(_).toOption)
+
+  /** Where the one-time password was sent. */
+  val oneTimePasswordSentRx = Var(Option.empty[(Email, SendOTPResult)])
+
+  val cannotProgressToNextStepRx = Var(Option.empty[LoginViaEmailWithOTPError.CannotProgressToNextStep])
+  val fatalErrorRx = Var(Option.empty[LoginViaEmailWithOTPError.FatalError])
 
   def reset(): Unit = {
     oneTimePasswordSentRx.set(None)
-    errorRx.set(None)
+    cannotProgressToNextStepRx.set(None)
+    fatalErrorRx.set(None)
   }
 
   val tracker = ModificationRequestTracker()
 
   def otpNotSent = {
     div(
+      child.maybe <-- cannotProgressToNextStepRx.signal.mapSome(err => div(err.userFriendlyMessage)),
       FormInput
         .stringWithLabel(
           emailInputLabel,
-          emailRx,
-          validation = None,
+          emailStrRx,
+          validation = None, // Maybe add validation here?
           placeholder = emailInputPlaceholder,
           inputModifiers = Seq(disabled <-- tracker.submitting),
         ),
       button(
-        `type` := "button",
+        `type` := "submit",
         cls := "btn btn-primary",
-        cls("btn-disabled") <-- tracker.submitting,
+        cls("btn-disabled") <-- tracker.submitting.combineWithFn(emailRx.map(_.isEmpty))(_ || _),
         child.maybe <-- tracker.submitting.splitBooleanAsOption(_ => Spinner),
         loginButtonContent,
-        onClick(_.sample(emailRx.signal)) ---> { email =>
+        onClick(_.sample(emailRx).collectOpt(identity)) ---> { email =>
           tracker
             .launch(EitherT(sendOTP(email)))
             .flatMap {
-              case ModificationRequestTracker.Result.Cancelled    => IO.unit
-              case ModificationRequestTracker.Result.Error(err)   => IO(errorRx.set(Some(err)))
-              case ModificationRequestTracker.Result.Finished(()) => IO(oneTimePasswordSentRx.set(Some(email)))
+              case ModificationRequestTracker.Result.Cancelled => IO.unit
+              case ModificationRequestTracker.Result.Error(err: LoginViaEmailWithOTPError.FatalError) =>
+                IO(fatalErrorRx.set(Some(err)))
+              case ModificationRequestTracker.Result.Error(err: LoginViaEmailWithOTPError.CannotProgressToNextStep) =>
+                IO(cannotProgressToNextStepRx.set(Some(err)))
+              case ModificationRequestTracker.Result.Finished(result) =>
+                IO {
+                  cannotProgressToNextStepRx.set(None)
+                  oneTimePasswordSentRx.set(Some((email, result)))
+                }
             }
         },
       ),
     )
   }
 
-  def otpSent(email: String) = {
+  def otpSent(email: Email, result: SendOTPResult) = {
     val otpRx = Var("")
     val otpVerifiedRx = Var(Option.empty[Boolean])
 
     div(
       child.maybe <-- otpVerifiedRx.signal
         .map(_.contains(false))
-        .splitBooleanAsOption(_ => div(otpVerificationFailedContent(email))),
+        .splitBooleanAsOption(_ => div(otpVerificationFailedContent(email, result))),
+      child.maybe <-- cannotProgressToNextStepRx.signal.mapSome(err => div(err.userFriendlyMessage)),
       child <-- otpVerifiedRx.signal
         .map(_.contains(true))
         .splitBoolean(
           whenFalse = _ =>
             div(
-              beforeOtpInputLabel(email),
+              beforeOtpInputLabel(email, result),
               FormInput
                 .stringWithLabel(
                   otpInputLabel,
@@ -120,33 +151,41 @@ def LoginViaEmailWithOTP(
                   inputModifiers = Seq(disabled <-- tracker.submitting),
                 ),
               button(
-                `type` := "button",
+                `type` := "submit",
                 cls := "btn btn-primary",
                 cls("btn-disabled") <-- tracker.submitting,
                 child.maybe <-- tracker.submitting.splitBooleanAsOption(_ => Spinner),
                 otpCheckButtonContent,
                 onClick(_.sample(otpRx.signal)) ---> { otp =>
                   tracker
-                    .launch(EitherT(IO(otpVerifiedRx.set(None)) *> verifyOTP(email, otp)))
+                    .launch(EitherT(IO(otpVerifiedRx.set(None)) *> verifyOTP(email, otp, result)))
                     .flatMap {
-                      case ModificationRequestTracker.Result.Cancelled          => IO.unit
-                      case ModificationRequestTracker.Result.Error(err)         => IO(errorRx.set(Some(err)))
-                      case ModificationRequestTracker.Result.Finished(verified) => IO(otpVerifiedRx.set(Some(verified)))
+                      case ModificationRequestTracker.Result.Cancelled => IO.unit
+                      case ModificationRequestTracker.Result.Error(err: LoginViaEmailWithOTPError.FatalError) =>
+                        IO(fatalErrorRx.set(Some(err)))
+                      case ModificationRequestTracker.Result
+                            .Error(err: LoginViaEmailWithOTPError.CannotProgressToNextStep) =>
+                        IO(cannotProgressToNextStepRx.set(Some(err)))
+                      case ModificationRequestTracker.Result.Finished(verified) =>
+                        IO {
+                          cannotProgressToNextStepRx.set(None)
+                          otpVerifiedRx.set(Some(verified))
+                        }
                     }
                 },
               ),
             ),
-          whenTrue = _ => div(otpVerificationSucceededContent(email)),
+          whenTrue = _ => div(otpVerificationSucceededContent(email, Some(result))),
         ),
     )
   }
 
-  def onError(err: LoginViaEmailWithOTPError) = {
+  def onFatalError(err: Signal[LoginViaEmailWithOTPError.FatalError]) = {
     div(
-      div(err.userFriendlyMessage),
-      err.technicalDetails.map { details =>
+      child <-- err.map(err => div(err.userFriendlyMessage)),
+      child.maybe <-- err.map(_.technicalDetails).mapSome { details =>
         div(
-          cls := "collapse collapse-arrow bg-base-200",
+          cls := "collapse collapse-arrow bg-base-200 mt-4",
           input(`type` := "checkbox"),
           div(cls := "collapse-title font-bold", details.title),
           div(cls := "collapse-content", pre(cls := "my-0", code(details.details))),
@@ -163,18 +202,21 @@ def LoginViaEmailWithOTP(
           maybeEmailRx
             .map(_.output)
             .splitOption(
-              (_, emailRx) => emailRx.map(email => div(otpVerificationSucceededContent(email))),
-              errorRx.signal
+              (_, emailRx) => emailRx.map(email => div(otpVerificationSucceededContent(email, None))),
+              fatalErrorRx.signal
                 .splitOption(
-                  (_, errorRx) => errorRx.map(onError),
-                  oneTimePasswordSentRx.signal
-                    .splitOption(
-                      (_, oneTimePasswordSentRx) => oneTimePasswordSentRx.map(otpSent),
-                      Signal.fromValue(otpNotSent),
-                    )
-                    .flattenSwitch(),
-                )
-                .flattenSwitch,
+                  (_, errorRx) => onFatalError(errorRx),
+                  form(
+                    onSubmit --> { evt => evt.preventDefault() },
+                    child <--
+                      oneTimePasswordSentRx.signal
+                        .splitOption(
+                          (_, oneTimePasswordSentRx) => oneTimePasswordSentRx.map(otpSent),
+                          Signal.fromValue(otpNotSent),
+                        )
+                        .flattenSwitch,
+                  ),
+                ),
             )
             .flattenSwitch,
         pending = (_, _) => Signal.fromValue(PageLoadingIndicatorSkeleton.html),

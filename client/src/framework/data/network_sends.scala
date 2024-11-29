@@ -1,6 +1,7 @@
 package framework.data
 
 import framework.utils.NetworkOrAuthError
+import scala.annotation.targetName
 
 /** A type alias for the network request that can fail with a network or authentication error. */
 type SendRequestIO[AuthError, Response] = EitherT[IO, NetworkOrAuthError[AuthError], Response]
@@ -28,6 +29,20 @@ object SendSignal {
     send: SendRequestIO[AuthError, Response]
   ): SendSignal[AuthError, Response] =
     apply(Signal.fromValue(Some(SyncIO.pure(Some(send)))))
+
+  /** Signal which does not fail auth and does not ask for confirmation. */
+  def withoutConfirmation[A](send: IO[A]): SendSignal[Nothing, A] =
+    withoutConfirmation(EitherT.liftF(send))
+
+  /** Signal which does not fail auth and does not ask for confirmation. */
+  @targetName("withoutConfirmationSignalOptionWithoutAuth")
+  def withoutConfirmation[A](signal: Signal[Option[IO[A]]]): SendSignal[Nothing, A] =
+    withoutConfirmation(signal.mapSome(EitherT.liftF))
+
+  /** Signal which does not fail auth and does not ask for confirmation. */
+  @targetName("withoutConfirmationSignalOptionPureWithoutAuth")
+  def withoutConfirmation[A](signal: Signal[Option[A]]): SendSignal[Nothing, A] =
+    withoutConfirmation(signal.mapSome(IO.pure))
 
   /** Signal which asks for confirmation. */
   def withConfirmation[AuthError, Response](

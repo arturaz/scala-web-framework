@@ -25,10 +25,10 @@ object PageTitleResult {
       *
       * Example:
       * {{{
-      * h1(
-      *   child.maybe <-- pageTitleSignal.map(_.pageTitleNodeForDocument),
-      *   pageTitleSignal --> (_.applyWindowTitle("My App"))
-      * )
+      * child.maybe <-- pageTitleSignal.map(_.pageTitleNodeForDocument.map { node =>
+      *   h1(cls := "text-2xl font-bold mb-4", node)
+      * }),
+      * pageTitleSignal --> (_.applyWindowTitle(L18n.AppName)),
       * }}}
       */
     def pageTitleNodeForDocument: Option[L.Node] = pageTitleForDocument.map(L.textToTextNode)

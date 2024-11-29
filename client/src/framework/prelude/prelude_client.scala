@@ -40,10 +40,14 @@ given ioToFutureFunctionK: (IO ~> Future) = new FunctionK[IO, Future] {
 export com.raquo.airstream.core.{EventStream, Signal}
 export com.raquo.airstream.state.Var
 export com.raquo.laminar.api.L
+export com.raquo.airstream.split.SplitMatchOneMacros.*
 
 export org.scalajs.dom.{console, window}
 
 object js {
+  type Any = scalajs.js.Any
+  val Any = scalajs.js.Any
+
   type Array[A] = scalajs.js.Array[A]
   val Array = scalajs.js.Array
 

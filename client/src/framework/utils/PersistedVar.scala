@@ -54,17 +54,21 @@ class PersistedVar[A](
   def persistEventFromSignal(submitting: Signal[Boolean], underlyingDebounceMs: Int = 100): EventStream[A] =
     persistEvent(submitting.changes.collectTrues, underlyingDebounceMs)
 
+  /** Is the current value different from the default value? */
   def isDifferentFromDefault: Boolean =
     underlying.signal.now() != defaultValueVar.now()
 
+  /** Is the current value different from the default value? */
   lazy val differentFromDefaultSignal: Signal[Boolean] =
     underlying.signal.combineWithFn(defaultValueVar)(_ != _)
 
+  /** Is the current value different from the default value? If so, [[Some]] is returned, otherwise [[None]]. */
   lazy val maybeDifferentFromDefaultSignal: Signal[Option[Unit]] =
     underlying.signal.combineWithFn(defaultValueVar)((value, defaultValue) =>
       if (value != defaultValue) Some(()) else None
     )
 
+  /** Resets the current value to the default value and removes the persisted value from the storage. */
   def resetToDefault(): Unit = {
     underlying.set(defaultValueVar.now())
     storage.removeItem(persistenceKey)
@@ -180,6 +184,8 @@ object PersistedVar {
 
   /** Persists to the [[https://developer.mozilla.org/en-US/docs/Web/API/Window/sessionStorage session storage]].
     *
+    * Data in a `sessionStorage` is cleared when the page session ends.
+    *
     * @note
     *   Returns the [[Persister]] as a reminder that you have to apply it so it would actually persist.
     */
@@ -192,6 +198,8 @@ object PersistedVar {
   }
 
   /** Persists to the [[https://developer.mozilla.org/en-US/docs/Web/API/Window/localStorage local storage]].
+    *
+    * Data in a `localStorage` does not expire.
     *
     * @note
     *   Returns the [[Persister]] as a reminder that you have to apply it so it would actually persist.

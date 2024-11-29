@@ -3,9 +3,9 @@ package framework.exts
 import cats.effect.IO
 import com.raquo.airstream.core.{Observer, Signal}
 import com.raquo.airstream.ownership.ManualOwner
-import framework.utils.SplitEnumSignal
 
 import scala.deriving.Mirror
+import alleycats.Empty
 
 extension [A](signal: Signal[A]) {
 
@@ -24,7 +24,13 @@ extension [A](signal: Signal[A]) {
     }
   }
 
-  /** @see [[SplitEnum.apply]] */
-  inline def splitEnum(using mirror: Mirror.SumOf[A]): SplitEnumSignal.Splitter[A, mirror.MirroredElemTypes, Nothing] =
-    SplitEnumSignal(signal)
+  /** Maps the value of the [[Signal]] passing the [[A]] as context. */
+  def mapImplicit[B](f: A ?=> B): Signal[B] = signal.map(a => f(using a))
+}
+
+extension [A](signal: Signal[Option[A]]) {
+
+  /** Splits the [[Signal]] by the [[Option]] cases, returning the [[Empty]] value if the [[Option]] is [[None]]. */
+  def splitOptionOrEmpty[B](f: (A, Signal[A]) => B)(using empty: Empty[B]): Signal[B] =
+    signal.splitOption(f, empty.empty)
 }

@@ -45,6 +45,29 @@ trait AuthPlatformForClientAndServerSideAuth {
   /** States which have the client side authentication data, as in client-side auth has succeeded. */
   sealed trait ClientAuthClientSideHasSucceededState extends ClientAuthClientSideHasRespondedState {
     def clientData: TClientSideAuthData
+
+    def withAuthenticationFailedOnServerSide(
+      data: TServerSideAuthFailedData
+    ): ClientAuthState.AuthenticatedInClientSideButNotServerSide = this match {
+      case v: ClientAuthState.AuthenticatedInClientSide =>
+        ClientAuthState.AuthenticatedInClientSideButNotServerSide(
+          v.clientData,
+          data,
+          v.maybeRedirectToAfterRegistration,
+        )
+      case v: ClientAuthState.AuthenticatedInClientSideButNotServerSide => v.copy(serverData = data)
+      case v: ClientAuthState.Authenticated =>
+        ClientAuthState.AuthenticatedInClientSideButNotServerSide(v.clientData, data, None)
+    }
+
+    def withAuthenticationSucceededOnServerSide(data: TServerSideAuthData): ClientAuthState.Authenticated = this match {
+      case v: ClientAuthState.AuthenticatedInClientSide =>
+        ClientAuthState.Authenticated(v.clientData, data, v.maybeRedirectToAfterRegistration)
+      case v: ClientAuthState.AuthenticatedInClientSideButNotServerSide =>
+        ClientAuthState.Authenticated(v.clientData, data, v.maybeRedirectToAfterRegistration)
+      case v: ClientAuthState.Authenticated =>
+        ClientAuthState.Authenticated(v.clientData, data, v.maybeRedirectToAfterRegistration)
+    }
   }
 
   /** States which have the client side authentication data and the server has responded. */
@@ -54,51 +77,30 @@ trait AuthPlatformForClientAndServerSideAuth {
   sealed trait ClientAuthHasFailedState extends ClientAuthClientSideHasRespondedState
 
   /** Authentication state, stored on the client. */
-  enum ClientAuthState derives CanEqual {
-
-    /** We are determining whether the user is authenticated. */
-    case Loading(maybeRedirectToAfterRegistration: Option[TPage]) extends ClientAuthState
-
-    /** The user is not authenticated with the client-side authentication provider.
-      *
-      * @param failure
-      *   if we are not authenticated due to client-side provider failure, this will be [[Some]]
-      */
-    case NotAuthenticated(
-      failure: Option[TClientSideAuthFailedData],
-      maybeRedirectToAfterRegistration: Option[TPage],
-    ) extends ClientAuthState with ClientAuthHasFailedState
-
-    /** The user is authenticated in client-side, but not yet validated on the server side. */
-    case AuthenticatedInClientSide(
-      clientData: TClientSideAuthData,
-      maybeRedirectToAfterRegistration: Option[TPage],
-    ) extends ClientAuthState with ClientAuthClientSideHasSucceededState
-
-    /** Server has told us that the user is not known in the server side and has to register with the server side. */
-    case AuthenticatedInClientSideButNotServerSide(
-      clientData: TClientSideAuthData,
-      serverData: TServerSideAuthFailedData,
-      maybeRedirectToAfterRegistration: Option[TPage],
-    ) extends ClientAuthState with ClientAuthServerSideHasRespondedState with ClientAuthHasFailedState
-
-    /** We are authenticated with both client and server sides. */
-    case Authenticated(
-      clientData: TClientSideAuthData,
-      serverData: TServerSideAuthData,
-      maybeRedirectToAfterRegistration: Option[TPage],
-    ) extends ClientAuthState with ClientAuthServerSideHasRespondedState
+  sealed trait ClientAuthState derives CanEqual {
+    import ClientAuthState.{
+      Authenticated,
+      AuthenticatedInClientSide,
+      AuthenticatedInClientSideButNotServerSide,
+      Loading,
+      NotAuthenticated,
+    }
 
     /** Page to which the user should be redirected to after he/she authenticates. */
     def maybeRedirectToAfterRegistration: Option[TPage]
 
     override def toString(): String = this match {
-      case Loading(maybeRedirectToAfterRegistration) => s"Loading(redirect=$maybeRedirectToAfterRegistration)"
+      case Loading(maybeRedirectToAfterRegistration) =>
+        s"Loading(redirect=$maybeRedirectToAfterRegistration)"
       case NotAuthenticated(failure, maybeRedirectToAfterRegistration) =>
         s"NotAuthenticated(failure=$failure, redirect=$maybeRedirectToAfterRegistration)"
       case AuthenticatedInClientSide(clientData, maybeRedirectToAfterRegistration) =>
         s"AuthenticatedInClientSide(clientData=$clientData, redirect=$maybeRedirectToAfterRegistration)"
-      case AuthenticatedInClientSideButNotServerSide(clientData, serverData, maybeRedirectToAfterRegistration) =>
+      case AuthenticatedInClientSideButNotServerSide(
+            clientData,
+            serverData,
+            maybeRedirectToAfterRegistration,
+          ) =>
         s"AuthenticatedInClientSideButNotServerSide(clientData=$clientData, serverData=$serverData, redirect=$maybeRedirectToAfterRegistration)"
       case Authenticated(clientData, serverData, maybeRedirectToAfterRegistration) =>
         s"Authenticated(clientData=$clientData, serverData=$serverData, redirect=$maybeRedirectToAfterRegistration)"
@@ -172,34 +174,53 @@ trait AuthPlatformForClientAndServerSideAuth {
       maybeRedirectToAfterRegistration.getOrElse(root.page)
 
     /** Becomes [[NotAuthenticated]], unless it already is, in which case the `failure` is replaced.. */
-    def toNotAuthenticated(failure: Option[TClientSideAuthFailedData]): ClientAuthState =
+    def toNotAuthenticated(failure: Option[TClientSideAuthFailedData]): NotAuthenticated =
       NotAuthenticated(failure, maybeRedirectToAfterRegistration)
 
     /** Becomes [[AuthenticatedInClientSide]], unless it already is, in which case the `clientData` is replaced.. */
-    def toAuthenticatedInClientSide(clientData: TClientSideAuthData): ClientAuthState =
+    def toAuthenticatedInClientSide(clientData: TClientSideAuthData): AuthenticatedInClientSide =
       AuthenticatedInClientSide(clientData, maybeRedirectToAfterRegistration)
-
-    /** If it's a valid transition, returns [[Some]]([[AuthenticatedInClientSideButNotServerSide]])), otherwise
-      * [[None]].
-      */
-    def withAuthenticationFailedOnServerSide(data: TServerSideAuthFailedData): Option[ClientAuthState] = this match {
-      case _: Loading | _: NotAuthenticated => None
-      case v: AuthenticatedInClientSide =>
-        Some(AuthenticatedInClientSideButNotServerSide(v.clientData, data, v.maybeRedirectToAfterRegistration))
-      case v: AuthenticatedInClientSideButNotServerSide => Some(v.copy(serverData = data))
-      case v: Authenticated => Some(AuthenticatedInClientSideButNotServerSide(v.clientData, data, None))
-    }
-
-    /** If it's a valid transition, returns [[Some]]([[Authenticated]])), otherwise [[None]]. */
-    def withAuthenticationSucceededOnServerSide(data: TServerSideAuthData): Option[ClientAuthState] = this match {
-      case v: AuthenticatedInClientSide => Some(Authenticated(v.clientData, data, v.maybeRedirectToAfterRegistration))
-      case v: AuthenticatedInClientSideButNotServerSide =>
-        Some(Authenticated(v.clientData, data, v.maybeRedirectToAfterRegistration))
-      case v: Authenticated => Some(Authenticated(v.clientData, data, v.maybeRedirectToAfterRegistration))
-      case _: Loading | _: NotAuthenticated => None
-    }
   }
   object ClientAuthState {
+
+    /** We are determining whether the user is authenticated. */
+    case class Loading(maybeRedirectToAfterRegistration: Option[TPage]) extends ClientAuthState
+
+    /** The user is not authenticated with the client-side authentication provider.
+      *
+      * @param failure
+      *   if we are not authenticated due to client-side provider failure, this will be [[Some]]
+      */
+    case class NotAuthenticated(
+      failure: Option[TClientSideAuthFailedData],
+      maybeRedirectToAfterRegistration: Option[TPage],
+    ) extends ClientAuthState
+        with ClientAuthHasFailedState
+
+    /** The user is authenticated in client-side, but not yet validated on the server side. */
+    case class AuthenticatedInClientSide(
+      clientData: TClientSideAuthData,
+      maybeRedirectToAfterRegistration: Option[TPage],
+    ) extends ClientAuthState
+        with ClientAuthClientSideHasSucceededState
+
+    /** Server has told us that the user is not known in the server side and has to register with the server side. */
+    case class AuthenticatedInClientSideButNotServerSide(
+      clientData: TClientSideAuthData,
+      serverData: TServerSideAuthFailedData,
+      maybeRedirectToAfterRegistration: Option[TPage],
+    ) extends ClientAuthState
+        with ClientAuthServerSideHasRespondedState
+        with ClientAuthHasFailedState
+
+    /** We are authenticated with both client and server sides. */
+    case class Authenticated(
+      clientData: TClientSideAuthData,
+      serverData: TServerSideAuthData,
+      maybeRedirectToAfterRegistration: Option[TPage],
+    ) extends ClientAuthState
+        with ClientAuthServerSideHasRespondedState
+
     extension (signal: Signal[ClientAuthState]) {
       def splitByClientAuthState[Result](
         whenLoading: (Loading, Signal[Loading]) => Result,
@@ -211,13 +232,13 @@ trait AuthPlatformForClientAndServerSideAuth {
         ) => Result,
         whenAuthenticated: (Authenticated, Signal[Authenticated]) => Result,
       ): Signal[Result] =
-        signal.splitEnum
-          .handle(whenLoading)
-          .handle(whenNotAuthenticated)
-          .handle(whenAuthenticatedInClientSide)
-          .handle(whenAuthenticatedInClientSideButNotServerSide)
-          .handle(whenAuthenticated)
-          .close
+        signal.splitMatchOne
+          .handleType(whenLoading)
+          .handleType(whenNotAuthenticated)
+          .handleType(whenAuthenticatedInClientSide)
+          .handleType(whenAuthenticatedInClientSideButNotServerSide)
+          .handleType(whenAuthenticated)
+          .toSignal
     }
   }
 
