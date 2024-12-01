@@ -228,10 +228,15 @@ object server extends FrameworkScalaModule {
     // https://github.com/outr/scribe
     // https://mvnrepository.com/artifact/com.outr/scribe
     ivy"com.outr::scribe:${Versions.Scribe}",
+    // https://mvnrepository.com/artifact/com.outr/scribe-cats
     ivy"com.outr::scribe-cats:${Versions.Scribe}",
     // immudb and http4s uses SLF4J
     // https://github.com/outr/scribe/wiki/slf4j
+    // https://mvnrepository.com/artifact/com.outr/scribe-slf4j
     ivy"com.outr::scribe-slf4j2:${Versions.Scribe}",
+    // File logging support
+    // https://mvnrepository.com/artifact/com.outr/scribe-file
+    ivy"com.outr::scribe-file:${Versions.Scribe}",
 
     // Flyway database migrations wrapped in cats-effect
     // https://github.com/geirolz/fly4s
