@@ -3,6 +3,8 @@ package framework.exts
 import sttp.tapir.*
 import io.scalaland.chimney.Transformer
 import framework.data.CookieNameFor
+import framework.tapir.capabilities.ServerSentEvents
+import java.nio.charset.StandardCharsets
 
 extension [SecurityInput, Input, Output, AuthError, Requirements](
   e: Endpoint[SecurityInput, Input, AuthError, Output, Requirements]
@@ -36,4 +38,24 @@ extension [SecurityInput, Input, Output, AuthError, Requirements](
     codec: Codec[String, CookieSecurity[SecurityInput], CodecFormat.TextPlain],
   ): Endpoint[CookieSecurity[SecurityInput], Input, AuthError, Output, Requirements] =
     e.withSecurityInputPublic(cookie[CookieSecurity[SecurityInput]](name.name))
+
+  /** Marks the endpoint as server-sent events.
+    *
+    * Example:
+    * {{{
+    * val updates =
+    *   endpoint
+    *     .get
+    *     .securityIn(auth.bearer[AppAuthData]()).errorOut(jsonBody[AppAuthError])
+    *     // Note that we need to use cookie security for SSE as browsers do not support sending custom headers
+    *     .securityViaCookie[CookieAppAuthData]
+    *     .in(RootPath / "updates")
+    *     .serverSentEvents[AppUpdate]
+    * }}}
+    */
+  def serverSentEvents[Output2](using
+    codec: Codec[String, Output2, ?]
+  ): Endpoint[SecurityInput, Input, AuthError, Output2, Requirements & ServerSentEvents] = {
+    e.withOutputPublic(EndpointIO.Body(RawBodyType.StringBody(StandardCharsets.UTF_8), codec, EndpointIO.Info.empty))
+  }
 }

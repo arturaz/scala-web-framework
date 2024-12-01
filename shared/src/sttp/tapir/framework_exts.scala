@@ -1,5 +1,7 @@
 package sttp.tapir
 
+// A hack to make package private methods visible
+
 extension [SECURITY_INPUT, INPUT, ERROR_OUTPUT, OUTPUT, R](
   e: Endpoint[SECURITY_INPUT, INPUT, ERROR_OUTPUT, OUTPUT, R]
 ) {

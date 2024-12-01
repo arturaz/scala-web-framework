@@ -10,6 +10,7 @@ import sttp.tapir.{DecodeResult, Endpoint, PublicEndpoint}
 
 import scala.annotation.targetName
 import scala.scalajs.js.JSON
+import framework.tapir.capabilities.ServerSentEvents
 
 extension [Input, Error, Output, Requirements](e: PublicEndpoint[Input, Error, Output, Requirements]) {
   def toReq(params: Input)(using baseUri: AppBaseUri): Request[Either[Error, Output], Requirements] = {
@@ -50,6 +51,13 @@ extension [SecurityInput, Input, Output, AuthError, Requirements](
         case DecodeResult.Value(Right(output)) => Right(output)
       }
   }
+}
+
+// TODO: make this actually fail to compile if the endpoint doesn't have ServerSentEvents capability
+// https://softwaremill.community/t/introducing-serversentevents-capability-failing-to-achieve-type-safety/460
+extension [SecurityInput, Input, Output, AuthError, Requirements <: ServerSentEvents](
+  e: Endpoint[SecurityInput, Input, AuthError, Output, Requirements]
+) {
 
   /** Turns the endpoint into a server-sent event stream without decoding.
     *
@@ -79,7 +87,7 @@ extension [SecurityInput, Input, Output, AuthError, Requirements](
     withCredentials: js.UndefOr[Boolean] = js.undefined,
   )(using
     baseUri: AppBaseUri,
-    codec: TapirCodec[String, Output, TapirCodecFormat.TextPlain],
+    codec: TapirCodec[String, Output, ?],
   ): EventStream[(MessageEvent, Output)] = {
     val evtStream = toSSEStreamRaw(securityParams, params, withCredentials)
     evtStream.map { evt =>
