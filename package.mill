@@ -290,3 +290,16 @@ object server extends FrameworkScalaModule {
     )
   }
 }
+
+object serverRedis extends FrameworkScalaModule {
+  override def moduleDeps = Seq(server)
+
+  override def ivyDeps = Agg(
+    // Redis client
+    // https://github.com/profunktor/redis4cats
+    // https://mvnrepository.com/artifact/dev.profunktor/redis4cats-effects
+    ivy"dev.profunktor::redis4cats-effects:${Versions.Redis4Cats}",
+    // https://mvnrepository.com/artifact/dev.profunktor/redis4cats-streams
+    ivy"dev.profunktor::redis4cats-streams:${Versions.Redis4Cats}",
+  )
+}
