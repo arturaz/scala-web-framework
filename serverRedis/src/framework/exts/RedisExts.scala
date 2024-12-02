@@ -3,7 +3,7 @@ package framework.exts
 import cats.Applicative
 import cats.effect.Concurrent
 import cats.syntax.all.*
-import dev.profunktor.redis4cats.data.RedisChannel
+import dev.profunktor.redis4cats.data.{RedisChannel, RedisPatternEvent}
 import dev.profunktor.redis4cats.pubsub.PubSubCommands
 import framework.redis.*
 import fs2.Stream
@@ -54,6 +54,32 @@ extension [F[_], K, V](pubSub: PubSubCommands[[X] =>> Stream[F, X], K, V]) {
         transformer.transform(value) match {
           case Result.Value(value)   => Right(value).pure
           case errors: Result.Errors => onTransformError.onTransformError(channel, value, errors).as(Left(()))
+        }
+      }
+      .collect { case Right(value) => value }
+  }
+
+  /** Subscribes to the specified pattern and transforms the value using the [[PartialTransformer]].
+    *
+    * If the transformation fails, `onTransformError` will be called with the original value and the message will be
+    * ignored.
+    *
+    * @see
+    *   [[PubSubCommands.psubscribe]]
+    */
+  def psubscribeTyped[M](
+    pattern: RedisPatternTyped[K, M]
+  )(using
+    transformer: PartialTransformer[V, M],
+    applicative: Applicative[F],
+    onTransformError: OnRedisMessageTransformError[F, Unit, RedisPatternEvent[K, V]],
+  ): Stream[F, RedisPatternEvent[K, M]] = {
+    pubSub
+      .psubscribe(pattern.pattern)
+      .evalMapChunk { evt =>
+        transformer.transform(evt.data) match {
+          case Result.Value(value)   => Right(evt.copy(data = value)).pure
+          case errors: Result.Errors => onTransformError.onTransformError(RedisChannel(()), evt, errors).as(Left(()))
         }
       }
       .collect { case Right(value) => value }
