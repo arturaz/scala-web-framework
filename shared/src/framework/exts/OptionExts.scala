@@ -26,3 +26,14 @@ extension [A](opt: Option[A]) {
       case Some(value) => value.show
     }
 }
+
+implicit class OptionOps[A](private val opt: Option[A]) extends AnyVal {
+
+  /** Returns the value if the [[Option]] is [[Some]] or throws an [[IllegalStateException]] if the [[Option]] is
+    * [[None]].
+    */
+  inline def getOrThrow(ifNone: => String): A = opt match {
+    case None        => throw new IllegalStateException(ifNone)
+    case Some(value) => value
+  }
+}
