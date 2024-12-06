@@ -43,6 +43,9 @@ trait NamedEnum[A] {
     .encodedExample(show""""${toName(values.head)}"""")
     .format(show"enum (${values.iterator.map(toName).mkString(" | ")})")
 
+  def schemaForMap[V: Schema]: Schema[Map[A, V]] =
+    Schema.schemaForMap(toName)
+
   def tapirCodec: TapirCodec[String, A, TapirCodecFormat.TextPlain] =
     TapirCodec.string.mapEither(str => fromName(str).toRight(show"Unknown value: $str"))(toName)
 

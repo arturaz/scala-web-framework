@@ -78,7 +78,8 @@ extension [F[_], K, V](pubSub: PubSubCommands[[X] =>> Stream[F, X], K, V]) {
       .psubscribe(pattern.pattern)
       .evalMapChunk { evt =>
         transformer.transform(evt.data) match {
-          case Result.Value(value)   => Right(evt.copy(data = value)).pure
+          case Result.Value(value) =>
+            Right(evt.copy(data = value: M /* Without the type ascription the stream just silently fails :/ */ )).pure
           case errors: Result.Errors => onTransformError.onTransformError(RedisChannel(()), evt, errors).as(Left(()))
         }
       }

@@ -29,6 +29,8 @@ import monocle.Focus.MkFocus
 import framework.localization.LocalizationSupport
 import cats.syntax.all.*
 import scala.util.chaining.*
+import framework.data.MaybeCollection
+import framework.data.MaybeSeq
 
 /** Various helpers for form inputs. */
 object FormInput {
@@ -164,25 +166,35 @@ object FormInput {
   }
 
   def textAreaWithLabel[A](
-    label: String,
+    label: Seq[Modifier[Span]],
     signal: ZoomedOwnerlessSignal[A],
     validation: Option[Validatable[A]],
     beforeLabel: Seq[Modifier[Div]] = Seq.empty,
     altLabel: Seq[Modifier[Span]] = Seq.empty,
+    beforeBottomLabel: Seq[Modifier[Div]] = Seq.empty,
+    bottomLabel: Seq[Modifier[Span]] = Seq.empty,
+    bottomAltLabel: Seq[Modifier[Span]] = Seq.empty,
     textAreaModifiers: Seq[Modifier[ReactiveHtmlElement[HTMLTextAreaElement]]] = Seq.empty,
   )(using Transformer[A, String], Transformer[String, A]): ReactiveHtmlElement[HTMLLabelElement] = {
-    val id = idForLabel(label)
-
     L.label(
       className := "form-control mb-4",
-      forId := id,
-      div(
-        cls := "label",
-        beforeLabel,
-        span(cls := "label-text grow", label),
-        when(altLabel.nonEmpty)(span(cls := "label-text-alt", altLabel)),
+      when(beforeLabel.nonEmpty || label.nonEmpty || altLabel.nonEmpty)(
+        div(
+          cls := "label",
+          beforeLabel,
+          when(label.nonEmpty)(span(cls := "label-text grow", label)),
+          when(altLabel.nonEmpty)(span(cls := "label-text-alt", altLabel)),
+        )
       ),
-      textArea(signal, idAttr := id, cls := "textarea textarea-bordered h-24", textAreaModifiers),
+      textArea(signal, cls := "textarea textarea-bordered h-24", textAreaModifiers),
+      when(beforeBottomLabel.nonEmpty || bottomLabel.nonEmpty || bottomAltLabel.nonEmpty)(
+        div(
+          cls := "label",
+          beforeBottomLabel,
+          when(bottomLabel.nonEmpty)(span(cls := "label-text grow", bottomLabel)),
+          when(bottomAltLabel.nonEmpty)(span(cls := "label-text-alt", bottomAltLabel)),
+        )
+      ),
       validationMessages(signal.signal, validation),
     )
   }
@@ -197,7 +209,7 @@ object FormInput {
     lto: l18n.LocalizedTextOf[A]
   ): ReactiveHtmlElement[HTMLLabelElement] =
     textAreaWithLabel(
-      label = lto.text,
+      label = Seq(lto.text),
       signal = signal,
       validation = validation,
       beforeLabel = beforeLabel,

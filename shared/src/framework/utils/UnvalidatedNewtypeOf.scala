@@ -6,6 +6,7 @@ import framework.utils.Validatable
 import io.scalaland.chimney.partial.Result.Errors
 import io.scalaland.chimney.{PartialTransformer, Transformer}
 import neotype.Newtype
+import scala.annotation.targetName
 
 /** Provides a newtype that is unvalidated.
   *
@@ -30,12 +31,15 @@ import neotype.Newtype
   * }}}
   *
   * `OrganizationNameForm` will get a `.validate` extension method that will turn it into an `OrganizationName`.
+  *
+  * @param companionOfValidated
+  *   the companion object of the validated newtype
   */
 trait UnvalidatedNewtypeOf[
   TValidatedUnderlying,
   TValidatedWrapperCompanion <: Newtype[TValidatedUnderlying],
-](val companion: TValidatedWrapperCompanion)(using
-  val transformer: PartialTransformer[TValidatedUnderlying, companion.Type]
+](val companionOfValidated: TValidatedWrapperCompanion)(using
+  val transformer: PartialTransformer[TValidatedUnderlying, companionOfValidated.Type]
 ) { self =>
   opaque type Type = TValidatedUnderlying
 
@@ -62,9 +66,13 @@ trait UnvalidatedNewtypeOf[
     * val b: Either[String, OrganizationNameForm.Type] = a.validate
     * }}}
     */
-  type TValidatedWrapper = companion.Type
+  type TValidatedWrapper = companionOfValidated.Type
 
   def apply(underlying: TValidatedUnderlying): Type = underlying
+
+  @targetName("applyFromValidatedWrapper")
+  def apply(underlying: TValidatedWrapper): Type = companionOfValidated.unwrap(underlying)
+
   def unwrap(wrapped: Type): TValidatedUnderlying = wrapped
 
   given CanEqual1[Type] = CanEqual.derived
@@ -98,7 +106,7 @@ trait UnvalidatedNewtypeOf[
   given toUnderlying: Transformer[Type, TValidatedUnderlying] = a => a
 
   /** [[Transformer]] from the validated newtype to the unvalidated newtype. */
-  given fromValidated: Transformer[TValidatedWrapper, Type] = validated => companion.unwrap(validated)
+  given fromValidated: Transformer[TValidatedWrapper, Type] = validated => companionOfValidated.unwrap(validated)
 
   given empty(using empty: Empty[TValidatedUnderlying]): Empty[Type] = Empty(apply(empty.empty))
 
@@ -127,7 +135,8 @@ object UnvalidatedNewtypeOf {
   extension [TUnvalidatedWrapper, TValidatedWrapperCompanion <: Newtype[TUnderlying], TUnderlying](
     value: TUnvalidatedWrapper
   )(using
-    newType: WithType[TUnvalidatedWrapper, TValidatedWrapperCompanion, TUnderlying]
+    newType: WithType[TUnvalidatedWrapper, TValidatedWrapperCompanion, TUnderlying],
+    validatedCompanion: Newtype.WithType[TUnderlying, newType.TValidatedWrapper],
   ) {
     def unwrap: TUnderlying = newType.unwrap(value)
 
@@ -141,5 +150,11 @@ object UnvalidatedNewtypeOf {
     /** Validates the value and returns the wrapped value if successful. */
     def validateAsOption: Option[newType.TValidatedWrapper] =
       newType.transformer.transform(unwrap).asOption
+
+    /** Returns the companion object of the unvalidated newtype. */
+    def companionOf: WithType[TUnvalidatedWrapper, TValidatedWrapperCompanion, TUnderlying] = newType
+
+    /** Returns the companion object of the validated newtype. */
+    def companionOfValidated: neotype.Newtype.WithType[TUnderlying, newType.TValidatedWrapper] = validatedCompanion
   }
 }

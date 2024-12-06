@@ -35,13 +35,7 @@ trait UpdatableSignal[A] extends ZoomedOwnerlessSignal[A] { self =>
   )(set: UpdatableSignal.PartSetter[A, PartOfA]): UpdatableSignal[PartOfA] =
     bimap(Lens(get)(partOfA => a => set(a, partOfA)))
 
-  /** Returns a new [[UpdatableSignal]] which is mapped.
-    *
-    * Example:
-    * {{{
-    *   lineItem.bimap(_.name)((item, value) => item.copy(name = value))
-    * }}}
-    */
+  /** Returns a new [[UpdatableSignal]] which is mapped using a [[Lens]]. */
   def bimap[PartOfA](lens: Lens[A, PartOfA]): UpdatableSignal[PartOfA] =
     UpdatableSignal[PartOfA](
       signal.map(lens.get),

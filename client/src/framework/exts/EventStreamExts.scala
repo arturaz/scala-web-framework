@@ -67,7 +67,7 @@ extension (obj: EventStream.type) {
   def fromDomEventSource(
     create: => EventSource,
     convertError: ErrorEvent => Throwable = { evt =>
-      new Exception(s"An error occurred while getting server-sent events: ${JSON.stringify(evt, space = 2)}")
+      new Exception(s"An error occurred while getting events from EventSource: ${JSON.stringify(evt, space = 2)}")
     },
   ): EventStream[MessageEvent] = {
     fromCustomSourceWithSubscription(
@@ -77,6 +77,27 @@ extension (obj: EventStream.type) {
         evtSource.onerror = evt => fireError(convertError(evt))
         evtSource
       },
+      stop = (_, evtSource) => {
+        evtSource.close()
+      },
+    )
+  }
+
+  /** Creates an [[EventStream]] from a DOM event source which emits `Right([[MessageEvent]])` and then finally
+    * `Left([[ErrorEvent]])`.
+    */
+  def fromDomEventSourceEither(
+    create: => EventSource
+  ): EventStream[Either[ErrorEvent, MessageEvent]] = {
+    fromCustomSourceWithSubscription(
+      start =
+        (fireValue: CustomSource.FireValue[Either[ErrorEvent, MessageEvent]], fireError, getStartIndex, getIsStarted) =>
+          {
+            val evtSource = create
+            evtSource.onmessage = evt => fireValue(Right(evt))
+            evtSource.onerror = evt => fireValue(Left(evt))
+            evtSource
+          },
       stop = (_, evtSource) => {
         evtSource.close()
       },
