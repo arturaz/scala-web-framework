@@ -21,8 +21,18 @@ case class LookupVector[K, V](vector: Vector[V], toKey: V => K) {
   def :+(v: V): LookupVector[K, V] =
     LookupVector(vector :+ v, toKey)
 
+  def -(key: K): LookupVector[K, V] = {
+    get(key) match {
+      case None           => this
+      case Some((_, idx)) => removeAt(idx)
+    }
+  }
+
   def replaceAt(index: Index, v: V): LookupVector[K, V] =
     LookupVector(vector.updated(index, v), toKey)
+
+  def removeAt(index: Index): LookupVector[K, V] =
+    LookupVector(vector.patch(index, Nil, 1), toKey)
 
   def isEmpty: Boolean = vector.isEmpty
   def nonEmpty: Boolean = vector.nonEmpty
