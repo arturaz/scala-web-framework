@@ -111,50 +111,48 @@ object DumpData {
     )
   }
 
-  /** Dumps all data from the database into an SQL file, excluding the `flyway_schema_history` table.
-    *
-    * @param outputPath
-    *   Path to the output SQL file
-    * @param xa
-    *   Doobie transactor
-    */
-  def dumpToFile(outputPath: Path)(using xa: Transactor[IO]): IO[Unit] = {
-    dataDumps.flatMap { content =>
-      IO.blocking(Files.writeString(outputPath, content, StandardCharsets.UTF_8)).void
-    }
-  }
-
   /** Dumps all data from the database into an SQL string, excluding the `flyway_schema_history` table.
     *
     * @param xa
     *   Doobie transactor
     */
-  def dataDumps(using xa: Transactor[IO]): IO[String] = {
-    def getTables: ConnectionIO[List[TableInfo]] = for {
-      tables <- Fragment
-        .const("""
+  def dataDumps(
+    excludedTables: Set[String] = Set(
+      "spatial_ref_sys", // PostGIS spatial reference system
+      "flyway_schema_history", // Flyway schema history table
+    )
+  )(using xa: Transactor[IO]): IO[String] = {
+    def getTables: ConnectionIO[List[TableInfo]] = {
+      val excludedTablesFragment =
+        if (excludedTables.nonEmpty)
+          Fragment.const(s"table_name NOT IN (${excludedTables.map(t => s"'$t'").mkString(", ")})")
+        else Fragment.const("1=1")
+
+      for {
+        tables <- sql"""
           SELECT table_name 
           FROM information_schema.tables 
           WHERE table_schema = 'public' 
             AND table_type = 'BASE TABLE' 
-            AND table_name != 'flyway_schema_history'
-        """)
-        .query[String]
-        .to[List]
-      tableInfos <- tables.traverse { tableName =>
-        Fragment
-          .const(show"""
+            AND $excludedTablesFragment
+        """
+          .query[String]
+          .to[List]
+        tableInfos <- tables.traverse { tableName =>
+          Fragment
+            .const(show"""
             SELECT column_name 
             FROM information_schema.columns 
             WHERE table_schema = 'public' 
               AND table_name = '$tableName' 
             ORDER BY ordinal_position
           """)
-          .query[String]
-          .to[List]
-          .map(columns => TableInfo(tableName, columns))
-      }
-    } yield tableInfos
+            .query[String]
+            .to[List]
+            .map(columns => TableInfo(tableName, columns))
+        }
+      } yield tableInfos
+    }
 
     def dumpTable(tableName: String, columns: List[String]): ConnectionIO[String] = {
       connection.raw { conn =>
@@ -214,6 +212,8 @@ object DumpData {
             case Types.OTHER if v.isInstanceOf[PGpoint] =>
               val point = v.asInstanceOf[PGpoint]
               show"POINT(${point.x}, ${point.y})"
+            case Types.OTHER if Option(v).exists(_.toString.startsWith("0101")) => // Handle PostGIS geography type
+              s"'${v.toString}'::geography"
             case _ => v.toString
           }
       }
