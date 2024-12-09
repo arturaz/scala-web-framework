@@ -7,7 +7,6 @@ import doobie.free.connection
 import doobie.implicits.*
 import doobie.postgres.implicits.*
 import doobie.util.fragment.Fragment
-import org.postgresql.geometric.PGpoint
 
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Path}
@@ -15,6 +14,7 @@ import java.sql.Types
 import java.util.UUID
 import scala.collection.mutable
 import scala.util.Using
+import org.postgresql.geometric.PGpoint
 
 object DumpData {
   private case class TableInfo(
@@ -25,12 +25,14 @@ object DumpData {
   private case class ForeignKeyInfo(
     tableName: String,
     referencedTableName: String,
+    constraintName: String,
+    isDeferrable: Boolean,
   )
 
   private case class TopologicalSortResult(
     sorted: List[String],
     circular: Set[String],
-    circularDependencies: List[(String, String)],
+    circularDependencies: List[ForeignKeyInfo],
   )
 
   /** Get foreign key relationships between tables */
@@ -39,7 +41,9 @@ object DumpData {
       .const("""
       SELECT DISTINCT
         tc.table_name,
-        ccu.table_name as referenced_table_name
+        ccu.table_name as referenced_table_name,
+        tc.constraint_name,
+        tc.is_deferrable = 'YES' as is_deferrable
       FROM 
         information_schema.table_constraints AS tc 
         JOIN information_schema.constraint_column_usage AS ccu
@@ -103,7 +107,7 @@ object DumpData {
     TopologicalSortResult(
       sorted = result.toList,
       circular = remaining,
-      circularDependencies = circularDeps.map(fk => fk.tableName -> fk.referencedTableName),
+      circularDependencies = circularDeps,
     )
   }
 
@@ -220,19 +224,63 @@ object DumpData {
       sortResult = sortTablesTopologically(tables.keySet, foreignKeys)
       sortedDumps <- sortResult.sorted.traverse(name => dumpTable(name, tables(name)))
       circularDumps <- sortResult.circular.toList.traverse(name => dumpTable(name, tables(name)))
+      deferableConstraints = sortResult.circularDependencies.filter(_.isDeferrable).map(_.constraintName).distinct
       circularDepsComment =
         if (sortResult.circularDependencies.nonEmpty) {
+          val nonDeferableConstraints =
+            sortResult.circularDependencies.filterNot(_.isDeferrable).map(_.constraintName).distinct
+
+          val deferableComment =
+            if (deferableConstraints.nonEmpty)
+              s"""-- The following constraints will be deferred:
+                 |${deferableConstraints.map(c => s"--   $c").mkString("\n")}
+                 |--
+                 |""".stripMargin
+            else ""
+
+          val nonDeferableComment =
+            if (nonDeferableConstraints.nonEmpty)
+              s"""-- Warning: The following constraints are not deferrable and may cause issues:
+                 |--
+                 |${nonDeferableConstraints.map(c => s"--   $c").mkString("\n")}
+                 |--
+                 |""".stripMargin
+            else ""
+
+          val deferConstraintsStmt =
+            if (deferableConstraints.nonEmpty)
+              show"""-- Defer constraints involved in circular dependencies
+                    |SET CONSTRAINTS ${deferableConstraints.mkString(", ")} DEFERRED;
+                    |""".stripMargin
+            else ""
+
+          val circularDependenciesComment =
+            sortResult.circularDependencies
+              .map(fk => s"--   ${fk.constraintName}: ${fk.tableName} -> ${fk.referencedTableName}")
+              .mkString("\n")
+
           show"""
-              |-- Warning: The following tables have circular dependencies and their data is dumped last:
+              |-- Warning: The following foreign key constraints form circular dependencies:
               |--
-              |${sortResult.circularDependencies.map { case (from, to) => s"-- $from -> $to" }.mkString("\n")}
+              |$circularDependenciesComment
+              |--
+              |$deferableComment
+              |--
+              |$nonDeferableComment
+              |--
+              |
+              |$deferConstraintsStmt
               |"""
         } else ""
+      restoreConstraintsStmt =
+        if (deferableConstraints.nonEmpty) show"\nSET CONSTRAINTS ${deferableConstraints.mkString(", ")} IMMEDIATE;"
+        else ""
       content = show"""-- Dumping data in dependency order
                       |
                       |${sortedDumps.mkString("\n\n")}
                       |$circularDepsComment
-                      |${if (circularDumps.nonEmpty) circularDumps.mkString("\n\n") else ""}""".stripMargin
+                      |${if (circularDumps.nonEmpty) circularDumps.mkString("\n\n") else ""}
+                      |$restoreConstraintsStmt""".stripMargin
     } yield content
 
     program.transact(xa)
