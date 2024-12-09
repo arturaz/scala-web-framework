@@ -129,6 +129,12 @@ object db {
   given latLngGet: Get[LatLng] = Get[PGpoint].map(p => LatLng(Latitude(p.y), Longitude(p.x)))
   given latLngPut: Put[LatLng] = Put[PGpoint].contramap(p => new PGpoint(p.longitude.unwrap, p.latitude.unwrap))
 
+  given latitudeGet: Get[Latitude] = doobieGetForNewtype(Latitude)
+  given latitudePut: Put[Latitude] = doobiePutForNewtype(Latitude)
+
+  given longitudeGet: Get[Longitude] = doobieGetForNewtype(Longitude)
+  given longitudePut: Put[Longitude] = doobiePutForNewtype(Longitude)
+
   given versionedDataGet[Version, Data](using
     CirceDecoder[VersionedData[Version, Data]]
   ): Get[VersionedData[Version, Data]] =

@@ -42,15 +42,16 @@ object Versions {
   final val Chimney = "1.2.0"
   final val Circe = "0.14.9"
   final val Monocle = "3.2.0"
-  final val Ciris = "3.6.0"
+  final val Ciris = "3.7.0"
   final val Redis4Cats = "1.7.1"
+  final val Squants = "1.8.3"
 }
 
 object Libraries {
   // The Scala API for Quantities, Units of Measure and Dimensional Analysis
   // https://github.com/typelevel/squants
   // https://mvnrepository.com/artifact/org.typelevel/squants
-  val squants = ivy"org.typelevel::squants::1.8.3"
+  val squants = ivy"org.typelevel::squants::${Versions.Squants}"
 }
 
 /** Barebones Scala build. */

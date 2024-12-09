@@ -122,12 +122,29 @@ object shared extends Module {
   /** Tests for the framework code. */
   object tests extends Module {
     object jvm extends FrameworkPlatformModule with FrameworkTestModule {
-      override def moduleDeps: Seq[JavaModule] = Seq(shared.jvm, testInfra.jvm)
+      override def moduleDeps = Seq(shared.jvm, testInfra.jvm)
     }
 
     object js extends FrameworkPlatformModule with FrameworkTestModule with FrameworkScalaJSTestModule {
-      override def moduleDeps: Seq[JavaModule] = Seq(shared.js, testInfra.js)
+      override def moduleDeps = Seq(shared.js, testInfra.js)
     }
+  }
+}
+
+/** Support for Squants. */
+object sharedSquants extends Module {
+  trait SharedModule extends FrameworkPlatformModule {
+    override def ivyDeps = Agg(
+      Libraries.squants
+    )
+  }
+
+  object jvm extends SharedModule {
+    override def moduleDeps = Seq(shared.jvm)
+  }
+
+  object js extends SharedModule with FrameworkScalaJSModule {
+    override def moduleDeps = Seq(shared.js)
   }
 }
 
@@ -271,8 +288,8 @@ object server extends FrameworkScalaModule {
     // https://cir.is/
     // https://mvnrepository.com/artifact/is.cir/ciris
     ivy"is.cir::ciris:${Versions.Ciris}",
+    // https://mvnrepository.com/artifact/is.cir/ciris-http4s
     ivy"is.cir::ciris-http4s:${Versions.Ciris}",
-    ivy"is.cir::ciris-squants:${Versions.Ciris}",
   )
 
   object testInfra extends FrameworkTestModule {
@@ -301,5 +318,14 @@ object serverRedis extends FrameworkScalaModule {
     ivy"dev.profunktor::redis4cats-effects:${Versions.Redis4Cats}",
     // https://mvnrepository.com/artifact/dev.profunktor/redis4cats-streams
     ivy"dev.profunktor::redis4cats-streams:${Versions.Redis4Cats}",
+  )
+}
+
+object serverSquants extends FrameworkScalaModule {
+  override def moduleDeps = Seq(server, sharedSquants.jvm)
+
+  override def ivyDeps = Agg(
+    // https://mvnrepository.com/artifact/is.cir/ciris-squants
+    ivy"is.cir::ciris-squants:${Versions.Ciris}",
   )
 }

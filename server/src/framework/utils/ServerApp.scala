@@ -7,6 +7,8 @@ import fly4s.data.{Fly4sConfig, ValidatePattern}
 import framework.config.{IsProductionMode, PostgresqlConfig}
 import framework.db.{*, given}
 import java.nio.file.Paths
+import java.nio.file.Files
+import java.nio.charset.StandardCharsets
 
 /** Boilerplate for a server application. */
 trait ServerApp extends IOApp {
@@ -49,13 +51,14 @@ trait ServerApp extends IOApp {
     *   `Some` if the command was handled, `None` if not.
     */
   def builtInCommands(cfg: ServerAppConfig, args: List[String]): Option[IO[ExitCode]] = args match {
-    case "migrate" :: Nil =>
+    case "db-migrate" :: Nil =>
       Some(postgresqlResource(cfg, migrateOnConnect = false).use(implicit xa => runMigrations(cfg)))
 
-    case "dump-db" :: pathStr :: Nil =>
+    case "db-dump" :: pathStr :: Nil =>
       Some(for {
         path <- IO(Paths.get(pathStr))
-        _ <- postgresqlResource(cfg).use(implicit xa => framework.utils.db.DumpData.dumpToFile(path))
+        sql <- postgresqlResource(cfg).use(implicit xa => framework.utils.db.DumpData.dataDumps())
+        _ <- IO.blocking(Files.writeString(path, sql, StandardCharsets.UTF_8))
       } yield ExitCode.Success)
 
     case _ => None
