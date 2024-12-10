@@ -52,7 +52,7 @@ object FrameworkDate {
 
   given Empty[FrameworkDate] = Empty(nowClient())
 
-  trait Newtype extends neotype.Newtype[FrameworkDate] {
+  trait Newtype extends yantl.Newtype.Of[FrameworkDate] {
     given Show[Type] = unwrap(_).asString
 
     given Ordering[Type] = Ordering.by(unwrap)

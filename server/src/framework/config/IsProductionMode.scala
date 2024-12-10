@@ -8,6 +8,6 @@ import framework.utils.NewtypeBoolean
   */
 object IsProductionMode extends NewtypeBoolean {
   given cirisConfig[F[_]](using prefix: EnvConfigPrefix): ConfigValue[F, IsProductionMode] =
-    ciris.env(prefix("IS_PRODUCTION")).as[Boolean].map(create)
+    ciris.env(prefix("IS_PRODUCTION")).as[Boolean].map(apply)
 }
 type IsProductionMode = IsProductionMode.Type

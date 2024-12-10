@@ -65,7 +65,7 @@ object FrameworkDateTime {
 
   given show: Show[FrameworkDateTime] = _.asString
 
-  trait Newtype extends neotype.Newtype[FrameworkDateTime] {
+  trait Newtype extends yantl.Newtype.Of[FrameworkDateTime] {
     given Show[Type] = unwrap(_).asString
 
     given Ordering[Type] = Ordering.by(unwrap)

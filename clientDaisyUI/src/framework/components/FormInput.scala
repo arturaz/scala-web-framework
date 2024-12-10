@@ -31,6 +31,8 @@ import cats.syntax.all.*
 import scala.util.chaining.*
 import framework.data.MaybeCollection
 import framework.data.MaybeSeq
+import framework.data.AutocompleteData
+import framework.utils.FetchRequest
 
 /** Various helpers for form inputs. */
 object FormInput {
@@ -716,6 +718,7 @@ object FormInput {
     def removeIcon: L.Node
     def addIcon: L.Node
     def searchIcon: L.Node
+    def searchText: String
   }
 
   /** Draws a selector for selecting extra fields in the form.
@@ -779,7 +782,7 @@ object FormInput {
         ),
         when(fields.size > 7) {
           stringWithLabel(
-            "Search",
+            content.searchText,
             searchBar,
             validation = None,
             beforeInput = Vector(content.searchIcon),
@@ -837,6 +840,160 @@ object FormInput {
           signal.setTo(None)
         }
       },
+    )
+  }
+
+  /** Renders a toggle between two values.
+    *
+    * The false value is on the left, the true value is on the right.
+    */
+  def toggleBetween[Field: CanEqual1](
+    fieldSignal: UpdatableSignal[Field],
+    whenFalse: Seq[Modifier[Span]],
+    whenFalseValue: Field,
+    whenTrue: Seq[Modifier[Span]],
+    whenTrueValue: Field,
+    divClasses: Seq[String] = Seq("flex-row"),
+    labelClasses: Seq[String] = Seq("flex", "gap-2"),
+    inputClasses: Seq[String] = Seq("bg-neutral", "hover:bg-primary"),
+    labelModifiers: Seq[Modifier[Label]] = Seq.empty,
+  ) = {
+    div(
+      cls := "form-control",
+      cls := divClasses,
+      label(
+        cls := "label cursor-pointer",
+        cls := labelClasses,
+        span(cls := "label-text", whenFalse),
+        input(
+          `type` := "checkbox",
+          cls := "toggle",
+          cls := inputClasses,
+          controlled(
+            checked <-- fieldSignal.signal.map(_ == whenTrueValue),
+            onClick.mapToChecked --> { checked =>
+              fieldSignal.setTo(if (checked) whenTrueValue else whenFalseValue)
+            },
+          ),
+        ),
+        span(cls := "label-text", whenTrue),
+        labelModifiers,
+      ),
+    )
+  }
+
+  /** @param label
+    *   The label for the field.
+    * @param backing
+    *   The backing variable for the field.
+    * @param fetchRequest
+    *   The request to fetch the autocomplete items.
+    * @param itemToString
+    *   The function that converts an item to a string to show in the input field.
+    * @param composeRequest
+    *   The function that composes the request from the input string.
+    * @param itemToKey
+    *   The function that converts an item to a key to group items by.
+    * @param buildItem
+    *   The function that builds the item to show in the dropdown.
+    * @param debounceDurationMs
+    *   The debounce duration in milliseconds.
+    */
+  def stringWithAutocomplete[RequestData, ResponseItem, SplitKey](
+    label: String,
+    backing: UpdatableSignal[AutocompleteData[ResponseItem]],
+    fetchRequest: FetchRequest.Basic[RequestData, Seq[ResponseItem]],
+    itemToString: ResponseItem => String,
+    composeRequest: EventStream[String] => EventStream[RequestData],
+    itemToKey: ResponseItem => SplitKey,
+    buildItem: (SplitKey, ResponseItem, Signal[ResponseItem]) => Seq[Modifier[LI]],
+    debounceDurationMs: Int = 300,
+    altLabel: Seq[Modifier[Span]] = Seq.empty,
+    beforeLabel: Seq[Modifier[Div]] = Seq.empty,
+    beforeInput: Seq[Modifier[Div]] = Seq.empty,
+    afterInput: Seq[Modifier[Div]] = Seq.empty,
+    inputModifiers: Seq[Modifier[Input]] = Seq.empty,
+  ) = {
+    val searchTermStr = backing.bimap {
+      case AutocompleteData.RawInput(str)      => str
+      case AutocompleteData.SelectedItem(item) => itemToString(item)
+    }((_, str) => AutocompleteData.RawInput(str))
+
+    val doRequestStream = backing.signal.changes
+      .debounce(debounceDurationMs)
+      .collectOpt {
+        case AutocompleteData.RawInput(input) => Some(input)
+        case AutocompleteData.SelectedItem(_) => None
+      }
+      .pipe(composeRequest)
+
+    div(
+      div(
+        cls := "dropdown dropdown-bottom dropdown-open",
+        div(
+          tabIndex := 0,
+          FormInput.stringWithLabel(
+            label,
+            searchTermStr,
+            validation = None,
+            altLabel = altLabel,
+            beforeLabel = beforeLabel,
+            beforeInput = beforeInput,
+            inputModifiers = inputModifiers,
+            afterInput = afterInput ++ Seq(
+              child.maybe <-- fetchRequest.basicStartedSignal
+                .map(_.exists(_.isLoading))
+                .splitBooleanAsOption(_ => Spinner)
+            ),
+          ),
+        ),
+        child.maybe <-- fetchRequest.basicSignal
+          .map(_.toLoadedOption.map(_.fetchedData).filter(_.nonEmpty))
+          .splitOption((_, items) =>
+            ul(
+              tabIndex := 0,
+              cls := "dropdown-content menu bg-base-100 rounded-box z-[1] w-52 p-2 shadow",
+              children <-- items.split(itemToKey)((key, initialItem, itemSignal) =>
+                li(
+                  buildItem(key, initialItem, itemSignal),
+                  onClick(_.sample(itemSignal)) --> { item =>
+                    backing.setTo(AutocompleteData.SelectedItem(item))
+                    fetchRequest.clear()
+                  },
+                )
+              ),
+            )
+          ),
+        doRequestStream --> { req =>
+          val _ = fetchRequest.basicStartWith(req)
+        },
+      )
+    )
+  }
+
+  def rangeWithSteps[A](
+    signal: ZoomedOwnerlessSignal[A],
+    range: Range.Inclusive,
+    inputModifiers: Seq[Modifier[Input]] = Seq.empty,
+    step: Int = 1,
+  )(using toInt: Transformer[A, Int], fromInt: Transformer[Int, A]) = {
+    val fullRange = range.end - range.start
+    val noOfIndicators = fullRange / step
+
+    nodeSeq(
+      input(
+        `type` := "range",
+        minAttr := range.start.show,
+        maxAttr := range.end.show,
+        controlled(
+          value <-- signal.signal.map(toInt.transform(_).show),
+          onInput.mapToValue.map(_.toInt).map(fromInt.transform) --> signal.setTo,
+        ),
+        cls := "range",
+        stepAttr := step.show,
+        inputModifiers,
+      ),
+      div(cls := "flex w-full justify-between px-2 text-xs", (1 to noOfIndicators).map(_ => span("|"))),
     )
   }
 }

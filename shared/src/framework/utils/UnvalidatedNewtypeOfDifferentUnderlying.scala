@@ -6,7 +6,7 @@ import framework.exts.*
 import framework.utils.Validatable
 import io.scalaland.chimney.partial.Result.Errors
 import io.scalaland.chimney.{PartialTransformer, Transformer}
-import neotype.Newtype
+import yantl.Newtype
 import scala.annotation.targetName
 
 /** Provides a newtype that is unvalidated that is of different underlying type than the validated wrapper.
@@ -18,7 +18,7 @@ import scala.annotation.targetName
 trait UnvalidatedNewtypeOfDifferentUnderlying[
   TUnvalidatedUnderlying,
   TValidatedUnderlying,
-  TValidatedWrapperCompanion <: Newtype[TValidatedUnderlying],
+  TValidatedWrapperCompanion <: Newtype.WithUnderlying[TValidatedUnderlying],
 ](unvalidatedExample: TUnvalidatedUnderlying, val companion: TValidatedWrapperCompanion)(using
   val toValidatedUnderlying: PartialTransformer[TUnvalidatedUnderlying, TValidatedUnderlying],
   val validatedUnderlyingToValidated: Transformer[TValidatedUnderlying, companion.Type],
@@ -132,7 +132,9 @@ object UnvalidatedNewtypeOfDifferentUnderlying {
     * @tparam TUnderlying
     *   the type that is wrapped around by [[TUnvalidatedWrapper]] and [[TValidatedWrapper]].
     */
-  type WithType[TUnvalidatedWrapper, TUnvalidatedUnderlying, TValidatedWrapper <: Newtype[TUnderlying], TUnderlying] =
+  type WithType[TUnvalidatedWrapper, TUnvalidatedUnderlying, TValidatedWrapper <: Newtype.WithUnderlying[
+    TUnderlying
+  ], TUnderlying] =
     UnvalidatedNewtypeOfDifferentUnderlying[TUnvalidatedUnderlying, TUnderlying, TValidatedWrapper] {
       type Type = TUnvalidatedWrapper
     }
@@ -140,7 +142,7 @@ object UnvalidatedNewtypeOfDifferentUnderlying {
   extension [
     TUnvalidatedWrapper,
     TUnvalidatedUnderlying,
-    TValidatedWrapperCompanion <: Newtype[TUnderlying],
+    TValidatedWrapperCompanion <: Newtype.WithUnderlying[TUnderlying],
     TUnderlying,
   ](
     value: TUnvalidatedWrapper
@@ -151,7 +153,7 @@ object UnvalidatedNewtypeOfDifferentUnderlying {
 
     /** Validates the value and returns the wrapped value if successful.
       *
-      * Returns [[String]] on failure because [[neotype.Newtype.make]] returns an [[Either]] of [[String]].
+      * Returns [[String]] on failure because [[yantl.Newtype.make]] returns an [[Either]] of [[String]].
       */
     def validate: Either[String, newType.TValidatedWrapper] =
       newType.underlyingToValidated.transform(unwrap).asEither.left.map(_.errors.head.message.asString)

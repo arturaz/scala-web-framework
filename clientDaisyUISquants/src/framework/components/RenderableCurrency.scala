@@ -22,7 +22,7 @@ object RenderableCurrency {
   }
 
   given newTypeWrapper[TWrapped, TUnderlying](using
-    newtype: neotype.Newtype.WithType[TUnderlying, TWrapped],
+    newtype: yantl.Newtype.WithType[TUnderlying, TWrapped],
     rc: RenderableCurrency[TUnderlying],
   ): RenderableCurrency[TWrapped] =
     (value, currency) => rc.asString(newtype.unwrap(value), currency)

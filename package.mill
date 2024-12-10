@@ -3,6 +3,36 @@ package build.framework
 import mill._, scalalib._, scalajslib._
 import $file.framework.helpers._
 
+/** Helpers for tests. Applications can use them if they need to. */
+object testInfra extends Module {
+  object jvm extends FrameworkPlatformModule with FrameworkTestModule
+  object js extends FrameworkPlatformModule with FrameworkScalaJSModule with FrameworkTestModule
+}
+
+/** 
+ * Yet Another Newtype Library (YANTL)
+ * 
+ * Originally we used [[https://github.com/kitlangton/neotype neotype]] but:
+ *   - it has errors fixed to String, which really interferes with localization (see 
+ *     https://github.com/kitlangton/neotype/issues/79).
+ *   - it relies on macros. Which seems great, until you realize that those macros have to resolve at compile time 
+ *     and your validation logic is now severely restricted.
+ */
+object newtypes extends Module {
+  object jvm extends FrameworkPlatformModule
+  object js extends FrameworkPlatformModule with FrameworkScalaJSModule
+
+  object tests extends Module {
+    object jvm extends FrameworkPlatformModule with FrameworkTestModule {
+      override def moduleDeps = Seq(testInfra.jvm, newtypes.jvm)
+    }
+
+    object js extends FrameworkPlatformModule with FrameworkTestModule with FrameworkScalaJSTestModule {
+      override def moduleDeps = Seq(testInfra.js, newtypes.js)
+    }
+  }
+}
+
 /** Code common for all projects that use this stack and shared between JVM and JS. */
 object shared extends Module {
   trait SharedModule extends FrameworkPlatformModule {
@@ -67,13 +97,8 @@ object shared extends Module {
 
       // Enumerations for Scala 2
       // https://github.com/lloydmeta/enumeratum
-      // https://mvnrepository.com/artifact/com.beachape/enumeratum <: scala.reflect.Enum
-      ivy"com.beachape::enumeratum:1.7.4",
-
-      // A friendly newtype library for Scala 3.
-      // https://github.com/kitlangton/neotype
-      // https://mvnrepository.com/artifact/io.github.kitlangton/neotype
-      ivy"io.github.kitlangton::neotype::0.3.0",
+      // https://mvnrepository.com/artifact/com.beachape/enumeratum
+      ivy"com.beachape::enumeratum::1.7.5",
 
       // ULID generation,
       // https://github.com/jkugiya/ulid-scala
@@ -110,13 +135,11 @@ object shared extends Module {
     )
   }
 
-  object jvm extends SharedModule
-  object js extends SharedModule with FrameworkScalaJSModule
-
-  /** Helpers for tests. Applications can use them if they need to. */
-  object testInfra extends Module {
-    object jvm extends FrameworkPlatformModule with FrameworkTestModule
-    object js extends FrameworkPlatformModule with FrameworkScalaJSModule with FrameworkTestModule
+  object jvm extends SharedModule {
+    override def moduleDeps = Seq(newtypes.jvm)
+  }
+  object js extends SharedModule with FrameworkScalaJSModule {
+    override def moduleDeps = Seq(newtypes.js)
   }
 
   /** Tests for the framework code. */
@@ -293,7 +316,7 @@ object server extends FrameworkScalaModule {
   )
 
   object testInfra extends FrameworkTestModule {
-    override def moduleDeps: Seq[JavaModule] = Seq(server, shared.testInfra.jvm)
+    override def moduleDeps: Seq[JavaModule] = Seq(server, build.framework.testInfra.jvm)
   }
 
   object tests extends FrameworkTestModule {
@@ -327,5 +350,17 @@ object serverSquants extends FrameworkScalaModule {
   override def ivyDeps = Agg(
     // https://mvnrepository.com/artifact/is.cir/ciris-squants
     ivy"is.cir::ciris-squants:${Versions.Ciris}",
+  )
+}
+
+/** PostgreSQL PostGIS extensions. */
+object serverPostGIS extends FrameworkScalaModule {
+  override def moduleDeps = Seq(server)
+
+  override def ivyDeps = Agg(
+    // PostGIS JDBC driver
+    // https://postgis.net/docs/manual-1.5/ch05.html#id366626
+    // https://mvnrepository.com/artifact/net.postgis/postgis-jdbc
+    ivy"net.postgis:postgis-jdbc:2.5.1"
   )
 }

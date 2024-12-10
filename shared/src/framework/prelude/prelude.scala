@@ -19,7 +19,7 @@ export cats.syntax.order.*
 
 export alleycats.syntax.all.*
 
-export neotype.Newtype
+export yantl.Newtype
 
 /** A type alias that allows writing code like this:
   *

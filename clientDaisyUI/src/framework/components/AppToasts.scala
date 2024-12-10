@@ -11,7 +11,7 @@ import scala.collection.immutable.SortedMap
 import scala.concurrent.Future
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
 
-object ToastId extends NewtypeInt
+object ToastId extends NewtypeInt with Newtype.WithoutValidation
 type ToastId = ToastId.Type
 
 enum ToastType derives CanEqual {

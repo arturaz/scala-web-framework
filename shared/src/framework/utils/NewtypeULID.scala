@@ -7,7 +7,7 @@ import framework.data.{Base64Id, Base64IdWrapper, Base64IdWrapperCompanion}
 import framework.exts.*
 import framework.prelude.*
 import jkugiya.ulid.ULID
-import neotype.Newtype
+import yantl.Newtype
 
 import java.util.UUID
 import scala.util.Try
@@ -15,14 +15,13 @@ import framework.data.PageCursor.urlConvertible
 import urldsl.errors.DummyError
 
 /** [[ULID]] based newtype */
-trait NewtypeULID extends Newtype[ULID] {
+trait NewtypeULID extends Newtype.WithoutValidationOf[ULID] {
   def generate(using gen: ULIDGenerator): SyncIO[Type] = gen.map(id => make(id).getOrThrow)
 
   /** Tries to parse a byte array into the ID. */
   def fromBytes(bytes: IArray[Byte]): Either[String, Type] =
-    Try(ULID.fromBinary(bytes.unsafeArray)).toEither.left
+    Try(apply(ULID.fromBinary(bytes.unsafeArray))).toEither.left
       .map(err => s"Failed to create ULID from bytes: ${err.getMessage.show}")
-      .flatMap(make)
 
   def fromBase64(base64: Base64Id): Either[String, Type] =
     fromBytes(base64.bytes)

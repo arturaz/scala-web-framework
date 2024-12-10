@@ -65,13 +65,13 @@ trait UpdatableSignal[A] extends ZoomedOwnerlessSignal[A] { self =>
     bimap(lens)
   }
 
-  /** Returns a new [[UpdatableSignal]] for the [[PartOfA]] after you invoke `splitEnum`.
+  /** Returns a new [[UpdatableSignal]] for the [[PartOfA]] after you invoke `splitMatchOne`.
     *
     * Example:
     * {{{
-    *  updatableSignal.signal.splitEnum
+    *  updatableSignal.signal.splitMatchOne
     *    .handle { (_, partSignal) => // handle enum case A
-    *      val partUpdatableSignal = updatableSignal.zoomAfterSplitEnum(partSignal)
+    *      val partUpdatableSignal = updatableSignal.zoomAfterSplitMatchOne(partSignal)
     *      ...
     *    }
     *    .handle { (_, partSignal) => // handle enum case B
@@ -80,7 +80,7 @@ trait UpdatableSignal[A] extends ZoomedOwnerlessSignal[A] { self =>
     *    .close
     * }}}
     */
-  def zoomAfterSplitEnum[PartOfA <: A](signal: Signal[PartOfA]): UpdatableSignal[PartOfA] =
+  def zoomAfterSplitMatchOne[PartOfA <: A](signal: Signal[PartOfA]): UpdatableSignal[PartOfA] =
     UpdatableSignal(
       signal,
       () => self.now().asInstanceOf[PartOfA],

@@ -1,12 +1,12 @@
 package framework.utils
 
-import neotype.Newtype
+import yantl.Newtype
 import sttp.model.Uri
 import framework.prelude.*
 import framework.exts.*
 import io.scalaland.chimney.Transformer
 
-trait NewtypeUri extends Newtype[Uri] {
+trait NewtypeUri extends Newtype.Of[Uri] {
   given Conversion[Type, Uri] = unwrap
   given Show[Type] = unwrap(_).toString
 }

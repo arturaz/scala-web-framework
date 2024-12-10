@@ -1,6 +1,6 @@
 package framework.prelude
 
-import neotype.Newtype
+import yantl.Newtype
 import sttp.model.Uri
 import ciris.ConfigError
 

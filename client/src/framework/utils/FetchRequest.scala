@@ -18,48 +18,50 @@ import scala.annotation.targetName
   *
   * Useful for view-like components, use [[ModificationRequestTracker]] for data submission.
   */
-class FetchRequest[Input, TNetworkError, TResultWrapper[+_], TLoadingStatus[+X] <: LoadingStatus[X], Result](
-  createIO: Input => EitherT[IO, TNetworkError, TResultWrapper[Result]],
-  ioToSignal: EitherT[IO, TNetworkError, TResultWrapper[Result]] => Signal[TLoadingStatus[Result]],
-)(using Functor[TLoadingStatus], Empty[TLoadingStatus[Nothing]])
-    extends FetchRequest.WithoutParams {
-  private case class LastStartData(
-    input: Input,
-    signal: Signal[TLoadingStatus[FetchRequest.WithInput[Input, Result]]],
-  )
+trait FetchRequest[Input, TLoadingStatus[+X] <: LoadingStatus[X], Result] extends FetchRequest.Basic[Input, Result] {
 
-  private val current: Var[Option[LastStartData]] = Var(None)
+  /** @return
+    *   [[None]] when the request has not been started yet
+    */
+  def startedSignal: Signal[Option[TLoadingStatus[FetchRequest.WithInput[Input, Result]]]]
 
-  val signal: Signal[TLoadingStatus[FetchRequest.WithInput[Input, Result]]] = current.signal
-    .flatMapSwitch {
-      case None       => Signal.fromValue(empty)
-      case Some(data) => data.signal
-    }
+  /** @return `empty([[LoadingStatus]])` when the request has not been started yet */
+  def signal: Signal[TLoadingStatus[FetchRequest.WithInput[Input, Result]]]
 
-  val isLoading: Signal[Boolean] = signal.map(_.isLoading)
-
-  def startWith(input: Input): Signal[TLoadingStatus[FetchRequest.WithInput[Input, Result]]] = {
-    val io = createIO(input)
-    val signal = ioToSignal(io).map(_.map(FetchRequest.WithInput(input, _)))
-    val data = LastStartData(input, signal)
-    current.set(Some(data))
-    this.signal
-  }
-
-  def restart()(implicit definedAt: DefinedAt): Unit = {
-    current.now() match {
-      case None       => logError("Can't restart without input")
-      case Some(data) => val _ = startWith(data.input)
-    }
-  }
+  /** Starts the request with the given input. */
+  def startWith(input: Input): Signal[TLoadingStatus[FetchRequest.WithInput[Input, Result]]]
 }
 object FetchRequest {
 
   /** The interface for [[FetchRequest]] that does not depend on type parameters. */
   trait WithoutParams {
+
+    /** [[Some]] if the request has been started, then true/false based on whether it is loading. */
+    def isStartedLoading: Signal[Option[Boolean]]
+
+    /** True if the request is currently not available (not started or loading). */
     def isLoading: Signal[Boolean]
 
+    /** Re-requests the data. Logs an error if it was never started. */
     def restart()(implicit definedAt: DefinedAt): Unit
+
+    /** Clears out fetched data. */
+    def clear(): Unit
+  }
+
+  /** A [[FetchRequest]] that does not differentiate on the specific type of [[LoadingStatus]] used. */
+  trait Basic[Input, Result] extends WithoutParams {
+
+    /** @return
+      *   [[None]] when the request has not been started yet
+      */
+    def basicStartedSignal: Signal[Option[LoadingStatus[FetchRequest.WithInput[Input, Result]]]]
+
+    /** @return `empty([[LoadingStatus]])` when the request has not been started yet */
+    def basicSignal: Signal[LoadingStatus[FetchRequest.WithInput[Input, Result]]]
+
+    /** Starts the request with the given input. */
+    def basicStartWith(input: Input): Signal[LoadingStatus[FetchRequest.WithInput[Input, Result]]]
   }
 
   case class WithInput[+Input, +A](input: Input, fetchedData: A) {
@@ -200,28 +202,90 @@ object FetchRequest {
   @targetName("public")
   def apply[Input, Result](
     createIO: Input => EitherT[IO, NetworkError, Option[Result]]
-  ): FetchRequest[Input, NetworkError, Option, PublicLoadingStatus, Result] = {
-    new FetchRequest(createIO, Signal.fromIOReturningOption)
+  ): FetchRequest[Input, PublicLoadingStatus, Result] = {
+    new Impl(createIO, Signal.fromIOReturningOption)
   }
 
   @targetName("publicInfallible")
   def apply[Input, Result](
     createIO: Input => EitherT[IO, NetworkError, Result]
-  ): FetchRequest[Input, NetworkError, Id, PublicLoadingStatus, Result] = {
-    new FetchRequest(createIO, Signal.fromIO)
+  ): FetchRequest[Input, PublicLoadingStatus, Result] = {
+    new Impl[Input, NetworkError, Id, PublicLoadingStatus, Result](createIO, Signal.fromIO)
   }
 
   @targetName("authenticatedInfallible")
   def apply[Input, AuthError, Result](
     createIO: Input => EitherT[IO, NetworkOrAuthError[AuthError], Result]
-  ): FetchRequest[Input, NetworkOrAuthError[AuthError], Id, AuthLoadingStatus, Result] = {
-    new FetchRequest(createIO, Signal.fromAuthRequestIO)
+  ): FetchRequest[Input, AuthLoadingStatus, Result] = {
+    new Impl[Input, NetworkOrAuthError[AuthError], Id, AuthLoadingStatus, Result](createIO, Signal.fromAuthRequestIO)
   }
 
   @targetName("authenticated")
   def apply[Input, AuthError, Result](
     createIO: Input => EitherT[IO, NetworkOrAuthError[AuthError], Option[Result]]
-  ): FetchRequest[Input, NetworkOrAuthError[AuthError], Option, AuthLoadingStatus, Result] = {
-    new FetchRequest(createIO, Signal.fromAuthRequestReturningOptionIO)
+  ): FetchRequest[Input, AuthLoadingStatus, Result] = {
+    new Impl(createIO, Signal.fromAuthRequestReturningOptionIO)
+  }
+
+  class Impl[Input, +TNetworkError, +TResultWrapper[+_], TLoadingStatus[+X] <: LoadingStatus[X], Result](
+    createIO: Input => EitherT[IO, TNetworkError, TResultWrapper[Result]],
+    ioToSignal: EitherT[IO, TNetworkError, TResultWrapper[Result]] => Signal[TLoadingStatus[Result]],
+  )(using Functor[TLoadingStatus], Empty[TLoadingStatus[Nothing]])
+      extends FetchRequest[Input, TLoadingStatus, Result] {
+
+    private case class LastStartData(
+      input: Input,
+      signal: Signal[TLoadingStatus[FetchRequest.WithInput[Input, Result]]],
+    )
+
+    private val current: Var[Option[LastStartData]] = Var(None)
+
+    /** @return
+      *   [[None]] when the request has not been started yet
+      */
+    override val startedSignal: Signal[Option[TLoadingStatus[FetchRequest.WithInput[Input, Result]]]] =
+      current.signal.flatMapSwitch {
+        case None       => Signal.fromValue(None)
+        case Some(data) => data.signal.map(Some(_))
+      }
+
+    override val basicStartedSignal: Signal[Option[LoadingStatus[WithInput[Input, Result]]]] =
+      startedSignal.mapSome(status => status)
+
+    /** @return `empty([[LoadingStatus]])` when the request has not been started yet */
+    override val signal: Signal[TLoadingStatus[FetchRequest.WithInput[Input, Result]]] = current.signal
+      .flatMapSwitch {
+        case None       => Signal.fromValue(empty)
+        case Some(data) => data.signal
+      }
+
+    override val basicSignal: Signal[LoadingStatus[WithInput[Input, Result]]] =
+      signal.map(status => status)
+
+    override val isStartedLoading: Signal[Option[Boolean]] = startedSignal.map(_.map(_.isLoading))
+
+    override val isLoading: Signal[Boolean] = signal.map(_.isLoading)
+
+    override def startWith(input: Input): Signal[TLoadingStatus[FetchRequest.WithInput[Input, Result]]] = {
+      val io = createIO(input)
+      val currentSignal = ioToSignal(io).map(_.map(FetchRequest.WithInput(input, _)))
+      val data = LastStartData(input, currentSignal)
+      current.set(Some(data))
+      // Return the instance variable, not the recently created signal, as the instance variable will be updated
+      // when another `startWith` is called.
+      signal
+    }
+
+    override def basicStartWith(input: Input): Signal[LoadingStatus[WithInput[Input, Result]]] =
+      startWith(input).map(status => status)
+
+    override def restart()(implicit definedAt: DefinedAt): Unit = {
+      current.now() match {
+        case None       => logError("Can't restart without input")
+        case Some(data) => val _ = startWith(data.input)
+      }
+    }
+
+    override def clear(): Unit = current.set(None)
   }
 }

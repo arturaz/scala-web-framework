@@ -25,6 +25,10 @@ case class LengthIn[U <: LengthUnit](length: Length) {
   def in(unit: U): Length =
     length.in(unit)
 
+  /** Returns the value of the length in the accompanying unit. */
+  def value(using unit: ValueOf[U]): Double =
+    length.in(unit.value).value
+
   /** Returns the value of the length in the specified unit. */
   def valueIn(unit: U): Double =
     length.in(unit).value
@@ -32,6 +36,8 @@ case class LengthIn[U <: LengthUnit](length: Length) {
   /** Converts the length to the specified unit. */
   def to[U1 <: LengthUnit](unit: U1): LengthIn[U1] =
     LengthIn(length.in(unit))
+
+  override def toString(): String = length.toString
 }
 object LengthIn {
   given schema[U <: LengthUnit](using unit: ValueOf[U]): Schema[LengthIn[U]] =
@@ -39,4 +45,7 @@ object LengthIn {
 
   given circeCodec[U <: LengthUnit](using unit: ValueOf[U]): CirceCodec[LengthIn[U]] =
     CirceCodec.fromUsing[Double].imap(v => apply(unit.value(v)))(_.valueIn(unit.value))
+
+  def apply[U <: LengthUnit](value: Double)(using unit: ValueOf[U]): LengthIn[U] =
+    apply(unit.value(value))
 }

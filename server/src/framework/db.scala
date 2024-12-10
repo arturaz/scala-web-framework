@@ -11,7 +11,6 @@ import framework.data.*
 import framework.utils.seaweedfs.SeaweedFsFileId
 import io.circe.Json
 import jkugiya.ulid.ULID
-import neotype.unwrap
 import org.postgresql.geometric.PGpoint
 import scribe.mdc.MDC
 import scribe.{Level, Scribe}
@@ -108,10 +107,10 @@ object db {
   given ulidGet: Get[ULID] = Get[UUID].map(uuid => ULID.fromUUID(uuid))
   given ulidPut: Put[ULID] = Put[UUID].contramap(_.uuid)
 
-  given ulidWrapperGet[Wrapper](using newType: neotype.Newtype.WithType[ULID, Wrapper]): Get[Wrapper] =
+  given ulidWrapperGet[Wrapper](using newType: yantl.Newtype.WithType[ULID, Wrapper]): Get[Wrapper] =
     Get[ULID].map(newType.make(_).getOrThrow)
 
-  given ulidWrapperPut[Wrapper](using newType: neotype.Newtype.WithType[ULID, Wrapper]): Put[Wrapper] =
+  given ulidWrapperPut[Wrapper](using newType: yantl.Newtype.WithType[ULID, Wrapper]): Put[Wrapper] =
     Put[ULID].contramap(newType.unwrap)
 
   given iArrayGet: Get[IArray[Byte]] = Get[Array[Byte]].map(IArray.unsafeFromArray)
@@ -125,9 +124,6 @@ object db {
 
   given seaweedFsFileIdGet: Get[SeaweedFsFileId] = doobieGetForNewtype(SeaweedFsFileId)
   given seaweedFsFileIdPut: Put[SeaweedFsFileId] = doobiePutForNewtype(SeaweedFsFileId)
-
-  given latLngGet: Get[LatLng] = Get[PGpoint].map(p => LatLng(Latitude(p.y), Longitude(p.x)))
-  given latLngPut: Put[LatLng] = Put[PGpoint].contramap(p => new PGpoint(p.longitude.unwrap, p.latitude.unwrap))
 
   given latitudeGet: Get[Latitude] = doobieGetForNewtype(Latitude)
   given latitudePut: Put[Latitude] = doobiePutForNewtype(Latitude)
@@ -198,4 +194,10 @@ object db {
 
         tryMigration(recreateSchemaAndRetryOnFailure)
       }
+
+  /** Export from this to get [[Get]] and [[Put]] instances for [[LatLng]] which uses [[PGpoint]] internally. */
+  object WithLatLngBackedByPoint {
+    given latLngGet: Get[LatLng] = Get[PGpoint].map(p => LatLng(Latitude.makeOrThrow(p.y), Longitude.makeOrThrow(p.x)))
+    given latLngPut: Put[LatLng] = Put[PGpoint].contramap(p => new PGpoint(p.longitude.unwrap, p.latitude.unwrap))
+  }
 }

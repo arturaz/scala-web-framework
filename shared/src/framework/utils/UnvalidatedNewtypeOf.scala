@@ -5,7 +5,7 @@ import framework.prelude.*
 import framework.utils.Validatable
 import io.scalaland.chimney.partial.Result.Errors
 import io.scalaland.chimney.{PartialTransformer, Transformer}
-import neotype.Newtype
+import yantl.Newtype
 import scala.annotation.targetName
 
 /** Provides a newtype that is unvalidated.
@@ -37,7 +37,7 @@ import scala.annotation.targetName
   */
 trait UnvalidatedNewtypeOf[
   TValidatedUnderlying,
-  TValidatedWrapperCompanion <: Newtype[TValidatedUnderlying],
+  TValidatedWrapperCompanion <: Newtype.WithUnderlying[TValidatedUnderlying],
 ](val companionOfValidated: TValidatedWrapperCompanion)(using
   val transformer: PartialTransformer[TValidatedUnderlying, companionOfValidated.Type]
 ) { self =>
@@ -129,10 +129,10 @@ object UnvalidatedNewtypeOf {
     * @tparam TUnderlying
     *   the type that is wrapped around by [[TUnvalidatedWrapper]] and [[TValidatedWrapper]].
     */
-  type WithType[TUnvalidatedWrapper, TValidatedWrapper <: Newtype[TUnderlying], TUnderlying] =
+  type WithType[TUnvalidatedWrapper, TValidatedWrapper <: Newtype.WithUnderlying[TUnderlying], TUnderlying] =
     UnvalidatedNewtypeOf[TUnderlying, TValidatedWrapper] { type Type = TUnvalidatedWrapper }
 
-  extension [TUnvalidatedWrapper, TValidatedWrapperCompanion <: Newtype[TUnderlying], TUnderlying](
+  extension [TUnvalidatedWrapper, TValidatedWrapperCompanion <: Newtype.WithUnderlying[TUnderlying], TUnderlying](
     value: TUnvalidatedWrapper
   )(using
     newType: WithType[TUnvalidatedWrapper, TValidatedWrapperCompanion, TUnderlying],
@@ -142,7 +142,7 @@ object UnvalidatedNewtypeOf {
 
     /** Validates the value and returns the wrapped value if successful.
       *
-      * Returns [[String]] on failure because [[neotype.Newtype.make]] returns an [[Either]] of [[String]].
+      * Returns [[String]] on failure because [[yantl.Newtype.make]] returns an [[Either]] of [[String]].
       */
     def validate: Either[String, newType.TValidatedWrapper] =
       newType.transformer.transform(unwrap).asEither.left.map(_.errors.head.message.asString)
@@ -155,6 +155,6 @@ object UnvalidatedNewtypeOf {
     def companionOf: WithType[TUnvalidatedWrapper, TValidatedWrapperCompanion, TUnderlying] = newType
 
     /** Returns the companion object of the validated newtype. */
-    def companionOfValidated: neotype.Newtype.WithType[TUnderlying, newType.TValidatedWrapper] = validatedCompanion
+    def companionOfValidated: yantl.Newtype.WithType[TUnderlying, newType.TValidatedWrapper] = validatedCompanion
   }
 }

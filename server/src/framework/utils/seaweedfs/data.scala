@@ -34,7 +34,7 @@ object SeaweedFsVolumeServerPublicUri extends NewtypeUri {
 type SeaweedFsVolumeServerPublicUri = SeaweedFsVolumeServerPublicUri.Type
 
 /** An identifier for a SeaweedFs file. */
-object SeaweedFsFileId extends NewtypeString {
+object SeaweedFsFileId extends NewtypeString with Newtype.WithoutValidationOf[String] {
   extension (fid: Type) {
 
     /** Constructs the URI of the SeaweedFs file. */

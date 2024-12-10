@@ -2,17 +2,21 @@ package framework.prelude
 
 import doobie.util.{Get, Put}
 import doobie.postgres.implicits.*
-import neotype.Newtype
+import yantl.Newtype
 import framework.utils.NamedEnum
 import org.tpolecat.typename.TypeName
 import doobie.util.meta.Meta
 
-def doobieGetForNewtype[TUnderlying, TWrapperCompanion <: Newtype[TUnderlying]](wrapper: TWrapperCompanion)(using
+def doobieGetForNewtype[TUnderlying, TWrapperCompanion <: Newtype.WithUnderlying[TUnderlying]](
+  wrapper: TWrapperCompanion
+)(using
   read: Get[TUnderlying]
 ): Get[wrapper.Type] =
   read.map(wrapper.make(_).getOrThrow)
 
-def doobiePutForNewtype[TUnderlying, TWrapperCompanion <: Newtype[TUnderlying]](wrapper: TWrapperCompanion)(using
+def doobiePutForNewtype[TUnderlying, TWrapperCompanion <: Newtype.WithUnderlying[TUnderlying]](
+  wrapper: TWrapperCompanion
+)(using
   write: Put[TUnderlying]
 ): Put[wrapper.Type] =
   write.contramap(wrapper.unwrap)

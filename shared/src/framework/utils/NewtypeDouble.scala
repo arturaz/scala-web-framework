@@ -1,12 +1,12 @@
 package framework.utils
 
-import neotype.Newtype
+import yantl.Newtype
 import cats.Show
 import cats.syntax.show.*
 import io.scalaland.chimney.Transformer
 import cats.kernel.Order
 
-trait NewtypeDouble extends Newtype[Double] {
+trait NewtypeDouble extends Newtype.Of[Double] {
   given Show[Type] = unwrap(_).show
   given CanEqual[Type, Type] = CanEqual.derived
 
@@ -15,4 +15,8 @@ trait NewtypeDouble extends Newtype[Double] {
 
   given Conversion[Type, Double] = unwrap
   given Transformer[Type, Double] = unwrap
+
+  extension (d: Type) {
+    def toDouble: Double = unwrap(d)
+  }
 }

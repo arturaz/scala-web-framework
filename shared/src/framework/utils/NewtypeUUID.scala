@@ -7,7 +7,7 @@ import framework.data.PageCursor.urlConvertible
 import framework.data.{Base64Id, Base64IdWrapper, Base64IdWrapperCompanion}
 import framework.exts.*
 import framework.prelude.*
-import neotype.Newtype
+import yantl.Newtype
 import urldsl.errors.DummyError
 
 import java.nio.ByteBuffer
@@ -15,8 +15,8 @@ import java.util.UUID
 import scala.util.Try
 
 /** [[UUID]] based newtype */
-trait NewtypeUUID extends Newtype[UUID] {
-  def generate: SyncIO[Type] = SyncIO(make(UUID.randomUUID()).getOrThrow)
+trait NewtypeUUID extends Newtype.WithoutValidationOf[UUID] {
+  def generate: SyncIO[Type] = SyncIO(apply(UUID.randomUUID()))
 
   /** Tries to parse a byte array into the ID. */
   def fromBytes(bytes: IArray[Byte]): Either[String, Type] = {
@@ -24,10 +24,9 @@ trait NewtypeUUID extends Newtype[UUID] {
     else
       Try {
         val bb = ByteBuffer.wrap(bytes.unsafeArray)
-        new UUID(bb.getLong(), bb.getLong())
+        apply(new UUID(bb.getLong(), bb.getLong()))
       }.toEither.left
         .map(err => s"Failed to create UUID from bytes: ${err.getMessage.show}")
-        .flatMap(make)
   }
 
   def fromBase64(base64: Base64Id): Either[String, Type] =
