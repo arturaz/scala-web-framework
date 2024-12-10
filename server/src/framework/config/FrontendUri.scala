@@ -5,7 +5,7 @@ import sttp.model.Uri
 
 /** An [[Uri]] that points to our frontend. */
 type FrontendUri = FrontendUri.Type
-object FrontendUri extends NewtypeUri {
+object FrontendUri extends NewtypeUri with Newtype.WithoutValidation {
   extension (v: Type) {
     def uriForPage[Page](page: Page)(using hasRoute: HasRoute[Page]): Uri = {
       val uri = unwrap(v)

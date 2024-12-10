@@ -10,7 +10,7 @@ object Email extends NewtypeString {
   override val validators = IArray(Validator)
 
   /** Validates that it has a "x@y.z" format */
-  val Validator: Newtype.Validator[String, NotAnEmail] = input => {
+  def Validator: Newtype.Validator[String, NotAnEmail] = input => {
     input.indexOf('@') match {
       case -1 => Some(NotAnEmail(input))
       case etaAt =>

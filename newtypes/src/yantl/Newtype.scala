@@ -107,22 +107,38 @@ object Newtype {
   object Validator {
 
     /** The value must not be smaller than the minimum, but it was. */
-    case class SmallerThan[+A](minimum: A, actual: A) derives CanEqual
+    case class SmallerThan[+A](minimum: A, actual: A) derives CanEqual {
+      override def toString(): String = s"Cannot be smaller than $minimum, was $actual."
+    }
 
     /** The value must not be greater than the maximum, but it was. */
-    case class LargerThan[+A](maximum: A, actual: A) derives CanEqual
+    case class LargerThan[+A](maximum: A, actual: A) derives CanEqual {
+      override def toString(): String = s"Cannot be larger than $maximum, was $actual."
+    }
+
+    type OutOfRange[+A] = SmallerThan[A] | LargerThan[A]
 
     /** The value must not be longer than the maximum length, but it was. */
-    case class MaxLengthExceeded[+A](maxLength: Int, actualLength: Int, actual: A) derives CanEqual
+    case class MaxLengthExceeded[+A](maxLength: Int, actualLength: Int, actual: A) derives CanEqual {
+      override def toString(): String =
+        s"Cannot be longer than $maxLength ${English.plural(maxLength, "character", "characters")}, " +
+          s"was $actualLength ${English.plural(actualLength, "character", "characters")}."
+    }
 
     /** The value must not be empty, but it was. */
-    case class WasEmpty[+A](value: A) derives CanEqual
+    case class WasEmpty[+A](value: A) derives CanEqual {
+      override def toString(): String = "Cannot be empty."
+    }
 
     /** The value was only composed of whitespace. */
-    case class WasBlank(value: String) derives CanEqual
+    case class WasBlank(value: String) derives CanEqual {
+      override def toString(): String = "Cannot be blank."
+    }
 
     /** The value had leading or trailing whitespace. */
-    case class HadSurroundingWhitespace(value: String) derives CanEqual
+    case class HadSurroundingWhitespace(value: String) derives CanEqual {
+      override def toString(): String = "Cannot have leading or trailing whitespace."
+    }
 
     /** Requires the value to be greater than or equal to the minimum. */
     def minValue[A](minimum: A)(using num: Numeric[A]): Validator[A, SmallerThan[A]] =
@@ -167,6 +183,11 @@ object Newtype {
     /** Requires the string to not have leading or trailing whitespace. */
     def withoutSurroundingWhitespace: Validator[String, HadSurroundingWhitespace] =
       a => if (a != a.trim()) Some(HadSurroundingWhitespace(a)) else None
+
+    object English {
+      def plural(count: Int, singular: String, plural: String): String =
+        if (count == 1) singular else plural
+    }
   }
 
   /** Combines [[Of]] and [[WithoutValidation]]. */

@@ -5,7 +5,7 @@ object Assembler {
 
   /** Example:
     * {{{
-    * val children: Vector[(OutstandingDrugRequestDB, Option[ListDrugRequestsPharmacyResponse])] = ???
+    * val children: Vector[(OutstandingDrugRequestDB, Option[ListDrugRequestsPharmacyResponse])]
     *
     * val itemsForGP: Vector[ListDrugRequestsItem] =
     *   Assembler(

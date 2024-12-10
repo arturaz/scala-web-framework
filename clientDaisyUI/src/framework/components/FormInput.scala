@@ -33,6 +33,7 @@ import framework.data.MaybeCollection
 import framework.data.MaybeSeq
 import framework.data.AutocompleteData
 import framework.utils.FetchRequest
+import io.scalaland.chimney.PartialTransformer
 
 /** Various helpers for form inputs. */
 object FormInput {
@@ -976,18 +977,20 @@ object FormInput {
     range: Range.Inclusive,
     inputModifiers: Seq[Modifier[Input]] = Seq.empty,
     step: Int = 1,
-  )(using toInt: Transformer[A, Int], fromInt: Transformer[Int, A]) = {
+  )(using toInt: Transformer[A, Int], fromInt: PartialTransformer[Int, A]) = {
     val fullRange = range.end - range.start
     val noOfIndicators = fullRange / step
 
-    nodeSeq(
+    div(
       input(
         `type` := "range",
         minAttr := range.start.show,
         maxAttr := range.end.show,
         controlled(
           value <-- signal.signal.map(toInt.transform(_).show),
-          onInput.mapToValue.map(_.toInt).map(fromInt.transform) --> signal.setTo,
+          onInput.mapToValue.map(_.toInt).map(fromInt.transform(_).asOption).collect { case Some(v) =>
+            v
+          } --> signal.setTo,
         ),
         cls := "range",
         stepAttr := step.show,
