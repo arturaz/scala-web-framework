@@ -132,6 +132,16 @@ object shared extends Module {
       // https://github.com/com-lihaoyi/PPrint
       // https://mvnrepository.com/artifact/com.lihaoyi/pprint
       ivy"com.lihaoyi::pprint::0.9.0",
+
+      // Derivation of case classes and sealed traits/enums
+      // https://github.com/softwaremill/magnolia
+      // https://mvnrepository.com/artifact/com.softwaremill.magnolia1_3/magnolia
+      ivy"com.softwaremill.magnolia1_3::magnolia::1.3.8",
+
+      // Derivation of union types
+      // https://github.com/irevive/union-derivation
+      // https://mvnrepository.com/artifact/io.github.irevive/union-derivation-core
+      ivy"io.github.irevive::union-derivation-core::0.2.1"
     )
   }
 

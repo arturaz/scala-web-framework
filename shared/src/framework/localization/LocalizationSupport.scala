@@ -1,7 +1,13 @@
 package framework.localization
 
+import magnolia1.*
 import cats.syntax.functor.*
 import cats.{Functor, Show}
+import yantl.Validator
+import scala.reflect.ClassTag
+import io.github.irevive.union.derivation.IsUnion
+import io.github.irevive.union.derivation.UnionDerivation
+import java.util.Locale
 
 /** Mix this into a package object to gain localization support for your selected [[LocaleEnum]].
   *
@@ -103,6 +109,64 @@ trait LocalizationSupport {
 
     /** Returns the [[LocalizedTextOf]] for the type of the value. */
     inline def forValue[A](value: A)(using lto: LocalizedTextOf[A]): LocalizedTextOf[A] = lto
+  }
+
+  /** A localized text with an argument of the type [[A]]. */
+  trait LocalizedTextOfValue[-A] {
+
+    /** The localized text. */
+    def text(value: A): LocaleEnum ?=> String
+  }
+  object LocalizedTextOfValue
+      extends AutoDerivation[LocalizedTextOfValue]
+      with LocalizedTextOfValueLowPriorityImplicits {
+
+    /** These have to be extension methods due to limitations of `union-derivation`. */
+    extension [A](lto: LocalizedTextOfValue[A]) {
+
+      /** The localized text, lowercased. */
+      def textLO(value: A)(using locale: LocaleEnum): String = lto.text(value).toLowerCase()
+
+      /** The localized text, uppercased. */
+      def textUP(value: A)(using locale: LocaleEnum): String = lto.text(value).toUpperCase()
+    }
+
+    /** Creates a new instance. */
+    def of[A](localize: (A, LocaleEnum) => String): LocalizedTextOfValue[A] = new {
+      override def text(value: A): LocaleEnum ?=> String = (locale: LocaleEnum) ?=> localize(value, locale)
+    }
+
+    override def join[T](caseClass: CaseClass[LocalizedTextOfValue, T]): LocalizedTextOfValue[T] =
+      of { (value, locale) =>
+        caseClass.parameters.iterator
+          .map { param =>
+            val pValue = param.deref(value)
+            val text = param.typeclass.text(pValue)(using locale)
+            text
+          }
+          .mkString("\n")
+      }
+
+    override def split[T](sealedTrait: SealedTrait[LocalizedTextOfValue, T]): LocalizedTextOfValue[T] =
+      of { (value, locale) =>
+        sealedTrait.choose(value) { sub =>
+          sub.typeclass.text(sub.cast(value))(using locale)
+        }
+      }
+  }
+  trait LocalizedTextOfValueLowPriorityImplicits {
+    inline given derivedUnion[A](using IsUnion[A]): LocalizedTextOfValue[A] =
+      UnionDerivation.derive[LocalizedTextOfValue, A]
+  }
+
+  /** A [[Validator]] bundled with a [[LocalizedTextOfValue]] for the error messages. */
+  trait LocalizedValidator[-A, Error] {
+    def validator: Validator[A, Error]
+
+    def localizer: LocalizedTextOfValue[Error]
+
+    def errorMessages(value: A)(using LocaleEnum): Vector[String] =
+      validator.validate(value).map(localizer.text)
   }
 
   extension [F[_], A](fa: F[A]) {

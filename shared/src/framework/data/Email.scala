@@ -2,15 +2,13 @@ package framework.data
 
 import yantl.Newtype
 import framework.utils.NewtypeString
+import yantl.ValidatorRule
 
 /** A very basic email validator. */
-object Email extends NewtypeString {
-  type TError = NotAnEmail
-
-  override val validators = IArray(Validator)
+object Email extends NewtypeString with Newtype.ValidatedOf(IArray(Email.Validator)) {
 
   /** Validates that it has a "x@y.z" format */
-  def Validator: Newtype.Validator[String, NotAnEmail] = input => {
+  def Validator: ValidatorRule[String, NotAnEmail] = input => {
     input.indexOf('@') match {
       case -1 => Some(NotAnEmail(input))
       case etaAt =>

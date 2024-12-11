@@ -2,11 +2,12 @@ package framework.utils
 
 import alleycats.Empty
 import framework.prelude.*
-import framework.utils.Validatable
 import io.scalaland.chimney.partial.Result.Errors
 import io.scalaland.chimney.{PartialTransformer, Transformer}
 import yantl.Newtype
 import scala.annotation.targetName
+import framework.exts.*
+import yantl.Validator
 
 /** Provides a newtype that is unvalidated.
   *
@@ -14,6 +15,7 @@ import scala.annotation.targetName
   *
   * This is an example of how to do it.
   * {{{
+  * // TODO: update docs
   * type OrganizationName = OrganizationName.Type
   * object OrganizationName extends Newtype[String] {
   *   override def validate(input: String): Boolean | String = {
@@ -36,15 +38,14 @@ import scala.annotation.targetName
   *   the companion object of the validated newtype
   */
 trait UnvalidatedNewtypeOf[
-  TValidatedUnderlying,
-  TValidatedWrapperCompanion <: Newtype.WithUnderlying[TValidatedUnderlying],
-](val companionOfValidated: TValidatedWrapperCompanion)(using
-  val transformer: PartialTransformer[TValidatedUnderlying, companionOfValidated.Type]
-) { self =>
-  opaque type Type = TValidatedUnderlying
+  TUnderlying,
+  TValidationError,
+  TValidatedWrapperCompanion <: Newtype.WithUnderlyingAndError[TUnderlying, TValidationError],
+](val companionOfValidated: TValidatedWrapperCompanion) { self =>
+  opaque type Type = TUnderlying
 
   inline transparent given instance
-    : UnvalidatedNewtypeOf.WithType[Type, TValidatedWrapperCompanion, TValidatedUnderlying] = this
+    : UnvalidatedNewtypeOf.WithType[Type, TValidationError, TValidatedWrapperCompanion, TUnderlying] = this
 
   /** You can do this to improve generated type signatures:
     *
@@ -68,27 +69,25 @@ trait UnvalidatedNewtypeOf[
     */
   type TValidatedWrapper = companionOfValidated.Type
 
-  def apply(underlying: TValidatedUnderlying): Type = underlying
+  def apply(underlying: TUnderlying): Type = underlying
 
   @targetName("applyFromValidatedWrapper")
   def apply(underlying: TValidatedWrapper): Type = companionOfValidated.unwrap(underlying)
-
-  def unwrap(wrapped: Type): TValidatedUnderlying = wrapped
 
   given CanEqual1[Type] = CanEqual.derived
 
   /** [[Transformer]] instead of [[Conversion]] that goes from raw type to the newtype because [[Conversion]]s are
     * implicit and we don't want that.
     */
-  given Transformer[TValidatedUnderlying, Type] = a => a
+  given Transformer[TUnderlying, Type] = a => a
 
   /** Allows transforming from the empty value to the [[Option]] of the newtype.
     *
     * For example: "" -> None, "foo" -> Some(WrappedFoo("foo"))
     */
   given underlyingToUnvalidatedOption(using
-    empty: Empty[TValidatedUnderlying]
-  ): Transformer[TValidatedUnderlying, Option[Type]] = underlying =>
+    empty: Empty[TUnderlying]
+  ): Transformer[TUnderlying, Option[Type]] = underlying =>
     if (underlying == empty.empty) None
     else Some(apply(underlying))
 
@@ -96,65 +95,69 @@ trait UnvalidatedNewtypeOf[
     *
     * For example: None -> "", Some(WrappedFoo("foo")) -> "foo"
     */
-  given optionToUnderlying(using empty: Empty[TValidatedUnderlying]): Transformer[Option[Type], TValidatedUnderlying] =
+  given optionToUnderlying(using empty: Empty[TUnderlying]): Transformer[Option[Type], TUnderlying] =
     _.getOrElse(empty.empty)
 
   /** Implicit [[Conversion]] from the newtype to the raw type. */
-  given Conversion[Type, TValidatedUnderlying] = a => a
+  given Conversion[Type, TUnderlying] = a => a
 
   /** [[Transformer]] from the newtype to the raw type. */
-  given toUnderlying: Transformer[Type, TValidatedUnderlying] = a => a
+  given toUnderlying: Transformer[Type, TUnderlying] = a => a
 
   /** [[Transformer]] from the validated newtype to the unvalidated newtype. */
   given fromValidated: Transformer[TValidatedWrapper, Type] = validated => companionOfValidated.unwrap(validated)
 
-  given empty(using empty: Empty[TValidatedUnderlying]): Empty[Type] = Empty(apply(empty.empty))
+  given empty(using empty: Empty[TUnderlying]): Empty[Type] = Empty(apply(empty.empty))
 
   given circeCodec(using
-    decoder: CirceDecoder[TValidatedUnderlying],
-    encoder: CirceEncoder[TValidatedUnderlying],
+    decoder: CirceDecoder[TUnderlying],
+    encoder: CirceEncoder[TUnderlying],
   ): CirceCodec[Type] =
     CirceCodec.from(decoder, encoder).imap(apply)(unwrap)
 
-  given partialTransformer: PartialTransformer[Type, TValidatedWrapper] = PartialTransformer(transformer.transform(_))
+  given partialTransformer: PartialTransformer[Type, TValidatedWrapper] =
+    PartialTransformer.fromEitherStrings(unvalidated => companionOfValidated.makeAsStrings(unvalidated))
 
-  given Validatable[Type] = Validatable.fromPartialTransformer(partialTransformer)
-}
-object UnvalidatedNewtypeOf {
+  given validator: Validator[Type, TValidationError] = companionOfValidated.validator
 
-  /** @tparam TUnvalidatedWrapper
-    *   the type that wraps around [[TUnderlying]] without any validations.
-    * @tparam TValidatedWrapper
-    *   the type that wraps around [[TUnderlying]] and performs validations.
-    * @tparam TUnderlying
-    *   the type that is wrapped around by [[TUnvalidatedWrapper]] and [[TValidatedWrapper]].
-    */
-  type WithType[TUnvalidatedWrapper, TValidatedWrapper <: Newtype.WithUnderlying[TUnderlying], TUnderlying] =
-    UnvalidatedNewtypeOf[TUnderlying, TValidatedWrapper] { type Type = TUnvalidatedWrapper }
-
-  extension [TUnvalidatedWrapper, TValidatedWrapperCompanion <: Newtype.WithUnderlying[TUnderlying], TUnderlying](
-    value: TUnvalidatedWrapper
-  )(using
-    newType: WithType[TUnvalidatedWrapper, TValidatedWrapperCompanion, TUnderlying],
-    validatedCompanion: Newtype.WithType[TUnderlying, newType.TValidatedWrapper],
-  ) {
-    def unwrap: TUnderlying = newType.unwrap(value)
+  extension (unvalidated: Type) {
+    def unwrap: TUnderlying = unvalidated
 
     /** Validates the value and returns the wrapped value if successful.
       *
       * Returns [[String]] on failure because [[yantl.Newtype.make]] returns an [[Either]] of [[String]].
       */
-    def validate: Either[String, newType.TValidatedWrapper] =
-      newType.transformer.transform(unwrap).asEither.left.map(_.errors.head.message.asString)
+    def validate: Either[NonEmptyVector[TValidationError], TValidatedWrapper] =
+      self.companionOfValidated.make(unvalidated).left.map(NonEmptyVector.fromVectorUnsafe)
 
     /** Validates the value and returns the wrapped value if successful. */
-    def validateAsOption: Option[newType.TValidatedWrapper] =
-      newType.transformer.transform(unwrap).asOption
+    def validateAsOption: Option[TValidatedWrapper] =
+      self.companionOfValidated.make(unvalidated).toOption
 
     /** Returns the companion object of the unvalidated newtype. */
-    def companionOf: WithType[TUnvalidatedWrapper, TValidatedWrapperCompanion, TUnderlying] = newType
+    def companionOf: UnvalidatedNewtypeOf.WithType[Type, TValidationError, TValidatedWrapperCompanion, TUnderlying] =
+      this
 
     /** Returns the companion object of the validated newtype. */
-    def companionOfValidated: yantl.Newtype.WithType[TUnderlying, newType.TValidatedWrapper] = validatedCompanion
+    def companionOfValidated: TValidatedWrapperCompanion = self.companionOfValidated
   }
+}
+object UnvalidatedNewtypeOf {
+
+  /** @tparam TUnvalidatedWrapper
+    *   the type that wraps around [[TUnderlying]] without any validations.
+    * @tparam TValidationError
+    *   the type of the validation error.
+    * @tparam TValidatedWrapper
+    *   the type that wraps around [[TUnderlying]] and performs validations.
+    * @tparam TUnderlying
+    *   the type that is wrapped around by [[TUnvalidatedWrapper]] and [[TValidatedWrapper]].
+    */
+  type WithType[
+    TUnvalidatedWrapper,
+    TValidationError,
+    TValidatedWrapper <: Newtype.WithUnderlyingAndError[TUnderlying, TValidationError],
+    TUnderlying,
+  ] =
+    UnvalidatedNewtypeOf[TUnderlying, TValidationError, TValidatedWrapper] { type Type = TUnvalidatedWrapper }
 }

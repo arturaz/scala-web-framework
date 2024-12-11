@@ -20,6 +20,11 @@ extension (obj: PartialTransformer.type) {
   def fromEitherString[From, To](f: From => Either[String, To]): PartialTransformer[From, To] =
     PartialTransformer(from => partial.Result.fromEitherString(f(from)))
 
+  def fromEitherStrings[From, To](f: From => Either[Seq[String], To]): PartialTransformer[From, To] =
+    PartialTransformer(from =>
+      partial.Result.fromEither(f(from).left.map(seq => partial.Result.Errors.fromStrings(seq.head, seq.tail*)))
+    )
+
   /** Creates a [[PartialTransformer]] from a Circe [[Decoder]]. */
   def fromJsonString[To](using decoder: Decoder[To]): PartialTransformer[String, To] =
     fromEitherString(from => io.circe.parser.parse(from).leftMap(_.show).flatMap(_.as[To].leftMap(_.show)))
@@ -27,4 +32,9 @@ extension (obj: PartialTransformer.type) {
   /** Creates a [[PartialTransformer]] from a Circe [[Decoder]]. */
   def fromJson[To](using decoder: Decoder[To]): PartialTransformer[Json, To] =
     fromEitherString(from => from.as[To].leftMap(_.show))
+}
+
+extension (obj: partial.Result.type) {
+  def fromMaybeErrorStrings[Value](value: => Value, errors: String*): partial.Result[Value] =
+    if (errors.isEmpty) partial.Result.Value(value) else partial.Result.Errors.fromStrings(errors.head, errors.tail*)
 }

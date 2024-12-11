@@ -1,12 +1,13 @@
 package framework.data
 
 import cats.syntax.all.*
-import framework.utils.Validatable
 import io.scalaland.chimney.PartialTransformer
 import io.scalaland.chimney.partial.Result
 import io.scalaland.chimney.partial.Result.Errors
 import org.scalajs.dom.File
 import scala.scalajs.js.typedarray.ArrayBuffer
+import yantl.Validator
+import yantl.ValidatorRule
 
 /** A validated file in the form. */
 case class FormFile(file: File) {
@@ -31,11 +32,11 @@ case class FormFile(file: File) {
   * @param validation
   *   extra validation logic
   */
-case class FormFileHolder(
+case class FormFileHolder[+TError](
   maybeFile: Option[File],
   maxLengthInBytes: Option[Long],
   acceptableExtensions: Option[NonEmptySet[String]] = None,
-  validation: File => Option[Errors],
+  validation: Validator[File, TError] = Validator.noOp,
 ) {
   def withFile(file: Option[File]) = copy(maybeFile = file)
 
@@ -43,37 +44,59 @@ case class FormFileHolder(
   def acceptAttributeValue: String = acceptableExtensions.fold("*")(exts => exts.toSortedSet.mkString(", "))
 }
 object FormFileHolder {
-  def empty(
+  type TError = FileTooLarge | InvalidFileExtension
+
+  def empty[TError](
     maxLengthInBytes: Option[Long] = None,
     acceptableExtensions: Option[NonEmptySet[String]] = None,
-    validation: File => Option[Errors] = _ => None,
-  ): FormFileHolder = apply(None, maxLengthInBytes, acceptableExtensions, validation)
+    validation: Validator[File, TError] = Validator.noOp,
+  ): FormFileHolder[TError] = apply(None, maxLengthInBytes, acceptableExtensions, validation)
 
-  given partialTransformer: PartialTransformer[FormFileHolder, FormFile] = PartialTransformer { holder =>
-    holder.maybeFile match {
-      case None => Result.fromErrorString("No file selected.")
-      case Some(file) =>
-        val lengthErrors = holder.maxLengthInBytes.flatMap { maxLength =>
-          Option.when(file.size > maxLength)(
-            Errors.fromString(s"File is too large, maximum size is ${maxLength.toBytesPretty}.")
-          )
-        }
-
-        val extensionErrors = holder.acceptableExtensions.flatMap { acceptableExtensions =>
-          val hasValidExtension = acceptableExtensions.exists(ext => file.name.endsWith(ext))
-
-          Option.unless(hasValidExtension)(
-            Errors.fromString(show"Only ${acceptableExtensions.toSortedSet.mkString(", ")} files are allowed.")
-          )
-        }
-
-        val validationErrors = holder.validation(file)
-
-        val errors = lengthErrors |+| extensionErrors |+| validationErrors
-
-        Result.fromEither(errors.toLeft(FormFile(file)))
-    }
+  case class FileTooLarge(maxLengthInBytes: Long, file: File) derives CanEqual {
+    override def toString(): String =
+      s"Cannot be larger than $maxLengthInBytes ${ValidatorRule.English.bytes(maxLengthInBytes)}, " +
+        s"was ${file.size} ${ValidatorRule.English.bytes(file.size.toLong)}."
   }
 
-  given Validatable[FormFileHolder] = Validatable.fromPartialTransformer(partialTransformer)
+  case class InvalidFileExtension(acceptableExtensions: NonEmptySet[String], file: File) derives CanEqual {
+    override def toString(): String =
+      s"File must have one of the following extensions: ${acceptableExtensions.toSortedSet.mkString(", ")}, " +
+        s"however the file name was '${file.name}'."
+  }
+
+  given partialTransformer[TError]: PartialTransformer[FormFileHolder[TError], FormFile] = PartialTransformer {
+    holder =>
+      holder.maybeFile match {
+        case None => Result.fromErrorString("No file selected.")
+        case Some(file) =>
+          Result.fromMaybeErrorStrings(FormFile(file), validator.validate(holder).map(_.toString)*)
+      }
+  }
+
+  val validatorRuleMaxLengthInBytes: ValidatorRule[FormFileHolder[?], FileTooLarge] =
+    ValidatorRule.of { holder =>
+      for {
+        file <- holder.maybeFile
+        maxLength <- holder.maxLengthInBytes
+        error <- Option.when(file.size > maxLength)(FileTooLarge(maxLength, file))
+      } yield error
+    }
+
+  val validatorRuleAcceptableExtensions: ValidatorRule[FormFileHolder[?], InvalidFileExtension] =
+    ValidatorRule.of { holder =>
+      for {
+        file <- holder.maybeFile
+        acceptableExtensions <- holder.acceptableExtensions
+        error <- Option.when(!acceptableExtensions.exists(ext => file.name.endsWith(ext)))(
+          InvalidFileExtension(acceptableExtensions, file)
+        )
+      } yield error
+    }
+
+  given validator[TError]: Validator[FormFileHolder[TError], TError | FileTooLarge | InvalidFileExtension] =
+    Validator.of { holder =>
+      holder.maybeFile.flatMap(holder.validation.validate).toVector ++
+        validatorRuleMaxLengthInBytes.validate(holder).toVector ++
+        validatorRuleAcceptableExtensions.validate(holder).toVector
+    }
 }

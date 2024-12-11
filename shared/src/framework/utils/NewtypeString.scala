@@ -16,7 +16,7 @@ trait NewtypeString extends Newtype.Of[String] {
   given Order[Type] = Order.fromOrdering
 
   given tapirCodec: TapirCodec[String, Type, TapirCodecFormat.TextPlain] =
-    TapirCodec.string.mapEither(make(_).left.map(errorsToString))(unwrap)
+    TapirCodec.string.mapEither(makeAsString)(unwrap)
 
   given Transformer[Type, String] = unwrap
 }

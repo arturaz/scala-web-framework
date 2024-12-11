@@ -9,7 +9,7 @@ import com.raquo.laminar.modifiers.Modifier
 import com.raquo.laminar.nodes.{ChildNode, ReactiveElement, ReactiveHtmlElement}
 import framework.data.FrameworkDate
 import framework.sourcecode.DefinedAt
-import framework.utils.{UpdatableSignal, Validatable}
+import framework.utils.UpdatableSignal
 import io.scalaland.chimney.Transformer
 import org.scalajs.dom.{
   html,
@@ -34,6 +34,8 @@ import framework.data.MaybeSeq
 import framework.data.AutocompleteData
 import framework.utils.FetchRequest
 import io.scalaland.chimney.PartialTransformer
+import yantl.Validator
+import framework.localization.LocalizedAppliedValidator
 
 /** Various helpers for form inputs. */
 object FormInput {
@@ -41,9 +43,9 @@ object FormInput {
     label.toLowerCase.replaceAll("\\W", "_")
   }
 
-  def validationMessages[A](
+  def validationMessages[A, TError](
     signal: Signal[A],
-    validation: Option[Validatable[A]],
+    validation: Option[LocalizedAppliedValidator[A]],
   ): Modifier[ReactiveElement[Element]] = {
     validation match {
       case None             => emptyNode
@@ -51,12 +53,19 @@ object FormInput {
     }
   }
 
-  def validationMessages[A](signal: Signal[A])(using validation: Validatable[A]): DynamicInserter = {
-    val errorMsgs = signal.map(validation.validate(_).map { errors =>
-      val classNameMod = cls := "text-error min-h-4"
-      if (errors.errors.sizeIs == 1) p(classNameMod, errors.errors.head.message.asString)
-      else ul(classNameMod, errors.errors.iterator.map { err => li(err.message.asString) }.toArray)
-    })
+  def validationMessages[A, TError](
+    signal: Signal[A]
+  )(using validator: LocalizedAppliedValidator[A]): DynamicInserter = {
+    val errorMsgs = signal.flatMapSwitch(validator.errorMessages).map { errors =>
+      if (errors.isEmpty) None
+      else
+        Some {
+          val classNameMod = cls := "text-error min-h-4"
+
+          if (errors.sizeIs == 1) p(classNameMod, errors.head)
+          else ul(classNameMod, errors.iterator.map { err => li(err) }.toArray)
+        }
+    }
     child.maybe <-- errorMsgs
   }
 
@@ -78,7 +87,7 @@ object FormInput {
   def stringWithLabel[A](
     label: String,
     signal: ZoomedOwnerlessSignal[A],
-    validation: Option[Validatable[A]],
+    validation: Option[LocalizedAppliedValidator[A]],
     altLabel: Seq[Modifier[Span]] = Seq.empty,
     beforeLabel: Seq[Modifier[Div]] = Seq.empty,
     beforeInput: Seq[Modifier[Div]] = Seq.empty,
@@ -111,7 +120,7 @@ object FormInput {
 
   def stringWithLabelLocalized[A](
     signal: ZoomedOwnerlessSignal[A],
-    validation: Option[Validatable[A]],
+    validation: Option[LocalizedAppliedValidator[A]],
     altLabel: Seq[Modifier[Span]] = Seq.empty,
     beforeLabel: Seq[Modifier[Div]] = Seq.empty,
     beforeInput: Seq[Modifier[Div]] = Seq.empty,
@@ -171,7 +180,7 @@ object FormInput {
   def textAreaWithLabel[A](
     label: Seq[Modifier[Span]],
     signal: ZoomedOwnerlessSignal[A],
-    validation: Option[Validatable[A]],
+    validation: Option[LocalizedAppliedValidator[A]],
     beforeLabel: Seq[Modifier[Div]] = Seq.empty,
     altLabel: Seq[Modifier[Span]] = Seq.empty,
     beforeBottomLabel: Seq[Modifier[Div]] = Seq.empty,
@@ -204,7 +213,7 @@ object FormInput {
 
   def textAreaWithLabelLocalized[A](
     signal: ZoomedOwnerlessSignal[A],
-    validation: Option[Validatable[A]],
+    validation: Option[LocalizedAppliedValidator[A]],
     beforeLabel: Seq[Modifier[Div]] = Seq.empty,
     altLabel: Seq[Modifier[Span]] = Seq.empty,
     textAreaModifiers: Seq[Modifier[ReactiveHtmlElement[HTMLTextAreaElement]]] = Seq.empty,
@@ -249,7 +258,7 @@ object FormInput {
 
   def textLikeWithLabelLocalized[A](
     signal: ZoomedOwnerlessSignal[A],
-    validation: Option[Validatable[A]],
+    validation: Option[LocalizedAppliedValidator[A]],
     beforeLabel: Seq[Modifier[ReactiveHtmlElement[html.Element]]] = Seq.empty,
     altLabel: Seq[Modifier[Span]] = Seq.empty,
     inputModifiers: Seq[HtmlMod] = Seq.empty,
@@ -278,7 +287,7 @@ object FormInput {
 
   def date[A](
     signal: ZoomedOwnerlessSignal[A],
-    validation: Option[Validatable[A]],
+    validation: Option[LocalizedAppliedValidator[A]],
     modInput: L.Input => L.Modifier[L.Label] = input => input,
   )(using
     toDate: Transformer[A, FrameworkDate],
@@ -303,7 +312,7 @@ object FormInput {
   def dateWithLabel[A](
     label: String,
     signal: ZoomedOwnerlessSignal[A],
-    validation: Option[Validatable[A]],
+    validation: Option[LocalizedAppliedValidator[A]],
     beforeLabel: Seq[Modifier[Div]] = Seq.empty,
     altLabel: Seq[Modifier[Span]] = Seq.empty,
     modInput: L.Input => L.Modifier[L.Element] = input => input,
@@ -357,7 +366,7 @@ object FormInput {
 
   def dateWithLabelLocalized[A](
     signal: ZoomedOwnerlessSignal[A],
-    validation: Option[Validatable[A]],
+    validation: Option[LocalizedAppliedValidator[A]],
     beforeLabel: Seq[Modifier[Div]] = Seq.empty,
     altLabel: Seq[Modifier[Span]] = Seq.empty,
     modInput: L.Input => L.Modifier[L.Element] = input => input,
@@ -505,10 +514,10 @@ object FormInput {
     )
   }
 
-  def file(
-    holder: UpdatableSignal[FormFileHolder],
+  def file[TError](
+    holder: UpdatableSignal[FormFileHolder[TError]],
     inputModifiers: Seq[Modifier[Input]] = Seq.empty,
-  ) = {
+  )(using LocalizedAppliedValidator[FormFileHolder[TError]]) = {
     div(
       input(
         `type` := "file",
@@ -521,12 +530,12 @@ object FormInput {
     )
   }
 
-  def fileWithLabel(
+  def fileWithLabel[TError](
     label: String,
-    holder: UpdatableSignal[FormFileHolder],
+    holder: UpdatableSignal[FormFileHolder[TError]],
     altLabel: String = "",
     inputModifiers: Seq[Modifier[Input]] = Seq.empty,
-  ) = {
+  )(using LocalizedAppliedValidator[FormFileHolder[TError]]) = {
     div(
       cls := "mb-4",
       div(

@@ -2,11 +2,11 @@ package framework.components
 
 import framework.utils.UpdatableSignal
 import L.*
-import framework.utils.Validatable
 import alleycats.Empty
 import io.scalaland.chimney.Transformer
 import framework.data.FrameworkDate
 import framework.localization.LocalizationSupport
+import framework.localization.LocalizedAppliedValidator
 
 /** A text-based field. */
 def TextLikeFieldInput[A: Empty: CanEqual1](
@@ -16,7 +16,7 @@ def TextLikeFieldInput[A: Empty: CanEqual1](
 )(using l18n: LocalizationSupport)(using
   PerformValidations,
   l18n.LocaleEnum,
-  Validatable[A],
+  LocalizedAppliedValidator[A],
   Transformer[A, String],
   Transformer[String, A],
   TextKindFor[A],
@@ -37,7 +37,7 @@ def TextLikeOptionalFieldInput[A: Empty: CanEqual1](
 )(using l18n: LocalizationSupport)(using
   PerformValidations,
   l18n.LocaleEnum,
-  Validatable[A],
+  LocalizedAppliedValidator[A],
   Transformer[A, String],
   Transformer[String, A],
   TextKindFor[A],
@@ -57,7 +57,7 @@ def DateLikeOptionalFieldInput[A: Empty: CanEqual1](
 )(using l18n: LocalizationSupport)(using
   PerformValidations,
   l18n.LocaleEnum,
-  Validatable[A],
+  LocalizedAppliedValidator[A],
   Transformer[A, FrameworkDate],
   Transformer[FrameworkDate, A],
   l18n.LocalizedTextOf[A],
