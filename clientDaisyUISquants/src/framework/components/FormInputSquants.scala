@@ -2,12 +2,13 @@ package framework.components
 
 import com.raquo.laminar.nodes.ReactiveHtmlElement
 import framework.localization.LocalizationSupport
-import framework.utils.{UpdatableSignal, Validatable, ZoomedOwnerlessSignal}
+import framework.utils.{UpdatableSignal, ZoomedOwnerlessSignal}
 import io.scalaland.chimney.Transformer
 import squants.market.Currency
 import squants.mass.{Mass, MassUnit}
 
 import L.*
+import framework.localization.LocalizedAppliedValidator
 
 object FormInputSquants {
   def money[A](
@@ -29,7 +30,7 @@ object FormInputSquants {
   def moneyWithLabelLocalized[A](
     currencySignal: Signal[Option[Currency]],
     signal: ZoomedOwnerlessSignal[A],
-    validation: Option[Validatable[A]],
+    validation: Option[LocalizedAppliedValidator[A]],
     altLabel: Seq[Modifier[Span]] = Seq.empty,
     inputModifiers: Modifier[Input]*
   )(using l18n: LocalizationSupport)(using

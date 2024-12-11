@@ -2,11 +2,12 @@ package framework.components
 
 import alleycats.Empty
 import framework.localization.LocalizationSupport
-import framework.utils.{UpdatableSignal, Validatable}
+import framework.utils.UpdatableSignal
 import io.scalaland.chimney.Transformer
 import squants.market.Currency
 
 import L.*
+import framework.localization.LocalizedAppliedValidator
 
 /** A money-based optional field. */
 def MoneyLikeOptionalFieldInput[A: Empty: CanEqual1](
@@ -16,7 +17,7 @@ def MoneyLikeOptionalFieldInput[A: Empty: CanEqual1](
 )(using l18n: LocalizationSupport)(using
   PerformValidations,
   l18n.LocaleEnum,
-  Validatable[A],
+  LocalizedAppliedValidator[A],
   Transformer[A, BigDecimal],
   Transformer[BigDecimal, A],
   l18n.LocalizedTextOf[A],
