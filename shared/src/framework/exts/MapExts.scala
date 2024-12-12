@@ -33,4 +33,18 @@ extension [K, V](map: Map[K, V]) {
   /** Converts the [[Map]] to a [[NonEmptyMap]] if possible. */
   def toNonEmptyMap(using Ordering[K]): Option[NonEmptyMap[K, V]] =
     NonEmptyMap.fromMap(collection.immutable.SortedMap.from(map))
+
+  /** Returns the first time the function returns [[Some]]. */
+  def collectFirstSome[R](f: (K, V) => Option[R]): Option[R] = {
+    val iter = map.iterator
+    while (iter.hasNext) {
+      val (k, v) = iter.next()
+      f(k, v) match {
+        case None        =>
+        case Some(value) => return Some(value)
+      }
+    }
+
+    None
+  }
 }
