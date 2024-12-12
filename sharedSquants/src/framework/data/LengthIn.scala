@@ -19,7 +19,7 @@ import cats.syntax.all.*
   *
   * @param length
   */
-case class LengthIn[U <: LengthUnit](length: Length) {
+case class LengthIn[U <: LengthUnit] private (length: Length) {
 
   /** Converts the length to the specified unit. */
   def in(unit: U): Length =
@@ -40,12 +40,18 @@ case class LengthIn[U <: LengthUnit](length: Length) {
   override def toString(): String = length.toString
 }
 object LengthIn {
+  given [U <: LengthUnit]: Conversion[LengthIn[U], Length] = _.length
+  given [U <: LengthUnit](using ValueOf[U]): Conversion[Length, LengthIn[U]] = apply
+
   given schema[U <: LengthUnit](using unit: ValueOf[U]): Schema[LengthIn[U]] =
     Schema(SNumber()).description(s"Length in ${unit.value} (${unit.value.symbol})")
 
   given circeCodec[U <: LengthUnit](using unit: ValueOf[U]): CirceCodec[LengthIn[U]] =
     CirceCodec.fromUsing[Double].imap(v => apply(unit.value(v)))(_.valueIn(unit.value))
 
-  def apply[U <: LengthUnit](value: Double)(using unit: ValueOf[U]): LengthIn[U] =
+  def fromValue[U <: LengthUnit](value: Double)(using unit: ValueOf[U]): LengthIn[U] =
     apply(unit.value(value))
+
+  def fromLength[U <: LengthUnit](length: Length)(using unit: ValueOf[U]): LengthIn[U] =
+    apply(length.in(unit.value))
 }

@@ -5,7 +5,7 @@ import framework.data.LengthIn
 import squants.space.LengthUnit
 
 given [U <: LengthUnit](using unit: ValueOf[U]): Get[LengthIn[U]] =
-  Get[Double].map(v => LengthIn(unit.value(v)))
+  Get[Double].map(LengthIn.fromValue)
 
 given [U <: LengthUnit](using unit: ValueOf[U]): Put[LengthIn[U]] =
   Put[Double].contramap(_.valueIn(unit.value))
