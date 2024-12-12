@@ -212,9 +212,14 @@ object DumpData {
             case Types.OTHER if v.isInstanceOf[PGpoint] =>
               val point = v.asInstanceOf[PGpoint]
               show"POINT(${point.x}, ${point.y})"
-            case Types.OTHER if Option(v).exists(_.toString.startsWith("0101")) => // Handle PostGIS geography type
+            case Types.OTHER
+                if Option(v)
+                  .map(_.toString)
+                  .exists(v => v.startsWith("0101") || v.startsWith("SRID=")) => // Handle PostGIS geography type
               s"'${v.toString}'::geography"
-            case _ => v.toString
+            case _ =>
+              // println(s"Unknown type: sqlType=$sqlType, runtimeClass=${v.getClass.getCanonicalName}")
+              v.toString
           }
       }
 
