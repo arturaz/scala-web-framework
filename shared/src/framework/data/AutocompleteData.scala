@@ -13,6 +13,16 @@ enum AutocompleteData[+A] {
 
   /** The user has selected an item from the options. */
   case SelectedItem(item: A)
+
+  def asInput: Option[String] = this match {
+    case RawInput(input)    => Some(input)
+    case SelectedItem(item) => None
+  }
+
+  def asItem: Option[A] = this match {
+    case SelectedItem(item) => Some(item)
+    case RawInput(_)        => None
+  }
 }
 object AutocompleteData {
   given empty[A]: Empty[AutocompleteData[A]] = Empty(RawInput(""))
