@@ -929,7 +929,7 @@ object FormInput {
       case AutocompleteData.SelectedItem(item) => itemToString(item)
     }((_, str) => AutocompleteData.RawInput(str))
 
-    val doRequestStream = backing.signal.changes
+    val doRequestStream = backing.signal.changes.distinct
       .debounce(debounceDurationMs)
       .collectOpt {
         case AutocompleteData.RawInput(input) => Some(input)
@@ -984,6 +984,26 @@ object FormInput {
   def rangeWithSteps[A](
     signal: ZoomedOwnerlessSignal[A],
     range: Range.Inclusive,
+    step: Int = 1,
+  )(using toInt: Transformer[A, Int], fromInt: PartialTransformer[Int, A]) = {
+    input(
+      `type` := "range",
+      cls := "range",
+      minAttr := range.start.show,
+      maxAttr := range.end.show,
+      controlled(
+        value <-- signal.signal.map(toInt.transform(_).show),
+        onInput.mapToValue.map(_.toInt).map(fromInt.transform(_).asOption).collect { case Some(v) =>
+          v
+        } --> signal.setTo,
+      ),
+      stepAttr := step.show,
+    )
+  }
+
+  def rangeWithStepsIndicator[A](
+    signal: ZoomedOwnerlessSignal[A],
+    range: Range.Inclusive,
     inputModifiers: Seq[Modifier[Input]] = Seq.empty,
     step: Int = 1,
   )(using toInt: Transformer[A, Int], fromInt: PartialTransformer[Int, A]) = {
@@ -991,20 +1011,7 @@ object FormInput {
     val noOfIndicators = fullRange / step
 
     div(
-      input(
-        `type` := "range",
-        minAttr := range.start.show,
-        maxAttr := range.end.show,
-        controlled(
-          value <-- signal.signal.map(toInt.transform(_).show),
-          onInput.mapToValue.map(_.toInt).map(fromInt.transform(_).asOption).collect { case Some(v) =>
-            v
-          } --> signal.setTo,
-        ),
-        cls := "range",
-        stepAttr := step.show,
-        inputModifiers,
-      ),
+      rangeWithSteps(signal, range, step).amend(inputModifiers),
       div(cls := "flex w-full justify-between px-2 text-xs", (1 to noOfIndicators).map(_ => span("|"))),
     )
   }
