@@ -62,6 +62,9 @@ object FetchRequest {
 
     /** Starts the request with the given input. */
     def basicStartWith(input: Input): Signal[LoadingStatus[FetchRequest.WithInput[Input, Result]]]
+
+    /** Starts the request with the given input, not returning anything. */
+    def startWithNoReturn(input: Input): Unit = { val _ = basicStartWith(input) }
   }
 
   case class WithInput[+Input, +A](input: Input, fetchedData: A) {
