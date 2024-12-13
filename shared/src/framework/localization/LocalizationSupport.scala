@@ -1,6 +1,5 @@
 package framework.localization
 
-import magnolia1.*
 import cats.syntax.functor.*
 import cats.{Functor, Show}
 import yantl.Validator
@@ -118,7 +117,7 @@ trait LocalizationSupport {
     def text(value: A): LocaleEnum ?=> String
   }
   object LocalizedTextOfValue
-      extends AutoDerivation[LocalizedTextOfValue]
+      extends /* wisteria.SumDerivation[LocalizedTextOfValue] */ magnolia1.AutoDerivation[LocalizedTextOfValue]
       with LocalizedTextOfValueLowPriorityImplicits {
 
     /** These have to be extension methods due to limitations of `union-derivation`. */
@@ -136,7 +135,7 @@ trait LocalizationSupport {
       override def text(value: A): LocaleEnum ?=> String = (locale: LocaleEnum) ?=> localize(value, locale)
     }
 
-    override def join[T](caseClass: CaseClass[LocalizedTextOfValue, T]): LocalizedTextOfValue[T] =
+    override def join[T](caseClass: magnolia1.CaseClass[LocalizedTextOfValue, T]): LocalizedTextOfValue[T] =
       of { (value, locale) =>
         caseClass.parameters.iterator
           .map { param =>
@@ -147,12 +146,17 @@ trait LocalizationSupport {
           .mkString("\n")
       }
 
-    override def split[T](sealedTrait: SealedTrait[LocalizedTextOfValue, T]): LocalizedTextOfValue[T] =
+    override def split[T](sealedTrait: magnolia1.SealedTrait[LocalizedTextOfValue, T]): LocalizedTextOfValue[T] =
       of { (value, locale) =>
         sealedTrait.choose(value) { sub =>
           sub.typeclass.text(sub.cast(value))(using locale)
         }
       }
+
+    // override inline def split[DerivationType: SumOf]: LocalizedTextOfValue[DerivationType] =
+    //   of { (value, localeEnum) =>
+    //     variant(value) { [A <: DerivationType] => value => context.text(value)(using localeEnum) }
+    //   }
   }
   trait LocalizedTextOfValueLowPriorityImplicits {
     inline given derivedUnion[A](using IsUnion[A]): LocalizedTextOfValue[A] =

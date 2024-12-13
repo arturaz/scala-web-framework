@@ -115,6 +115,7 @@ trait FrameworkScalaModule extends BaseScalaModule with ScalafmtModule /*  with 
       // From https://github.com/iRevive/union-derivation?tab=readme-ov-file#getting-started:
       // important for the detection of an abstract method in a trait
       "-Yretain-trees", 
+      // "-experimental"
     )
   }
 
