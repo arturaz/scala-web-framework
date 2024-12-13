@@ -22,6 +22,9 @@ import com.raquo.laminar.modifiers.Modifier
   *   the [[Storage]] that will be used to persist the value
   * @param defaultValueVar
   *   a [[Var]] that contains the default value
+  * @note
+  *   Since Airstream 17.2.0 [[com.raquo.airstream.web.WebStorageVar]] exist, so you might want to use that. Or we might
+  *   migrate to use them instead of [[Storage]] directly.
   */
 class PersistedVar[A](
   val underlying: Var[A],

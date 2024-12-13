@@ -126,7 +126,7 @@ object shared extends Module {
       // https://mvnrepository.com/artifact/com.raquo/waypoint
       //
       // Defined in shared part because sometimes you want to access client-side routes from the server.
-      ivy"com.raquo::waypoint::9.0.0-M1",
+      ivy"com.raquo::waypoint::9.0.0",
 
       // Pretty printing library
       // https://github.com/com-lihaoyi/PPrint
@@ -141,7 +141,7 @@ object shared extends Module {
       // Derivation of case classes and sealed traits/enums
       // https://github.com/propensive/wisteria
       // https://mvnrepository.com/artifact/dev.soundness/wisteria-core
-      ivy"dev.soundness:wisteria-core:0.22.0",
+      ivy"dev.soundness:wisteria-core:0.23.0",
 
       // Derivation of union types
       // https://github.com/irevive/union-derivation
@@ -198,12 +198,12 @@ object client extends FrameworkScalaJSModule {
     // Reactive UI library for Scala.js
     // https://laminar.dev
     // https://mvnrepository.com/artifact/com.raquo/laminar
-    ivy"com.raquo::laminar::17.1.0",
+    ivy"com.raquo::laminar::17.2.0",
 
     // FRP library for Scala.js
     // https://github.com/raquo/Airstream/
     // https://mvnrepository.com/artifact/com.raquo/airstream
-    ivy"com.raquo::airstream::17.2.0-M1",
+    ivy"com.raquo::airstream::17.2.0",
 
     // An implementation of ExecutionContext in terms of JavaScript's `setImmediate`.
     // https://github.com/scala-js/scala-js-macrotask-executor
