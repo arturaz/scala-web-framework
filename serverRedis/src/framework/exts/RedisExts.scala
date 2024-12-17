@@ -5,10 +5,13 @@ import cats.effect.Concurrent
 import cats.syntax.all.*
 import dev.profunktor.redis4cats.data.{RedisChannel, RedisPatternEvent}
 import dev.profunktor.redis4cats.pubsub.PubSubCommands
+import dev.profunktor.redis4cats.streams.Streaming
+import dev.profunktor.redis4cats.streams.data.{MessageId, XAddMessage}
 import framework.redis.*
 import fs2.Stream
 import io.scalaland.chimney.partial.Result
 import io.scalaland.chimney.{PartialTransformer, Transformer}
+import framework.data.MapEncoder
 
 extension [F[_], K, V](pubSub: PubSubCommands[[X] =>> Stream[F, X], K, V]) {
 
@@ -85,4 +88,29 @@ extension [F[_], K, V](pubSub: PubSubCommands[[X] =>> Stream[F, X], K, V]) {
       }
       .collect { case Right(value) => value }
   }
+}
+
+extension [F[_], K, V](streaming: Streaming[[X] =>> Stream[F, X], K, V]) {
+
+  /** Appends a single message to the stream. */
+  def appendOnce(message: XAddMessage[K, V])(using Concurrent[F]): F[MessageId] = {
+    val pipe = streaming.append
+    Stream.emit(message).through(pipe).compile.onlyOrError
+  }
+}
+
+extension (add: XAddMessage.type) {
+  def typed[Body, K, V](
+    key: K,
+    body: Body,
+    approxMaxlen: Option[Long] = None,
+    minId: Option[String] = None,
+  )(using encoder: MapEncoder[K, V, Body]) =
+    add(key = key, body = encoder.encode(body), approxMaxlen = approxMaxlen, minId = minId)
+}
+
+extension (id: MessageId) {
+  def toTyped: Either[String, MessageIdTyped] = MessageIdTyped.from(id)
+
+  def toTypedOrThrow: MessageIdTyped = toTyped.getOrThrow
 }

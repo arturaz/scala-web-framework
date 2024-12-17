@@ -43,7 +43,8 @@ object Versions {
   final val Circe = "0.14.9"
   final val Monocle = "3.2.0"
   final val Ciris = "3.7.0"
-  final val Redis4Cats = "1.7.1"
+  // Build with fix for https://github.com/profunktor/redis4cats/pull/950
+  final val Redis4Cats = "1.7.0-87-a715a61-SNAPSHOT"
   final val Squants = "1.8.3"
 }
 
