@@ -27,6 +27,9 @@ case class FrameworkDateTime private (ldt: LocalDateTime) extends AnyVal {
   /** Returns the timestamp in "yyyy-MM-dd HH:mm:ss" format. */
   def asString: String = s"${ldt.format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")).show} UTC"
 
+  def +(duration: FiniteDuration): FrameworkDateTime =
+    FrameworkDateTime(ldt.plusNanos(duration.toNanos))
+
   def -(other: FrameworkDateTime): FiniteDuration =
     ChronoUnit.MILLIS.between(other.toZonedDateTime, toZonedDateTime).millis
 }
@@ -36,6 +39,9 @@ object FrameworkDateTime {
 
   def apply(ldt: LocalDateTime): FrameworkDateTime =
     new FrameworkDateTime(ldt.truncatedTo(ChronoUnit.MILLIS))
+
+  def fromUnixMillis(millis: Long): FrameworkDateTime =
+    apply(LocalDateTime.ofInstant(Instant.ofEpochMilli(millis), utc))
 
   def now(): FrameworkDateTime = apply(LocalDateTime.now(utc))
 
@@ -70,4 +76,6 @@ object FrameworkDateTime {
 
     given Ordering[Type] = Ordering.by(unwrap)
   }
+
+  given asInstant: Conversion[FrameworkDateTime, Instant] = _.toInstant
 }

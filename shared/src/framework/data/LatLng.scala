@@ -30,4 +30,8 @@ type Longitude = Longitude.Type
 case class LatLng(latitude: Latitude, longitude: Longitude)
 object LatLng {
   def zero: LatLng = apply(Latitude.zero, Longitude.zero)
+
+  trait Newtype extends Newtype.WithoutValidationOf[LatLng] { self =>
+    val zero: Type = self.apply(LatLng.zero)
+  }
 }
