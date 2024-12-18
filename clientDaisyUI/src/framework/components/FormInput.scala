@@ -187,9 +187,11 @@ object FormInput {
     bottomLabel: Seq[Modifier[Span]] = Seq.empty,
     bottomAltLabel: Seq[Modifier[Span]] = Seq.empty,
     textAreaModifiers: Seq[Modifier[ReactiveHtmlElement[HTMLTextAreaElement]]] = Seq.empty,
+    labelClassName: Seq[String] = Seq("mb-4"),
   )(using Transformer[A, String], Transformer[String, A]): ReactiveHtmlElement[HTMLLabelElement] = {
     L.label(
-      className := "form-control mb-4",
+      cls := "form-control",
+      cls := labelClassName,
       when(beforeLabel.nonEmpty || label.nonEmpty || altLabel.nonEmpty)(
         div(
           cls := "label",
