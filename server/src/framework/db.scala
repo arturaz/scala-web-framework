@@ -64,6 +64,14 @@ object db {
     /** Runs the given [[SyncIO]] as a part of the transaction. */
     def from[A](io: SyncIO[A]): ConnectionIO[A] =
       doobie.FC.delay(io.unsafeRunSync())
+
+    /** Raises an error if the condition is true. */
+    def raiseWhen(condition: Boolean)(error: => Throwable): ConnectionIO[Unit] =
+      if (condition) doobie.FC.raiseError(error) else unit
+
+    /** Raises an error if the condition is false. */
+    def raiseUnless(condition: Boolean)(error: => Throwable): ConnectionIO[Unit] =
+      if (condition) unit else doobie.FC.raiseError(error)
   }
 
   extension [A](io: SyncIO[A]) {
