@@ -75,6 +75,8 @@ object FrameworkDateTime {
     given Show[Type] = unwrap(_).asString
 
     given Ordering[Type] = Ordering.by(unwrap)
+
+    given Conversion[Type, FrameworkDateTime] = unwrap
   }
 
   given asInstant: Conversion[FrameworkDateTime, Instant] = _.toInstant
