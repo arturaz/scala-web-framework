@@ -134,6 +134,14 @@ trait UnvalidatedNewtypeOf[
     def validateAsOption: Option[TValidatedWrapper] =
       self.companionOfValidated.make(unvalidated).toOption
 
+    /** Checks if the value is valid. */
+    def isValid: Boolean =
+      self.companionOfValidated.make(unvalidated).isRight
+
+    /** Checks if the value is invalid. */
+    def isInvalid: Boolean =
+      self.companionOfValidated.make(unvalidated).isLeft
+
     /** Returns the companion object of the unvalidated newtype. */
     def companionOf: UnvalidatedNewtypeOf.WithType[Type, TValidationError, TValidatedWrapperCompanion, TUnderlying] =
       this
