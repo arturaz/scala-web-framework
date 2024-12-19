@@ -286,12 +286,13 @@ trait AuthPlatformForClientAndServerSideAuth {
   )(pageData: MaybeSignal[PageData])(using
     deps: AppPageForAuthenticatedDependencies
   ): PageRenderResult = {
-    val dataSignal = pageData.deunionizeSignal
-    val pageSignal = dataSignal.map(pageDataToAppPage)
+    val dataSignal = pageData.deunionizeSignal.distinct
+    val pageSignal = dataSignal.map(pageDataToAppPage).distinct
 
     deps.authSignal
       // Store the page to redirect to after authentication into the state.
       .combineWithFn(pageSignal)((state, page) => state.withRedirectToAfterAuthentication(page))
+      .distinct
       .splitByClientAuthState(
         whenLoading = (_, _) => deps.pageLoadingIndicator.pageRenderResult,
         whenAuthenticatedInClientSide = (_, _) => deps.pageLoadingIndicator.pageRenderResult,
