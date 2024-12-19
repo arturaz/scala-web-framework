@@ -5,6 +5,8 @@ import framework.components.*
 import framework.data.SendSignal
 import framework.sourcecode.DefinedAt
 import framework.utils.{ModificationRequestTracker, NetworkOrAuthError}
+import com.raquo.laminar.nodes.ReactiveHtmlElement
+import org.scalajs.dom.HTMLButtonElement
 
 trait ButtonErrorHandler[-AuthError] extends (NetworkOrAuthError[AuthError] => Unit)
 
@@ -44,26 +46,35 @@ extension (tracker: ModificationRequestTracker) {
     formIsSubmitting: Signal[Boolean],
     cssClasses: SendCancelButtonCssClasses = SendCancelButtonCssClasses.default,
     wideButton: Boolean = true,
+    buttonModifiers: Seq[L.Modifier[ReactiveHtmlElement[HTMLButtonElement]]] = Seq.empty,
   )(
     callback: A => Unit
-  )(using errorHandler: ButtonErrorHandler[AuthError], definedAt: DefinedAt, contents: SendButtonContents): L.Div = {
+  )(using
+    errorHandler: ButtonErrorHandler[AuthError],
+    definedAt: DefinedAt,
+    contents: SendButtonContents,
+  ): SendButtonResult = {
     import L.*
 
-    Tooltip(
-      sendSignal.canSendSignal.map(canSend => Option.unless(canSend)(summon[SendButtonContents].formHasInvalidFields))
-    )(
-      button(
-        `type` := "button",
-        cls := "btn",
-        when(wideButton)(cls := "btn-wide"),
-        cls <-- cssClasses.cssClasses(sendSignal.canSendSignal, tracker),
-        disabled <-- tracker.disabledSignal(sendSignal, formIsSubmitting),
-        children <-- tracker.submitting.flatMapSwitch {
-          case true  => contents.buttonContents.whenSubmitting.deunionizeSignal
-          case false => contents.buttonContents.whenNotSubmitting.deunionizeSignal
-        },
-        handleOnClick(sendSignal, tracker.canCancel, callback),
-      )
+    val btn = button(
+      `type` := "button",
+      cls := "btn",
+      when(wideButton)(cls := "btn-wide"),
+      cls <-- cssClasses.cssClasses(sendSignal.canSendSignal, tracker),
+      disabled <-- tracker.disabledSignal(sendSignal, formIsSubmitting),
+      children <-- tracker.submitting.flatMapSwitch {
+        case true  => contents.buttonContents.whenSubmitting.deunionizeSignal
+        case false => contents.buttonContents.whenNotSubmitting.deunionizeSignal
+      },
+      handleOnClick(sendSignal, tracker.canCancel, callback),
+      buttonModifiers,
+    )
+
+    SendButtonResult(
+      Tooltip(
+        sendSignal.canSendSignal.map(canSend => Option.unless(canSend)(summon[SendButtonContents].formHasInvalidFields))
+      )(btn),
+      btn,
     )
   }
 
@@ -127,4 +138,9 @@ extension (tracker: ModificationRequestTracker) {
         }
     }
   }
+}
+
+case class SendButtonResult(outer: L.Div, inner: L.Button)
+object SendButtonResult {
+  given Conversion[SendButtonResult, L.Div] = _.outer
 }
