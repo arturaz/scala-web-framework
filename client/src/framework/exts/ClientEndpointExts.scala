@@ -3,18 +3,17 @@ package framework.exts
 import com.raquo.airstream.custom.CustomSource
 import framework.data.AppBaseUri
 import framework.prelude.sttpClientInterpreter
+import framework.sourcecode.DefinedAt
+import framework.tapir.capabilities.ServerSentEvents
 import framework.utils.{NetworkError, NetworkOrAuthError}
-import org.scalajs.dom.{EventSource, EventSourceInit, MessageEvent}
+import org.scalajs.dom.{ErrorEvent, EventSource, EventSourceInit, MessageEvent}
 import sttp.client3.Request
+import sttp.model.Uri
 import sttp.tapir.{DecodeResult, Endpoint, PublicEndpoint}
 
 import scala.annotation.targetName
-import scala.scalajs.js.JSON
-import framework.tapir.capabilities.ServerSentEvents
-import sttp.model.Uri
-import org.scalajs.dom.ErrorEvent
-import framework.sourcecode.DefinedAt
 import scala.concurrent.duration.*
+import scala.scalajs.js.JSON
 
 extension [Input, Error, Output, Requirements](e: PublicEndpoint[Input, Error, Output, Requirements]) {
   def toReq(params: Input)(using baseUri: AppBaseUri): Request[Either[Error, Output], Requirements] = {
@@ -57,37 +56,128 @@ extension [SecurityInput, Input, Output, AuthError, Requirements](
   }
 }
 
-trait OnSSEStreamError {
+trait OnSSEStreamError[SecurityInput, Input, -Message] { self =>
 
-  /** Specifies the backoff function between retries. */
-  def waitFor(index: Int): FiniteDuration
+  /** When the stream receives a message, it is passed to this method.
+    *
+    * The rationale is that advanced stream handlers may want to do something with the message, for example a chat
+    * client may only want to request unread messages from the server.
+    */
+  def onMessage(msg: Message): Unit
 
-  def onError(uri: Uri, error: ErrorEvent, waitingFor: FiniteDuration)(using DefinedAt): Unit
+  /** Called when an error occurs.
+    *
+    * @param uri
+    *   the [[Uri]] for which the failure occurred
+    * @param connectionIndex
+    *   the index of the connection that failed. Starts from 0.
+    * @return
+    *   the new [[SecurityInput]] and [[Input]] to use for the next request, and the time to wait before trying again.
+    */
+  def onError(
+    uri: Uri,
+    error: ErrorEvent,
+    connectionIndex: Int,
+    securityInput: SecurityInput,
+    input: Input,
+  )(using
+    DefinedAt
+  ): (SecurityInput, Input, FiniteDuration)
+
+  /** Allows you to transform the type of the message. */
+  def withOnMessage[Message1](f: Message1 => Unit): OnSSEStreamError[SecurityInput, Input, Message1] = new {
+    override def onMessage(msg: Message1): Unit = f(msg)
+
+    override def onError(
+      uri: Uri,
+      error: ErrorEvent,
+      connectionIndex: Int,
+      securityInput: SecurityInput,
+      input: Input,
+    )(using DefinedAt): (SecurityInput, Input, FiniteDuration) = self.onError(
+      uri = uri,
+      error = error,
+      connectionIndex = connectionIndex,
+      securityInput = securityInput,
+      input = input,
+    )
+  }
 }
 object OnSSEStreamError {
-  def apply(
-    waitFor: Int => FiniteDuration,
-    onError: (Uri, ErrorEvent, FiniteDuration) => DefinedAt ?=> Unit,
-  )(using DefinedAt): OnSSEStreamError = {
-    val _wait = waitFor
-    val handler = onError
+  def default[SecurityInput, Input, Message]: OnSSEStreamError[SecurityInput, Input, Message] = new {
+    override def onMessage(msg: Message): Unit = {}
+
+    override def onError(
+      uri: Uri,
+      error: ErrorEvent,
+      connectionIndex: Int,
+      securityInput: SecurityInput,
+      input: Input,
+    )(using DefinedAt): (SecurityInput, Input, FiniteDuration) = defaultOnError(
+      uri = uri,
+      error = error,
+      connectionIndex = connectionIndex,
+      securityInput = securityInput,
+      input = input,
+    )
+  }
+
+  /** Stores the last message received and uses that when the error occurs. */
+  def keepingLastMessage[SecurityInput, Input, Message, StoredContents](
+    onMessage: (Option[StoredContents], Message) => Option[StoredContents],
+    onError: (Uri, ErrorEvent, Int, SecurityInput, Input, Option[StoredContents]) => DefinedAt ?=> (
+      SecurityInput,
+      Input,
+      FiniteDuration,
+    ),
+    clearContentsOnError: Boolean = false,
+  ): OnSSEStreamError[SecurityInput, Input, Message] = {
+    val _onMessage = onMessage
+    val _onError = onError
 
     new {
-      override def waitFor(index: Int): FiniteDuration = _wait(index)
+      private var _contents: Option[StoredContents] = None
 
-      override def onError(uri: Uri, error: ErrorEvent, waitingFor: FiniteDuration)(using definedAt: DefinedAt): Unit =
-        handler(uri, error, waitingFor)(using definedAt)
+      override def onMessage(msg: Message): Unit = {
+        _contents = _onMessage(_contents, msg)
+      }
+
+      override def onError(
+        uri: Uri,
+        error: ErrorEvent,
+        connectionIndex: Int,
+        securityInput: SecurityInput,
+        input: Input,
+      )(using DefinedAt): (SecurityInput, Input, FiniteDuration) = {
+        val result = _onError(uri, error, connectionIndex, securityInput, input, _contents)
+        if (clearContentsOnError) _contents = None
+        result
+      }
     }
   }
 
-  val default: OnSSEStreamError = apply(
-    index => index.seconds,
-    (uri, error, waitingFor) =>
-      logError(
-        s"Error in SSE stream (url=$uri), waiting for ${waitingFor.prettyFractional} before reconnecting: ",
-        error,
-      ),
-  )
+  def defaultWaitFor(index: Int): FiniteDuration =
+    index.seconds
+
+  def defaultOnError[SecurityInput, Input](
+    uri: Uri,
+    error: ErrorEvent,
+    connectionIndex: Int,
+    securityInput: SecurityInput,
+    input: Input,
+  )(using definedAt: DefinedAt): (SecurityInput, Input, FiniteDuration) = {
+    val waitingFor = defaultWaitFor(connectionIndex)
+
+    logError(
+      s"Error in SSE stream (url=$uri, index=$connectionIndex), waiting for ${waitingFor.prettyFractional} " +
+        s"before reconnecting.",
+      s"securityInput=$securityInput",
+      s"input=$input",
+      error,
+    )
+
+    (securityInput, input, waitingFor)
+  }
 }
 
 // TODO: make this actually fail to compile if the endpoint doesn't have ServerSentEvents capability
@@ -106,29 +196,38 @@ extension [SecurityInput, Input, Output, AuthError, Requirements <: ServerSentEv
   def toSSEStreamRaw(
     securityParams: SecurityInput,
     params: Input,
-    reconnectOnError: Option[OnSSEStreamError] = Some(OnSSEStreamError.default),
-    withCredentials: js.UndefOr[Boolean] = js.undefined,
+    reconnectOnError: Option[OnSSEStreamError[SecurityInput, Input, MessageEvent]] = Some(
+      OnSSEStreamError.default[SecurityInput, Input, MessageEvent]
+    ),
+    withCredentials: Boolean = false,
   )(using baseUri: AppBaseUri, definedAt: DefinedAt): EventStream[MessageEvent] = {
-    val uri = e.toReq(securityParams, params).uri
     val options = js.Dynamic.literal(withCredentials = withCredentials).asInstanceOf[EventSourceInit]
 
-    def create = new EventSource(uri.toString, options)
+    def create(uri: Uri) = new EventSource(uri.toString, options)
+    def createUri(securityParams: SecurityInput, params: Input) = e.toReq(securityParams, params).uri
 
     reconnectOnError match {
       case None =>
-        EventStream.fromDomEventSource(create)
+        val uri = createUri(securityParams, params)
+        EventStream.fromDomEventSource(create(uri))
 
       case Some(onError) =>
-        def stream(index: Int): EventStream[MessageEvent] =
-          EventStream.fromDomEventSourceEither(create).flatMapSwitch {
-            case Right(value) => EventStream.fromValue(value)
-            case Left(error) =>
-              val wait = onError.waitFor(index)
-              onError.onError(uri, error, wait)
-              EventStream.delay(wait.toMillis.toInt).flatMapSwitch(_ => stream(index + 1))
-          }
+        def stream(securityParams: SecurityInput, params: Input, index: Int): EventStream[MessageEvent] = {
+          val uri = createUri(securityParams, params)
 
-        stream(0)
+          EventStream.fromDomEventSourceEither(create(uri)).flatMapSwitch {
+            case Right(value) =>
+              onError.onMessage(value)
+              EventStream.fromValue(value)
+
+            case Left(error) =>
+              val (newSecurityParams, newParams, wait) =
+                onError.onError(uri, error, index, securityParams, params)(using definedAt)
+              EventStream.delay(wait.toMillis.toInt).flatMapSwitch(_ => stream(newSecurityParams, newParams, index + 1))
+          }
+        }
+
+        stream(securityParams, params, 0)
     }
   }
 
@@ -142,30 +241,69 @@ extension [SecurityInput, Input, Output, AuthError, Requirements <: ServerSentEv
   def toSSEStream(
     securityParams: SecurityInput,
     params: Input,
-    reconnectOnError: Option[OnSSEStreamError] = Some(OnSSEStreamError.default),
-    withCredentials: js.UndefOr[Boolean] = js.undefined,
+    decode: String => Either[String, Output],
+    reconnectOnError: Option[OnSSEStreamError[SecurityInput, Input, (MessageEvent, Output)]] = Some(
+      OnSSEStreamError.default[SecurityInput, Input, (MessageEvent, Output)]
+    ),
+    withCredentials: Boolean = false,
   )(using
     baseUri: AppBaseUri,
-    codec: TapirCodec[String, Output, ?],
     definedAt: DefinedAt,
   ): EventStream[(MessageEvent, Output)] = {
-    val evtStream = toSSEStreamRaw(securityParams, params, reconnectOnError, withCredentials)
+    val modifiedReconnectOnError = reconnectOnError.map { original =>
+      original.withOnMessage[MessageEvent] { _ =>
+        // Do nothing here, we are going to invoke the handler on the original after decoding the message.
+      }
+    }
+
+    val evtStream = toSSEStreamRaw(securityParams, params, modifiedReconnectOnError, withCredentials)
     evtStream.map { evt =>
       val either = for {
         dataStr <- evt.data match {
           case str: String => Right(str)
           case other       => Left(s"Event data is not a string: $other")
         }
-        output <- codec.decode(dataStr) match {
-          case DecodeResult.Value(output)    => Right(output)
-          case failure: DecodeResult.Failure => Left(s"Failed to decode event data '$dataStr': $failure")
-        }
+        output <- decode(dataStr).left.map(err => s"Failed to decode event data '$dataStr': $err")
       } yield (evt, output)
 
       either match {
-        case Left(err)    => throw new Exception(err)
-        case Right(value) => value
+        case Left(err) => throw new Exception(err)
+        case Right(value) =>
+          reconnectOnError match {
+            case None          =>
+            case Some(handler) => handler.onMessage(value)
+          }
+
+          value
       }
     }
+  }
+
+  /** Turns the endpoint into a server-sent event stream, decoding the messages as JSON.
+    *
+    * Decoding failures will throw an exception.
+    *
+    * @param withCredentials
+    *   A boolean value, defaulting to false, indicating if CORS should be set to include credentials.
+    */
+  def toSSEStreamJson(
+    securityParams: SecurityInput,
+    params: Input,
+    reconnectOnError: Option[OnSSEStreamError[SecurityInput, Input, (MessageEvent, Output)]] = Some(
+      OnSSEStreamError.default[SecurityInput, Input, (MessageEvent, Output)]
+    ),
+    withCredentials: Boolean = false,
+  )(using
+    baseUri: AppBaseUri,
+    codec: CirceDecoder[Output],
+    definedAt: DefinedAt,
+  ): EventStream[(MessageEvent, Output)] = {
+    toSSEStream(
+      securityParams,
+      params,
+      codec.parseAndDecode(_).left.map(err => s"Failed to decode event data: $err"),
+      reconnectOnError,
+      withCredentials,
+    )
   }
 }
