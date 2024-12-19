@@ -103,8 +103,7 @@ object shared extends Module {
       // ULID generation,
       // https://github.com/jkugiya/ulid-scala
       // https://mvnrepository.com/artifact/com.github.jkugiya/ulid-scala
-      // https://github.com/jkugiya/ulid-scala/pull/13
-      ivy"com.github.jkugiya::ulid-scala::1.0.5-SNAPSHOT",
+      ivy"com.github.jkugiya::ulid-scala::1.0.5",
 
       // Endpoint description library
       // https://tapir.softwaremill.com/en/latest/
@@ -138,10 +137,10 @@ object shared extends Module {
       // https://mvnrepository.com/artifact/com.softwaremill.magnolia1_3/magnolia
       ivy"com.softwaremill.magnolia1_3::magnolia::1.3.8",
 
-      // Derivation of case classes and sealed traits/enums
-      // https://github.com/propensive/wisteria
-      // https://mvnrepository.com/artifact/dev.soundness/wisteria-core
-      ivy"dev.soundness:wisteria-core:0.23.0",
+      // // Derivation of case classes and sealed traits/enums
+      // // https://github.com/propensive/wisteria
+      // // https://mvnrepository.com/artifact/dev.soundness/wisteria-core
+      // ivy"dev.soundness:wisteria-core:0.23.0",
 
       // Derivation of union types
       // https://github.com/irevive/union-derivation
