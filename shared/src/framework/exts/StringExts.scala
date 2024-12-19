@@ -37,4 +37,8 @@ extension (s: String) {
   /** As [[indentLines]] but doesn't indent first line. (NFL = No First Line) */
   def indentLinesNFL(count: Int, indentString: String = " "): String =
     indentLines(count, indentString, indentFirstLine = false)
+
+  /** Parses and decodes a JSON string. */
+  def parseAndDecodeAsJson[A](using decoder: io.circe.Decoder[A]): Either[io.circe.Error, A] =
+    decoder.parseAndDecode(s)
 }
