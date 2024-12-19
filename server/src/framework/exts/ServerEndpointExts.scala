@@ -36,7 +36,7 @@ object OnSSEStreamFinalzer {
     override def onSucceeded(endpoint: Endpoint[?, ?, ?, ?, ?]): IO[Unit] = IO.unit
     override def onCancelled(endpoint: Endpoint[?, ?, ?, ?, ?]): IO[Unit] = IO.unit
     override def onError(endpoint: Endpoint[?, ?, ?, ?, ?], error: Throwable): IO[Unit] =
-      log.error(s"Error in SSE stream for endpoint $endpoint", error)
+      log.error(s"Error in SSE stream for endpoint ${endpoint.showDetail}", error)
   }
 }
 
