@@ -30,3 +30,5 @@ given renderableTextForLocalizedText(using l18n: LocalizationSupport)(using
   l18n.LocaleEnum
 ): RenderableText[l18n.LocalizedText] =
   RenderableText(_.text)
+
+given renderableTextForShow[A: Show]: RenderableText[A] = RenderableText(_.show)
