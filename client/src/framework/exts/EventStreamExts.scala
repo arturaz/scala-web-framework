@@ -14,6 +14,19 @@ extension (stream: EventStream[Boolean]) {
   def collectFalses: EventStream[Unit] = stream.collect { case false => () }
 }
 
+extension [A](stream: EventStream[A]) {
+
+  /** Combines `mapTo` and `toSignal`. */
+  def mapToSignal[B](compute: => B): Signal[B] =
+    stream.mapTo(compute).toSignal(compute)
+
+  /** Combines `map` and `toSignal`. `compute` is called with [[None]] initially and then with the `Some(value)` from
+    * the [[EventStream]].
+    */
+  def mapToSignal[B](compute: Option[A] => B): Signal[B] =
+    stream.map(a => compute(Some(a))).toSignal(compute(None))
+}
+
 enum EventStreamInstruction[+A] {
 
   /** Emit a given value. */
