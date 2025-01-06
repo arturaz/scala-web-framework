@@ -4,7 +4,6 @@ import cats.effect.IO
 import com.raquo.airstream.core.{Observer, Signal}
 import com.raquo.airstream.ownership.ManualOwner
 
-import scala.deriving.Mirror
 import alleycats.Empty
 
 extension [A](signal: Signal[A]) {
