@@ -21,6 +21,12 @@ import scala.concurrent.duration.*
 case class FrameworkDateTime private (ldt: LocalDateTime) extends AnyVal {
   def toDate: FrameworkDate = FrameworkDate(ldt.toLocalDate)
 
+  /** Returns true if the given [[FrameworkDateTime]] is on the same day. */
+  def isSameDay(at: FrameworkDateTime): Boolean = ldt.toLocalDate == at.ldt.toLocalDate
+
+  /** Returns true if the given [[FrameworkDate]] is on the same day. */
+  def isSameDay(at: FrameworkDate): Boolean = ldt.toLocalDate == at.ld
+
   def toZonedDateTime: ZonedDateTime = ldt.atZone(FrameworkDateTime.utc)
   def toInstant: Instant = toZonedDateTime.toInstant
 
