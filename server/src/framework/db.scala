@@ -27,8 +27,14 @@ import java.util.UUID
   *   This is an object not a package because you (yet) can't do `export framework.db.*` in your application code if
   *   this is a package.
   */
-object db {
-  export doobie.implicits.*
+object db
+// Same thing as in `doobie.implicits` object.
+    extends doobie.free.Instances
+    // Do not use auto derivation, it is more trouble than it is worth
+    // with doobie.generic.AutoDerivation
+    with doobie.util.meta.LegacyMeta
+    with doobie.syntax.AllSyntax {
+
   export doobie.postgres.implicits.*
   export doobie.postgres.circe.jsonb.implicits.*
   export doobie.{
@@ -207,5 +213,7 @@ object db {
   object WithLatLngBackedByPoint {
     given latLngGet: Get[LatLng] = Get[PGpoint].map(p => LatLng(Latitude.makeOrThrow(p.y), Longitude.makeOrThrow(p.x)))
     given latLngPut: Put[LatLng] = Put[PGpoint].contramap(p => new PGpoint(p.longitude.unwrap, p.latitude.unwrap))
+    given latLngRead: Read[LatLng] = Read.fromGet
+    given latLngWrite: Write[LatLng] = Write.fromPut
   }
 }

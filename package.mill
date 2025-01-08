@@ -319,7 +319,7 @@ object server extends FrameworkScalaModule {
     // Typesafe doobie (for SQL queries)
     // https://arturaz.github.io/doobie-typesafe
     // https://mvnrepository.com/artifact/io.github.arturaz/doobie-typesafe
-    ivy"io.github.arturaz::doobie-typesafe:0.3-c5b1b72-20240719T145942Z-SNAPSHOT",
+    ivy"io.github.arturaz::doobie-typesafe:0.3-501ac00-20250108T094710Z-SNAPSHOT",
 
     // Functional Configurations for Scala
     // https://cir.is/
@@ -375,6 +375,6 @@ object serverPostGIS extends FrameworkScalaModule {
     // PostGIS JDBC driver
     // https://postgis.net/docs/manual-1.5/ch05.html#id366626
     // https://mvnrepository.com/artifact/net.postgis/postgis-jdbc
-    ivy"net.postgis:postgis-jdbc:2.5.1"
+    ivy"net.postgis:postgis-jdbc:2024.1.0"
   )
 }

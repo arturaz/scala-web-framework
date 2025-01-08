@@ -2,7 +2,7 @@ package framework.utils.postgis
 
 import doobie.util.meta.Meta
 import framework.data.{LatLng, Latitude, Longitude}
-import org.postgis.Point
+import net.postgis.jdbc.geometry.Point
 
 /** Export from this to get [[Get]] and [[Put]] instances for [[LatLng]] which uses PostGIS [[Point]] internally. */
 object WithLatLngBackedByPostGIS {

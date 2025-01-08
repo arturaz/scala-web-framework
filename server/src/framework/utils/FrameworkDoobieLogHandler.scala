@@ -3,18 +3,35 @@ package framework.utils
 import doobie.util.log
 import doobie.util.log.{LogEvent, LogHandler}
 import scribe.Scribe
+import doobie.util.log.Parameters
 
 /** A log handler that renders SQL statements and their arguments in a human-readable format. */
 class FrameworkDoobieLogHandler[F[_]](scribe: Scribe[F]) extends LogHandler[F] {
 
-  def renderArgs(args: List[Any]): String = {
-    if (args.isEmpty) "(no arguments)"
-    else
-      "arguments:\n" + args.iterator.zipWithIndex
+  def renderArgs(params: Parameters): String = {
+    def argsToString(args: List[Any]) =
+      args.iterator.zipWithIndex
         .map { case (arg, idx) =>
-          s"  [$idx]: ${arg.toString.indentLinesNFL(4)}"
+          s"  [arg #$idx]: ${arg.toString.indentLinesNFL(4)}"
         }
         .mkString("\n")
+
+    def argsListToString(argsList: List[List[Any]]) =
+      argsList.iterator.zipWithIndex
+        .map { case (args, idx) =>
+          s"""|  [entry #$idx]:
+              |     ${argsToString(args).indentLinesNFL(4)}""".stripMargin
+        }
+        .mkString("\n")
+
+    params match {
+      case Parameters.NonBatch(args) =>
+        if (args.isEmpty) "(no arguments)" else show"arguments: ${argsToString(args)}"
+
+      case Parameters.Batch(argsListFn) =>
+        val argsList = argsListFn()
+        if (argsList.isEmpty) "(no arguments)" else show"batch arguments: ${argsListToString(argsList)}"
+    }
   }
 
   def renderSql(sql: String): String = {
