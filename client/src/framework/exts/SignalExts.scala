@@ -27,8 +27,11 @@ extension [A](signal: Signal[A]) {
   /** Maps the value of the [[Signal]] passing the [[A]] as context. */
   def mapImplicit[B](f: A ?=> B): Signal[B] = signal.map(a => f(using a))
 
-  // This one is a bit iffy, but hey, we have no better option... https://github.com/raquo/Airstream/issues/124
-  def toEventStream: EventStream[A] = new StreamFromSignal[A](parent = signal, changesOnly = false)
+  // This one is a bit iffy, but hey, we have no better option...
+  // https://github.com/raquo/Airstream/issues/124
+  // https://github.com/raquo/Airstream/issues/132
+  // https://discordapp.com/channels/1020225759610163220/1020225760075718669/1327296294959448229
+  def toEventStream: EventStream[A] = EventStream.merge(EventStream.unit().sample(signal), signal.changes)
 }
 
 extension [A](signal: Signal[Option[A]]) {
