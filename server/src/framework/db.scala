@@ -57,6 +57,8 @@ object db
     TableDefinition,
     TableName,
     Transactor,
+    TypedFragment,
+    TypedMultiFragment,
     Update,
     Update0,
     WithSQLDefinition,
