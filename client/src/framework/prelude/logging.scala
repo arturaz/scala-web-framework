@@ -1,6 +1,7 @@
 package framework.prelude
 
 import framework.sourcecode.DefinedAt
+import alleycats.Empty
 
 /** The name of the application used for logging. */
 opaque type JSAppName = String
@@ -45,3 +46,18 @@ def logAt(level: LogLevel, msg: Any)(using definedAt: DefinedAt, appName: JSAppN
   }
 
 enum LogLevel derives CanEqual { case Debug, Info, Warning, Error }
+
+extension [L, R](either: Either[L, R]) {
+
+  /** Gets the right value or logs at the specified level and returns the empty value. */
+  def getOrLogAndEmpty(
+    level: LogLevel
+  )(using definedAt: DefinedAt, empty: Empty[R], appName: JSAppName = JSAppName("app")): R = {
+    either match {
+      case Right(value) => value
+      case Left(error) =>
+        logAt(level, error)
+        empty.empty
+    }
+  }
+}
