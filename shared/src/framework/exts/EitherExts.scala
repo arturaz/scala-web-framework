@@ -2,6 +2,7 @@ package framework.exts
 
 import cats.Show
 import cats.syntax.show.*
+import alleycats.Empty
 
 extension [A](self: Either[Nothing, A]) {
 
@@ -12,11 +13,17 @@ extension [A](self: Either[Nothing, A]) {
   }
 }
 
-extension [A, B](e: Either[A, B]) {
+implicit class EitherExts[A, B](private val e: Either[A, B]) extends AnyVal {
 
   /** Returns the value in the [[Right]] case or throws an exception in the [[Left]] case. */
   inline def getOrThrow: B = e match {
     case Left(value)  => throw new IllegalStateException(s"Expected Right, got Left($value)")
+    case Right(value) => value
+  }
+
+  /** Returns the value in the [[Right]] case or the [[Empty]] value in the [[Left]] case. */
+  def getOrEmpty(using empty: Empty[B]): B = e match {
+    case Left(_)      => empty.empty
     case Right(value) => value
   }
 
