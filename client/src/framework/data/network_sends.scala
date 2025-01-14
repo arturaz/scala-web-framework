@@ -2,6 +2,7 @@ package framework.data
 
 import framework.utils.NetworkOrAuthError
 import scala.annotation.targetName
+import cats.Functor
 
 /** A type alias for the network request that can fail with a network or authentication error. */
 type SendRequestIO[AuthError, Response] = EitherT[IO, NetworkOrAuthError[AuthError], Response]
@@ -15,6 +16,12 @@ type SendRequestIO[AuthError, Response] = EitherT[IO, NetworkOrAuthError[AuthErr
   */
 case class SendSignal[AuthError, Response](signal: Signal[Option[SyncIO[Option[SendRequestIO[AuthError, Response]]]]]) {
   lazy val canSendSignal: Signal[Boolean] = signal.map(_.isDefined)
+
+  def map[Response2](f: Response => Response2): SendSignal[AuthError, Response2] =
+    SendSignal(signal.mapSome(_.map(_.map(_.map(f)))))
+
+  def semiflatMap[Response2](f: Response => IO[Response2]): SendSignal[AuthError, Response2] =
+    SendSignal(signal.mapSome(_.map(_.map(_.semiflatMap(f)))))
 }
 object SendSignal {
 
@@ -59,4 +66,9 @@ object SendSignal {
     apply(Signal.fromValue(Some(SyncIO {
       if (window.confirm(question)) Some(send) else None
     })))
+
+  given functor[AuthError]: Functor[[Response] =>> SendSignal[AuthError, Response]] with {
+    override def map[A, B](fa: SendSignal[AuthError, A])(f: A => B): SendSignal[AuthError, B] =
+      fa.map(f)
+  }
 }
