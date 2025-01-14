@@ -4,6 +4,7 @@ import alleycats.Empty
 import framework.exts.*
 import framework.prelude.*
 import io.scalaland.chimney.{PartialTransformer, Transformer}
+import scala.reflect.ClassTag
 
 /** Data for an autocompletable field. */
 enum AutocompleteData[+A] {
@@ -35,15 +36,23 @@ object AutocompleteData {
   }
 
   given transformerToOptionOfA[A]: Transformer[AutocompleteData[A], Option[A]] = {
-    case RawInput(input)    => None
+    case RawInput(_)        => None
     case SelectedItem(item) => Some(item)
   }
 
-  given partialTransformerToA[A]: PartialTransformer[AutocompleteData[A], A] = PartialTransformer.fromEitherString {
-    case SelectedItem(item) => Right(item)
-    case v: RawInput[_]     => Left(s"Can't extract value from $v")
-  }
+  given partialTransformerToA[A](using ct: ClassTag[A]): PartialTransformer[AutocompleteData[A], A] =
+    PartialTransformer.fromEitherString {
+      case SelectedItem(item) => Right(item)
+      case v: RawInput[_]     => Left(s"Can't extract value from $v to make a '${ct.runtimeClass.getName}'")
+    }
 
-  given partialTransformerToB[A, B](using aToB: PartialTransformer[A, B]): PartialTransformer[AutocompleteData[A], B] =
+  given transformerToOptionOfB[A: ClassTag, B](using
+    aToB: Transformer[A, B]
+  ): Transformer[AutocompleteData[A], Option[B]] =
+    transformerToOptionOfA[A].andThen((opt: Option[A]) => opt.map(aToB.transform))
+
+  given partialTransformerToB[A: ClassTag, B](using
+    aToB: PartialTransformer[A, B]
+  ): PartialTransformer[AutocompleteData[A], B] =
     partialTransformerToA[A].andThen(aToB)
 }
