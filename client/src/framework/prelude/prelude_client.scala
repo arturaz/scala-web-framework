@@ -18,6 +18,7 @@ import sttp.client3.FetchOptions
 
 import org.scalajs.dom.RequestCredentials
 import sttp.capabilities.fs2.Fs2Streams
+import scala.util.chaining.*
 
 given executionContext: ExecutionContext = scala.scalajs.concurrent.JSExecutionContext.Implicits.queue
 given ioRuntime: IORuntime = IORuntime.global
@@ -56,6 +57,9 @@ object js {
 
   type Dynamic = scalajs.js.Dynamic
   val Dynamic = scalajs.js.Dynamic
+
+  /** Creates an empty JavaScript object typed as `A`. */
+  def obj[A <: js.Object](setup: A => Unit): A = js.Dynamic.literal().asInstanceOf[A].tap(setup)
 
   type UndefOr[A] = scalajs.js.UndefOr[A]
 
