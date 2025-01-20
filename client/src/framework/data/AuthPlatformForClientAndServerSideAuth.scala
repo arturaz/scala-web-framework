@@ -147,6 +147,16 @@ trait AuthPlatformForClientAndServerSideAuth {
       case v: NotAuthenticated                                          => Some(v)
     }
 
+    def asNotAuthenticated: Option[NotAuthenticated] = this match {
+      case _: Loading | _: Authenticated | _: AuthenticatedInClientSide |
+          _: AuthenticatedInClientSideButNotServerSide =>
+        None
+      case v: NotAuthenticated => Some(v)
+    }
+
+    def asClientSideAuthFailure: Option[TClientSideAuthFailedData] =
+      asNotAuthenticated.flatMap(_.failure)
+
     /** Whether we have fully finished authenticating. */
     def asAuthenticated: Option[Authenticated] = this match {
       case _: Loading | _: NotAuthenticated | _: AuthenticatedInClientSide |
