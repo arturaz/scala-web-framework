@@ -140,20 +140,27 @@ trait FrameworkScalaJSViteModule extends FrameworkScalaJSModule {
   def clientDirName: String
 
   override def fastLinkJS = T {
-    copyGeneratedJS(super.fastLinkJS(), T.workspace, T.log)
+    copyGeneratedJS(super.fastLinkJS(), T.workspace, T.log, cleanBeforeCopy = false)
   }
 
   override def fullLinkJS = T {
-    copyGeneratedJS(super.fullLinkJS(), T.workspace, T.log)
+    copyGeneratedJS(super.fullLinkJS(), T.workspace, T.log, cleanBeforeCopy = true)
   }
 
   private def copyGeneratedJS(
     report: Report,
     workspace: Path,
     log: Logger,
+    cleanBeforeCopy: Boolean
   ): Report = {
     val src = report.dest.path
     val dstDir = workspace / clientDirName / "vite" / "scala_output"
+
+    if (cleanBeforeCopy) {
+      log.info(s"Cleaning '$dstDir'")
+      os.remove.all(dstDir)
+      os.makeDir(dstDir)
+    }
 
     copyBySwap(src, dstDir, log)
 
