@@ -25,6 +25,13 @@ extension [A](opt: Option[A]) {
       case None        => ""
       case Some(value) => value.show
     }
+
+  /** A version of [[Option.fold]] that has slightly different type inference semantics. */
+  inline def fold2[B](inline ifNone: B, inline ifSome: A => B): B =
+    opt match {
+      case None        => ifNone
+      case Some(value) => ifSome(value)
+    }
 }
 
 implicit class OptionOps[A](private val opt: Option[A]) extends AnyVal {
