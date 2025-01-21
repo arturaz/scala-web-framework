@@ -104,6 +104,8 @@ trait OnSSEStreamError[SecurityInput, Input, -Message] { self =>
   }
 }
 object OnSSEStreamError {
+
+  /** Just reconnects on error to the same endpoint. */
   def default[SecurityInput, Input, Message]: OnSSEStreamError[SecurityInput, Input, Message] = new {
     override def onMessage(msg: Message): Unit = {}
 
@@ -122,7 +124,7 @@ object OnSSEStreamError {
     )
   }
 
-  /** Stores the last message received and uses that when the error occurs. */
+  /** Stores the last message received and uses that to determine the next request when the error occurs. */
   def keepingLastMessage[SecurityInput, Input, Message, StoredContents](
     onMessage: (Option[StoredContents], Message) => Option[StoredContents],
     onError: (Uri, ErrorEvent, Int, SecurityInput, Input, Option[StoredContents]) => DefinedAt ?=> (
