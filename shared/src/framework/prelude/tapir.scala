@@ -2,6 +2,7 @@ package framework.prelude
 
 import framework.utils.UnvalidatedNewtypeOf
 import yantl.Newtype
+import scala.collection.immutable.SortedSet
 
 export sttp.tapir.{Codec as TapirCodec, CodecFormat as TapirCodecFormat, Schema as TapirSchema}
 
@@ -18,3 +19,7 @@ given stringUnvalidatedNewTypeMapSchema[TKey, TValue](using
   valueSchema: Schema[TValue],
 ): Schema[Map[TKey, TValue]] =
   Schema.schemaForMap[TKey, TValue](newType.unwrap)
+
+given [A: Schema]: Schema[NonEmptyList[A]] = summon[Schema[List[A]]].map(NonEmptyList.fromList)(_.toList)
+given [A: Schema]: Schema[NonEmptyVector[A]] = summon[Schema[Vector[A]]].map(NonEmptyVector.fromVector)(_.toVector)
+given [A: Schema]: Schema[NonEmptySet[A]] = summon[Schema[SortedSet[A]]].map(NonEmptySet.fromSet)(_.toSortedSet)
