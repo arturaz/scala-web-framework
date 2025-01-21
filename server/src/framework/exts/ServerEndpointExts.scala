@@ -1,16 +1,19 @@
 package framework.exts
 
-import sttp.tapir.*
+import cats.Applicative
+import cats.effect.Temporal
+import cats.effect.kernel.Resource.ExitCase
+import framework.config.SSEKeepAliveConfig
+import framework.tapir.capabilities.ServerSentEvents
+import scribe.mdc.MDC
+import sttp.capabilities.fs2.Fs2Streams
+import sttp.model.sse.ServerSentEvent
+import sttp.tapir.{*, given}
 import sttp.tapir.server.*
 import sttp.tapir.server.http4s.*
-import sttp.model.sse.ServerSentEvent
-import sttp.capabilities.fs2.Fs2Streams
+
 import scala.annotation.targetName
-import sttp.tapir.given
-import framework.tapir.capabilities.ServerSentEvents
-import cats.effect.kernel.Resource.ExitCase
-import cats.Applicative
-import scribe.mdc.MDC
+import scala.concurrent.duration.FiniteDuration
 
 trait OnSSEStreamFinalzer[F[_]] {
   def applicative: Applicative[F]
@@ -46,31 +49,39 @@ extension [SECURITY_INPUT, INPUT, ERROR_OUTPUT, OUTPUT, R <: ServerSentEvents](
   e: Endpoint[SECURITY_INPUT, INPUT, ERROR_OUTPUT, OUTPUT, R]
 ) {
 
-  /** Turns the endpoint into a simple server-sent events endpoint. */
-  def toSSE[F[_]](using
+  /** Turns the endpoint into a simple server-sent events endpoint.
+    *
+    * @param keepAlive
+    *   a ``
+    */
+  def toSSE[F[_]: Temporal](keepAlive: Option[SSEKeepAliveConfig])(using
     codec: TapirCodec[String, OUTPUT, ?]
   )(using OnSSEStreamFinalzer[F]): Endpoint[SECURITY_INPUT, INPUT, ERROR_OUTPUT, Stream[F, OUTPUT], Fs2Streams[F]] = {
-    e.toSSE { output =>
+    e.toSSE(keepAlive) { output =>
       val encoded = codec.encode(output)
       ServerSentEvent(data = Some(encoded))
     }
   }
 
   /** Turns the endpoint into a simple server-sent events endpoint that serves JSON. */
-  def toSSEJson[F[_]](using
+  def toSSEJson[F[_]: Temporal](keepAlive: Option[SSEKeepAliveConfig])(using
     encoder: CirceEncoder[OUTPUT]
   )(using OnSSEStreamFinalzer[F]): Endpoint[SECURITY_INPUT, INPUT, ERROR_OUTPUT, Stream[F, OUTPUT], Fs2Streams[F]] = {
-    e.toSSE { output =>
+    e.toSSE(keepAlive) { output =>
       val encoded = encoder(output).noSpaces
       ServerSentEvent(data = Some(encoded))
     }
   }
 
   /** Turns the endpoint into a simple server-sent events endpoint. */
-  def toSSE[F[_]](
+  def toSSE[F[_]: Temporal](keepAlive: Option[SSEKeepAliveConfig])(
     mapper: OUTPUT => ServerSentEvent
   )(using OnSSEStreamFinalzer[F]): Endpoint[SECURITY_INPUT, INPUT, ERROR_OUTPUT, Stream[F, OUTPUT], Fs2Streams[F]] = {
-    e.toSSEStream(_.map(mapper))
+    e.toSSEStream { stream =>
+      val events = stream.map(mapper)
+      val keepAliveEvents = keepAlive.fold2(Stream.empty, _.asStream[F])
+      events.mergeHaltL(keepAliveEvents)
+    }
   }
 
   /** Turns the endpoint into a simple server-sent events endpoint. */
