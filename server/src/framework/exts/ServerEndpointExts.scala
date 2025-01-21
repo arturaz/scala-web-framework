@@ -15,7 +15,7 @@ import sttp.tapir.server.http4s.*
 import scala.annotation.targetName
 import scala.concurrent.duration.FiniteDuration
 
-trait OnSSEStreamFinalzer[F[_]] {
+trait OnSSEStreamFinalizer[F[_]] {
   def applicative: Applicative[F]
 
   /** The stream has succesfully finished. */
@@ -27,14 +27,14 @@ trait OnSSEStreamFinalzer[F[_]] {
   /** The stream has failed. */
   def onError(endpoint: Endpoint[?, ?, ?, ?, ?], error: Throwable): F[Unit]
 }
-object OnSSEStreamFinalzer {
+object OnSSEStreamFinalizer {
   given defaultForIO(using
     pkg: sourcecode.Pkg,
     fileName: sourcecode.FileName,
     name: sourcecode.Name,
     line: sourcecode.Line,
     mdc: MDC,
-  ): OnSSEStreamFinalzer[IO] = new {
+  ): OnSSEStreamFinalizer[IO] = new {
     override def applicative: Applicative[IO] = summon
     override def onSucceeded(endpoint: Endpoint[?, ?, ?, ?, ?]): IO[Unit] = IO.unit
     override def onCancelled(endpoint: Endpoint[?, ?, ?, ?, ?]): IO[Unit] = IO.unit
@@ -56,7 +56,7 @@ extension [SECURITY_INPUT, INPUT, ERROR_OUTPUT, OUTPUT, R <: ServerSentEvents](
     */
   def toSSE[F[_]: Temporal](keepAlive: Option[SSEKeepAliveConfig])(using
     codec: TapirCodec[String, OUTPUT, ?]
-  )(using OnSSEStreamFinalzer[F]): Endpoint[SECURITY_INPUT, INPUT, ERROR_OUTPUT, Stream[F, OUTPUT], Fs2Streams[F]] = {
+  )(using OnSSEStreamFinalizer[F]): Endpoint[SECURITY_INPUT, INPUT, ERROR_OUTPUT, Stream[F, OUTPUT], Fs2Streams[F]] = {
     e.toSSE(keepAlive) { output =>
       val encoded = codec.encode(output)
       ServerSentEvent(data = Some(encoded))
@@ -66,7 +66,7 @@ extension [SECURITY_INPUT, INPUT, ERROR_OUTPUT, OUTPUT, R <: ServerSentEvents](
   /** Turns the endpoint into a simple server-sent events endpoint that serves JSON. */
   def toSSEJson[F[_]: Temporal](keepAlive: Option[SSEKeepAliveConfig])(using
     encoder: CirceEncoder[OUTPUT]
-  )(using OnSSEStreamFinalzer[F]): Endpoint[SECURITY_INPUT, INPUT, ERROR_OUTPUT, Stream[F, OUTPUT], Fs2Streams[F]] = {
+  )(using OnSSEStreamFinalizer[F]): Endpoint[SECURITY_INPUT, INPUT, ERROR_OUTPUT, Stream[F, OUTPUT], Fs2Streams[F]] = {
     e.toSSE(keepAlive) { output =>
       val encoded = encoder(output).noSpaces
       ServerSentEvent(data = Some(encoded))
@@ -76,7 +76,7 @@ extension [SECURITY_INPUT, INPUT, ERROR_OUTPUT, OUTPUT, R <: ServerSentEvents](
   /** Turns the endpoint into a simple server-sent events endpoint. */
   def toSSE[F[_]: Temporal](keepAlive: Option[SSEKeepAliveConfig])(
     mapper: OUTPUT => ServerSentEvent
-  )(using OnSSEStreamFinalzer[F]): Endpoint[SECURITY_INPUT, INPUT, ERROR_OUTPUT, Stream[F, OUTPUT], Fs2Streams[F]] = {
+  )(using OnSSEStreamFinalizer[F]): Endpoint[SECURITY_INPUT, INPUT, ERROR_OUTPUT, Stream[F, OUTPUT], Fs2Streams[F]] = {
     e.toSSEStream { stream =>
       val events = stream.map(mapper)
       val keepAliveEvents = keepAlive.fold2(Stream.empty, _.asStream[F])
@@ -88,7 +88,7 @@ extension [SECURITY_INPUT, INPUT, ERROR_OUTPUT, OUTPUT, R <: ServerSentEvents](
   def toSSEStream[F[_]](
     pipe: fs2.Pipe[F, OUTPUT, ServerSentEvent]
   )(using
-    onStreamError: OnSSEStreamFinalzer[F]
+    onStreamError: OnSSEStreamFinalizer[F]
   ): Endpoint[SECURITY_INPUT, INPUT, ERROR_OUTPUT, Stream[F, OUTPUT], Fs2Streams[F]] = {
     val sseBody = serverSentEventsBody[F]
 
