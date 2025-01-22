@@ -5,7 +5,6 @@ import cats.effect.IO
 import com.raquo.airstream.core.{Observer, Signal}
 import com.raquo.airstream.misc.StreamFromSignal
 import com.raquo.airstream.ownership.ManualOwner
-import framework.data.ChangedValuesState
 
 extension [A](signal: Signal[A]) {
 
@@ -34,12 +33,8 @@ extension [A](signal: Signal[A]) {
   def toEventStream: EventStream[A] = EventStream.merge(EventStream.unit().sample(signal), signal.changes)
 
   /** Gives a window of the previous and the current value of the [[Signal]]. */
-  def changedValues: Signal[ChangedValuesState[A]] = {
-    signal
-      .scanLeft(ChangedValuesState.FirstValue(_)) {
-        case (ChangedValuesState.FirstValue(prev), a)      => ChangedValuesState.ChangedValue(prev, a)
-        case (ChangedValuesState.ChangedValue(_, prev), a) => ChangedValuesState.ChangedValue(prev, a)
-      }
+  def changedValues: Signal[(Option[A], A)] = {
+    signal.scanLeft(a => (Option.empty[A], a)) { case ((_, previous), current) => (Some(previous), current) }
   }
 }
 
