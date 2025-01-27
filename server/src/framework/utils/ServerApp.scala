@@ -16,6 +16,7 @@ import java.nio.file.{Files, Paths}
 import io.opentelemetry.instrumentation.runtimemetrics.java17.RuntimeMetrics
 import org.typelevel.otel4s.trace.Tracer
 import org.typelevel.otel4s.Attribute
+import org.typelevel.otel4s.instrumentation.ce.IORuntimeMetrics
 
 /** Boilerplate for a server application. */
 trait ServerApp extends IOApp {
@@ -60,11 +61,13 @@ trait ServerApp extends IOApp {
       _ <- applyLoggingDefaults(isProduction).to[IO].toResource
       serverName <- this.serverName.toResource
       serverVersion <- this.serverVersion.toResource
-      otel4s <- OtelJava.autoConfigured[IO]().flatTap(otel4s => registerRuntimeMetrics(otel4s.underlying))
+      otel4s <- OtelJava.autoConfigured[IO]()
       tracer <- otel4s.tracerProvider.tracer(serverName).withVersion(serverVersion).get.toResource
       given TracerProvider[IO] = otel4s.tracerProvider
       given MeterProvider[IO] = otel4s.meterProvider
       given Tracer[IO] = tracer
+      _ <- registerJavaRuntimeMetrics(otel4s.underlying)
+      _ <- registerCatsEffectMetrics
       result <- builtInCommands(cfg, args)
         .map(tracer.span("startup: built-in-commands").surround)
         .getOrElse(run(cfg, args))
@@ -75,9 +78,13 @@ trait ServerApp extends IOApp {
   }
 
   /** https://typelevel.org/otel4s/oteljava/metrics-jvm-runtime.html#java-17-and-newer */
-  def registerRuntimeMetrics(openTelemetry: JOpenTelemetry): Resource[IO, RuntimeMetrics] = {
+  def registerJavaRuntimeMetrics(openTelemetry: JOpenTelemetry): Resource[IO, RuntimeMetrics] = {
     Resource.fromAutoCloseable(IO(RuntimeMetrics.create(openTelemetry)))
   }
+
+  /** https://typelevel.org/otel4s/instrumentation/metrics-cats-effect-io-runtime.html#registering-metrics-collectors */
+  def registerCatsEffectMetrics(using MeterProvider[IO]): Resource[IO, Unit] =
+    IORuntimeMetrics.register[IO](runtime.metrics, IORuntimeMetrics.Config.default)
 
   /** Handles some built-in commands.
     *

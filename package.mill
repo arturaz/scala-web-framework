@@ -289,6 +289,10 @@ object server extends FrameworkScalaModule {
     // https://typelevel.org/otel4s/oteljava/metrics-jvm-runtime.html#java-17-and-newer
     // https://mvnrepository.com/artifact/io.opentelemetry.instrumentation/opentelemetry-runtime-telemetry-java17
     ivy"io.opentelemetry.instrumentation:opentelemetry-runtime-telemetry-java17:2.12.0-alpha",
+    // Cats Effect metrics
+    // https://typelevel.org/otel4s/instrumentation/metrics-cats-effect-io-runtime.html#getting-started
+    // https://mvnrepository.com/artifact/org.typelevel/otel4s-instrumentation-metrics
+    ivy"org.typelevel::otel4s-instrumentation-metrics:${Versions.Otel4s}",
     // Otel4s and Doobie integration
     // https://github.com/arturaz/otel4s-doobie
     // https://mvnrepository.com/artifact/io.github.arturaz/otel4s-doobie
