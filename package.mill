@@ -285,6 +285,14 @@ object server extends FrameworkScalaModule {
     ivy"org.http4s::http4s-otel4s-middleware-metrics:${Versions.Otel4sHttp4s}",
     // https://mvnrepository.com/artifact/org.http4s/http4s-otel4s-middleware-trace-server
     ivy"org.http4s::http4s-otel4s-middleware-trace-server:${Versions.Otel4sHttp4s}",
+    // JVM runtime metrics
+    // https://typelevel.org/otel4s/oteljava/metrics-jvm-runtime.html#java-17-and-newer
+    // https://mvnrepository.com/artifact/io.opentelemetry.instrumentation/opentelemetry-runtime-telemetry-java17
+    ivy"io.opentelemetry.instrumentation:opentelemetry-runtime-telemetry-java17:2.12.0-alpha",
+    // Otel4s and Doobie integration
+    // https://github.com/arturaz/otel4s-doobie
+    // https://mvnrepository.com/artifact/io.github.arturaz/otel4s-doobie
+    ivy"io.github.arturaz::otel4s-doobie:0.1.0",
 
     // Flyway database migrations wrapped in cats-effect
     // https://github.com/geirolz/fly4s
@@ -323,12 +331,12 @@ object server extends FrameworkScalaModule {
     ivy"is.cir::ciris-http4s:${Versions.Ciris}",
   )
 
-  // override def runtimeIvyDeps = Agg(
-  //   // https://mvnrepository.com/artifact/io.opentelemetry/opentelemetry-exporter-otlp
-  //   ivy"io.opentelemetry:opentelemetry-exporter-otlp:${Versions.OpenTelemetryJava}",
-  //   // https://mvnrepository.com/artifact/io.opentelemetry/opentelemetry-sdk-extension-autoconfigure
-  //   ivy"io.opentelemetry:opentelemetry-sdk-extension-autoconfigure:${Versions.OpenTelemetryJava}"
-  // )
+  override def runIvyDeps = Agg(
+    // https://mvnrepository.com/artifact/io.opentelemetry/opentelemetry-exporter-otlp
+    ivy"io.opentelemetry:opentelemetry-exporter-otlp:${Versions.OpenTelemetryJava}",
+    // https://mvnrepository.com/artifact/io.opentelemetry/opentelemetry-sdk-extension-autoconfigure
+    ivy"io.opentelemetry:opentelemetry-sdk-extension-autoconfigure:${Versions.OpenTelemetryJava}"
+  )
 
   object testInfra extends FrameworkTestModule {
     override def moduleDeps: Seq[JavaModule] = Seq(server, build.framework.testInfra.jvm)

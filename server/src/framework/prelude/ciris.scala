@@ -3,6 +3,7 @@ package framework.prelude
 import yantl.Newtype
 import sttp.model.Uri
 import ciris.ConfigError
+import scribe.Level
 
 export framework.config.EnvConfigPrefix
 export ciris.{ConfigDecoder, ConfigValue}
@@ -10,6 +11,9 @@ export ciris.http4s.{hostConfigDecoder, portConfigDecoder, uriConfigDecoder}
 
 given ConfigDecoder[String, Uri] =
   ConfigDecoder.instance((key, str: String) => Uri.parse(str).left.map(err => ConfigError(err)))
+
+given ConfigDecoder[String, Level] =
+  ConfigDecoder.instance((key, str: String) => Level.get(str).toRight(ConfigError(s"Invalid log level: $str")))
 
 given configDecoderForUriWrapper[Wrapper](using newtype: Newtype.WithType[Uri, Wrapper]): ConfigDecoder[Uri, Wrapper] =
   ConfigDecoder[Uri].map(newtype.make(_).getOrThrow)

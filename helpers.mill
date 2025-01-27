@@ -279,3 +279,14 @@ def syncDirectories(
     }
   }
 }
+
+object OpenTelemetry {
+  /** Environment variables for development with Jeager trace collector. */
+  def environmentVariablesForDevelopment(serviceName: String): Map[String, String] = Map(
+    // https://opentelemetry.io/docs/languages/java/configuration/#environment-variables-and-system-properties
+    "OTEL_JAVA_GLOBAL_AUTOCONFIGURE_ENABLED" -> "true",
+    "OTEL_SERVICE_NAME" -> serviceName,
+    // Jeager does not support metrics and we haven't set up Prometheus yet.
+    "OTEL_METRICS_EXPORTER" -> "none",
+  )
+}

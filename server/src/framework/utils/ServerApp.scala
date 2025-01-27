@@ -6,9 +6,16 @@ import fly4s.Fly4s
 import fly4s.data.{Fly4sConfig, ValidatePattern}
 import framework.config.{IsProductionMode, PostgresqlConfig}
 import framework.db.{*, given}
-import java.nio.file.Paths
-import java.nio.file.Files
+import org.typelevel.otel4s.metrics.MeterProvider
+import org.typelevel.otel4s.oteljava.OtelJava
+import org.typelevel.otel4s.trace.TracerProvider
+import io.opentelemetry.api.{OpenTelemetry => JOpenTelemetry}
+
 import java.nio.charset.StandardCharsets
+import java.nio.file.{Files, Paths}
+import io.opentelemetry.instrumentation.runtimemetrics.java17.RuntimeMetrics
+import org.typelevel.otel4s.trace.Tracer
+import org.typelevel.otel4s.Attribute
 
 /** Boilerplate for a server application. */
 trait ServerApp extends IOApp {
@@ -30,7 +37,7 @@ trait ServerApp extends IOApp {
   def isProduction(cfg: ServerAppConfig): IsProductionMode
 
   /** Runs the server. */
-  def run(cfg: ServerAppConfig, args: List[String]): IO[ExitCode]
+  def run(cfg: ServerAppConfig, args: List[String])(using TracerProvider[IO], MeterProvider[IO]): IO[ExitCode]
 
   override def run(args: List[String]): IO[ExitCode] = {
     val appConfigValue = for {
@@ -38,11 +45,25 @@ trait ServerApp extends IOApp {
       cfg <- if (isProduction) productionAppConfig else ConfigValue.default(developmentAppConfig)
     } yield (cfg, isProduction)
 
-    for {
-      (cfg, isProduction) <- appConfigValue.load
-      _ <- applyLoggingDefaults(isProduction).to[IO]
-      result <- builtInCommands(cfg, args).getOrElse(run(cfg, args))
+    val resource = for {
+      (cfg, isProduction) <- appConfigValue.load.toResource
+      _ <- applyLoggingDefaults(isProduction).to[IO].toResource
+      otel4s <- OtelJava.autoConfigured[IO]().flatTap(otel4s => registerRuntimeMetrics(otel4s.underlying))
+      given TracerProvider[IO] = otel4s.tracerProvider
+      given MeterProvider[IO] = otel4s.meterProvider
+      result <- otel4s.tracerProvider
+        .tracer("startup")
+        .get
+        .flatMap(implicit tracer => builtInCommands(cfg, args).getOrElse(run(cfg, args)))
+        .toResource
     } yield result
+
+    resource.use(IO.pure)
+  }
+
+  /** https://typelevel.org/otel4s/oteljava/metrics-jvm-runtime.html#java-17-and-newer */
+  def registerRuntimeMetrics(openTelemetry: JOpenTelemetry): Resource[IO, RuntimeMetrics] = {
+    Resource.fromAutoCloseable(IO(RuntimeMetrics.create(openTelemetry)))
   }
 
   /** Handles some built-in commands.
@@ -50,19 +71,23 @@ trait ServerApp extends IOApp {
     * @return
     *   `Some` if the command was handled, `None` if not.
     */
-  def builtInCommands(cfg: ServerAppConfig, args: List[String]): Option[IO[ExitCode]] = args match {
-    case "db-migrate" :: Nil =>
-      Some(postgresqlResource(cfg, migrateOnConnect = false).use(implicit xa => runMigrations(cfg)))
+  def builtInCommands(cfg: ServerAppConfig, args: List[String])(using
+    tracerProvider: TracerProvider[IO],
+    tracer: Tracer[IO],
+  ): Option[IO[ExitCode]] =
+    args match {
+      case "db-migrate" :: Nil =>
+        Some(postgresqlResource(cfg, migrateOnConnect = false).use(implicit xa => runMigrations(cfg)))
 
-    case "db-dump" :: pathStr :: Nil =>
-      Some(for {
-        path <- IO(Paths.get(pathStr))
-        sql <- postgresqlResource(cfg).use(implicit xa => framework.utils.db.DumpData.dataDumps())
-        _ <- IO.blocking(Files.writeString(path, sql, StandardCharsets.UTF_8))
-      } yield ExitCode.Success)
+      case "db-dump" :: pathStr :: Nil =>
+        Some(for {
+          path <- IO(Paths.get(pathStr))
+          sql <- postgresqlResource(cfg).use(implicit xa => framework.utils.db.DumpData.dataDumps())
+          _ <- IO.blocking(Files.writeString(path, sql, StandardCharsets.UTF_8))
+        } yield ExitCode.Success)
 
-    case _ => None
-  }
+      case _ => None
+    }
 
   // Helpers
 
@@ -70,13 +95,19 @@ trait ServerApp extends IOApp {
     config = Fly4sConfig(ignoreMigrationPatterns = List(ValidatePattern.ignorePendingMigrations))
   )
 
-  def runMigrations(cfg: ServerAppConfig)(using Transactor[IO]): IO[ExitCode] =
-    framework.db
-      .runDbMigrations(flywayResource(postgresqlConfig(cfg)), recreateSchemaAndRetryOnFailure = !isProduction(cfg), log)
-      .flatMap {
-        case true  => IO.pure(ExitCode.Success)
-        case false => IO.pure(ExitCode.Error)
-      }
+  def runMigrations(cfg: ServerAppConfig)(using transactor: Transactor[IO], tracer: Tracer[IO]): IO[ExitCode] = {
+    val isProduction = this.isProduction(cfg)
+    tracer
+      .span("database-migration", isProduction.toOtelAttribute)
+      .surround(
+        framework.db
+          .runDbMigrations(flywayResource(postgresqlConfig(cfg)), recreateSchemaAndRetryOnFailure = !isProduction, log)
+          .flatMap {
+            case true  => IO.pure(ExitCode.Success)
+            case false => IO.pure(ExitCode.Error)
+          }
+      )
+  }
 
   /** Obtains the resource for the database connection, which is also responsible for running migrations upon connection
     * if `migrateOnConnect` is true.
@@ -86,11 +117,11 @@ trait ServerApp extends IOApp {
   def postgresqlResource(
     cfg: ServerAppConfig,
     migrateOnConnect: Boolean = true,
-  ): Resource[IO, Transactor[IO] { type A = HikariDataSource }] =
+  )(using TracerProvider[IO], Tracer[IO]): Resource[IO, Transactor[IO]] =
     postgresqlConfig(cfg)
       .transactorResource[IO](logHandler = Some(new FrameworkDoobieLogHandler(log)))
-      .evalMap(transactor =>
-        if (migrateOnConnect) runMigrations(cfg)(using transactor).flatMap(_.successfulOrExit[IO].as(transactor))
+      .evalMap(implicit transactor =>
+        if (migrateOnConnect) runMigrations(cfg).flatMap(_.successfulOrExit[IO].as(transactor))
         else IO.pure(transactor)
       )
 }

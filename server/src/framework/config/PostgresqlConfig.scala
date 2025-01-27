@@ -12,6 +12,9 @@ import doobie.util.log.LogHandler
 import doobie.util.transactor.Transactor
 import fly4s.Fly4s
 import fly4s.data.Fly4sConfig
+import doobie.otel4s.TracedTransactor
+import org.typelevel.otel4s.trace.TracerProvider
+import org.typelevel.otel4s.trace.Tracer
 
 case class PostgresqlConfig(
   username: String = "postgres",
@@ -35,24 +38,28 @@ case class PostgresqlConfig(
     classLoader = classLoader,
   )
 
-  /** Returns the [[Resource]] that creates a Hikari-based transactor. */
+  /** Returns the [[Resource]] that creates a traced Hikari-based transactor. */
   def transactorResource[F[_]: Async](
     logHandler: Option[LogHandler[F]],
     modConfig: HikariConfig => HikariConfig = identity,
-  ): Resource[F, Transactor[F] { type A = HikariDataSource }] =
-    HikariTransactor.fromHikariConfig[F](
-      {
-        // For the full list of hikari configurations see
-        // https://github.com/brettwooldridge/HikariCP#gear-configuration-knobs-baby
-        val config = new HikariConfig()
-        config.setDriverClassName(PostgresqlConfig.JDBCDriverName)
-        config.setJdbcUrl(jdbcUrl)
-        config.setUsername(username)
-        config.setPassword(password.value)
-        modConfig(config)
-      },
-      logHandler,
-    )
+    tracerConfig: TracedTransactor.Config[F] = TracedTransactor.Config.default[F],
+  )(using tracerProvider: TracerProvider[F]): Resource[F, Transactor[F]] =
+    for {
+      hikari <- HikariTransactor.fromHikariConfig[F](
+        {
+          // For the full list of hikari configurations see
+          // https://github.com/brettwooldridge/HikariCP#gear-configuration-knobs-baby
+          val config = new HikariConfig()
+          config.setDriverClassName(PostgresqlConfig.JDBCDriverName)
+          config.setJdbcUrl(jdbcUrl)
+          config.setUsername(username)
+          config.setPassword(password.value)
+          modConfig(config)
+        },
+        logHandler,
+      )
+      given Tracer[F] <- Resource.eval(tracerProvider.tracer(jdbcUrl).get)
+    } yield TracedTransactor(hikari, logHandler.getOrElse(LogHandler.noop), tracerConfig)
 }
 object PostgresqlConfig {
 
