@@ -8,13 +8,12 @@ import ciris.{ConfigValue, Secret}
 import com.comcast.ip4s.*
 import com.zaxxer.hikari.{HikariConfig, HikariDataSource}
 import doobie.hikari.HikariTransactor
+import doobie.otel4s.TracedTransactor
 import doobie.util.log.LogHandler
 import doobie.util.transactor.Transactor
 import fly4s.Fly4s
 import fly4s.data.Fly4sConfig
-import doobie.otel4s.TracedTransactor
-import org.typelevel.otel4s.trace.TracerProvider
-import org.typelevel.otel4s.trace.Tracer
+import org.typelevel.otel4s.trace.{Tracer, TracerProvider}
 
 case class PostgresqlConfig(
   username: String = "postgres",
@@ -43,7 +42,7 @@ case class PostgresqlConfig(
     logHandler: Option[LogHandler[F]],
     modConfig: HikariConfig => HikariConfig = identity,
     tracerConfig: TracedTransactor.Config[F] = TracedTransactor.Config.default[F],
-  )(using tracerProvider: TracerProvider[F]): Resource[F, Transactor[F]] =
+  )(using Tracer[F]): Resource[F, Transactor[F]] =
     for {
       hikari <- HikariTransactor.fromHikariConfig[F](
         {
@@ -58,7 +57,6 @@ case class PostgresqlConfig(
         },
         logHandler,
       )
-      given Tracer[F] <- Resource.eval(tracerProvider.tracer(jdbcUrl).get)
     } yield TracedTransactor(hikari, logHandler.getOrElse(LogHandler.noop), tracerConfig)
 }
 object PostgresqlConfig {

@@ -36,8 +36,18 @@ trait ServerApp extends IOApp {
 
   def isProduction(cfg: ServerAppConfig): IsProductionMode
 
+  /** The name of this server. */
+  def serverName: IO[String]
+
+  /** The version of the code running in the server. */
+  def serverVersion: IO[String]
+
   /** Runs the server. */
-  def run(cfg: ServerAppConfig, args: List[String])(using TracerProvider[IO], MeterProvider[IO]): IO[ExitCode]
+  def run(cfg: ServerAppConfig, args: List[String])(using
+    Tracer[IO],
+    TracerProvider[IO],
+    MeterProvider[IO],
+  ): IO[ExitCode]
 
   override def run(args: List[String]): IO[ExitCode] = {
     val appConfigValue = for {
@@ -48,13 +58,16 @@ trait ServerApp extends IOApp {
     val resource = for {
       (cfg, isProduction) <- appConfigValue.load.toResource
       _ <- applyLoggingDefaults(isProduction).to[IO].toResource
+      serverName <- this.serverName.toResource
+      serverVersion <- this.serverVersion.toResource
       otel4s <- OtelJava.autoConfigured[IO]().flatTap(otel4s => registerRuntimeMetrics(otel4s.underlying))
+      tracer <- otel4s.tracerProvider.tracer(serverName).withVersion(serverVersion).get.toResource
       given TracerProvider[IO] = otel4s.tracerProvider
       given MeterProvider[IO] = otel4s.meterProvider
-      result <- otel4s.tracerProvider
-        .tracer("startup")
-        .get
-        .flatMap(implicit tracer => builtInCommands(cfg, args).getOrElse(run(cfg, args)))
+      given Tracer[IO] = tracer
+      result <- builtInCommands(cfg, args)
+        .map(tracer.span("startup: built-in-commands").surround)
+        .getOrElse(run(cfg, args))
         .toResource
     } yield result
 
@@ -71,10 +84,7 @@ trait ServerApp extends IOApp {
     * @return
     *   `Some` if the command was handled, `None` if not.
     */
-  def builtInCommands(cfg: ServerAppConfig, args: List[String])(using
-    tracerProvider: TracerProvider[IO],
-    tracer: Tracer[IO],
-  ): Option[IO[ExitCode]] =
+  def builtInCommands(cfg: ServerAppConfig, args: List[String])(using Tracer[IO]): Option[IO[ExitCode]] =
     args match {
       case "db-migrate" :: Nil =>
         Some(postgresqlResource(cfg, migrateOnConnect = false).use(implicit xa => runMigrations(cfg)))
@@ -117,7 +127,7 @@ trait ServerApp extends IOApp {
   def postgresqlResource(
     cfg: ServerAppConfig,
     migrateOnConnect: Boolean = true,
-  )(using TracerProvider[IO], Tracer[IO]): Resource[IO, Transactor[IO]] =
+  )(using Tracer[IO]): Resource[IO, Transactor[IO]] =
     postgresqlConfig(cfg)
       .transactorResource[IO](logHandler = Some(new FrameworkDoobieLogHandler(log)))
       .evalMap(implicit transactor =>
