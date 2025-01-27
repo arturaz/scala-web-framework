@@ -3,12 +3,39 @@ package framework.utils
 import doobie.util.log
 import doobie.util.log.{LogEvent, LogHandler}
 import scribe.Scribe
-import doobie.util.log.Parameters
+// import doobie.util.log.Parameters // Doobie RC6 and up
 
 /** A log handler that renders SQL statements and their arguments in a human-readable format. */
 class FrameworkDoobieLogHandler[F[_]](scribe: Scribe[F]) extends LogHandler[F] {
 
-  def renderArgs(params: Parameters): String = {
+  // Doobie RC6 and up
+  // def renderArgs(params: Parameters): String = {
+  //   def argsToString(args: List[Any], prefix: String) =
+  //     args.iterator.zipWithIndex
+  //       .map { case (arg, idx) =>
+  //         s"  $prefix[$idx]: ${arg.toString.indentLinesNFL(4)}"
+  //       }
+  //       .mkString("\n")
+
+  //   def argsListToString(argsList: List[List[Any]]) =
+  //     argsList.iterator.zipWithIndex
+  //       .map { case (args, idx) =>
+  //         s"""|  [entry #$idx]:
+  //             |     ${argsToString(args, prefix = "arg ").indentLinesNFL(4)}""".stripMargin
+  //       }
+  //       .mkString("\n")
+
+  //   params match {
+  //     case Parameters.NonBatch(args) =>
+  //       if (args.isEmpty) "(no arguments)" else show"arguments:\n${argsToString(args, prefix = "")}"
+
+  //     case Parameters.Batch(argsListFn) =>
+  //       val argsList = argsListFn()
+  //       if (argsList.isEmpty) "(no arguments)" else show"batch arguments:\n${argsListToString(argsList)}"
+  //   }
+  // }
+
+  def renderArgs(args: List[Any]): String = {
     def argsToString(args: List[Any], prefix: String) =
       args.iterator.zipWithIndex
         .map { case (arg, idx) =>
@@ -16,22 +43,7 @@ class FrameworkDoobieLogHandler[F[_]](scribe: Scribe[F]) extends LogHandler[F] {
         }
         .mkString("\n")
 
-    def argsListToString(argsList: List[List[Any]]) =
-      argsList.iterator.zipWithIndex
-        .map { case (args, idx) =>
-          s"""|  [entry #$idx]:
-              |     ${argsToString(args, prefix = "arg ").indentLinesNFL(4)}""".stripMargin
-        }
-        .mkString("\n")
-
-    params match {
-      case Parameters.NonBatch(args) =>
-        if (args.isEmpty) "(no arguments)" else show"arguments:\n${argsToString(args, prefix = "")}"
-
-      case Parameters.Batch(argsListFn) =>
-        val argsList = argsListFn()
-        if (argsList.isEmpty) "(no arguments)" else show"batch arguments:\n${argsListToString(argsList)}"
-    }
+    if (args.isEmpty) "(no arguments)" else show"arguments:\n${argsToString(args, prefix = "")}"
   }
 
   def renderSql(sql: String): String = {
