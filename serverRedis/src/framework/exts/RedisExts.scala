@@ -1,17 +1,17 @@
 package framework.exts
 
-import cats.Applicative
 import cats.effect.Concurrent
 import cats.syntax.all.*
+import cats.{Applicative, Foldable}
 import dev.profunktor.redis4cats.data.{RedisChannel, RedisPatternEvent}
 import dev.profunktor.redis4cats.pubsub.PubSubCommands
 import dev.profunktor.redis4cats.streams.Streaming
 import dev.profunktor.redis4cats.streams.data.{MessageId, XAddMessage}
+import framework.data.MapEncoder
 import framework.redis.*
 import fs2.Stream
 import io.scalaland.chimney.partial.Result
 import io.scalaland.chimney.{PartialTransformer, Transformer}
-import framework.data.MapEncoder
 
 extension [F[_], K, V](pubSub: PubSubCommands[[X] =>> Stream[F, X], K, V]) {
 
@@ -35,6 +35,17 @@ extension [F[_], K, V](pubSub: PubSubCommands[[X] =>> Stream[F, X], K, V]) {
     concurrent: Concurrent[F],
   ): F[Unit] =
     publishOnce(channel.channel, transformer.transform(value))
+
+  /** Publishes a message to all specified channels once. */
+  def publishOnceToAll[C[_]: Foldable](channels: C[RedisChannel[K]], value: V)(using Concurrent[F]): F[Unit] =
+    channels.traverse_(publishOnce(_, value))
+
+  /** Publishes a message to all specified channels once. */
+  def publishOnceToAllTyped[C[_]: Foldable, M](channels: C[RedisChannelTyped[K, M]], value: M)(using
+    Transformer[M, V],
+    Concurrent[F],
+  ): F[Unit] =
+    channels.traverse_(publishOnceTyped(_, value))
 
   /** Subscribes to the specified channel and transforms the value using the [[PartialTransformer]].
     *
