@@ -6,17 +6,16 @@ import fly4s.Fly4s
 import fly4s.data.{Fly4sConfig, ValidatePattern}
 import framework.config.{IsProductionMode, PostgresqlConfig}
 import framework.db.{*, given}
+import io.opentelemetry.api.OpenTelemetry as JOpenTelemetry
+import io.opentelemetry.instrumentation.runtimemetrics.java17.RuntimeMetrics
+import org.typelevel.otel4s.Attribute
+import org.typelevel.otel4s.instrumentation.ce.IORuntimeMetrics
 import org.typelevel.otel4s.metrics.MeterProvider
 import org.typelevel.otel4s.oteljava.OtelJava
-import org.typelevel.otel4s.trace.TracerProvider
-import io.opentelemetry.api.{OpenTelemetry => JOpenTelemetry}
+import org.typelevel.otel4s.trace.{Tracer, TracerProvider}
 
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Paths}
-import io.opentelemetry.instrumentation.runtimemetrics.java17.RuntimeMetrics
-import org.typelevel.otel4s.trace.Tracer
-import org.typelevel.otel4s.Attribute
-import org.typelevel.otel4s.instrumentation.ce.IORuntimeMetrics
 
 /** Boilerplate for a server application. */
 trait ServerApp extends IOApp {

@@ -6,7 +6,8 @@ import framework.sourcecode.DefinedAt
 extension [A](connectionIO: ConnectionIO[A]) {
 
   /** Alias for `transact` that is less verbose. */
-  def perform(using tx: Transactor[IO]): IO[A] = connectionIO.transact(tx)
+  def perform(using tx: Transactor[IO], tracer: Tracer[IO], definedAt: sourcecode.FullName): IO[A] =
+    tracer.span(show"dbIO: ${definedAt.value}").surround(connectionIO.transact(tx))
 }
 
 extension (connectionIO: ConnectionIO[Int]) {

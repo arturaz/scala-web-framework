@@ -172,7 +172,7 @@ object db
     recreateSchemaAndRetryOnFailure: Boolean,
     log: Scribe[IO],
     logLevel: Level = Level.Info,
-  )(using transactor: Transactor[IO], mdc: MDC): IO[Boolean] =
+  )(using transactor: Transactor[IO], tracer: Tracer[IO], mdc: MDC): IO[Boolean] =
     log.log(logLevel, mdc, "Migrating SQL database...") *>
       flywayResource.use { fly4s =>
         def tryMigration(recreateSchemaAndRetryOnFailure: Boolean): IO[Boolean] = {

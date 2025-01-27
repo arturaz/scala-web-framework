@@ -5,3 +5,4 @@ package framework.prelude
 
 export cats.effect.std.Console
 export fs2.Stream
+export org.typelevel.otel4s.trace.Tracer
