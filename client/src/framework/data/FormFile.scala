@@ -6,8 +6,7 @@ import io.scalaland.chimney.partial.Result
 import io.scalaland.chimney.partial.Result.Errors
 import org.scalajs.dom.File
 import scala.scalajs.js.typedarray.ArrayBuffer
-import yantl.Validator
-import yantl.ValidatorRule
+import yantl.*
 
 /** A validated file in the form. */
 case class FormFile(file: File) {
@@ -69,7 +68,7 @@ object FormFileHolder {
       holder.maybeFile match {
         case None => Result.fromErrorString("No file selected.")
         case Some(file) =>
-          Result.fromMaybeErrorStrings(FormFile(file), validator.validate(holder).map(_.toString)*)
+          Result.fromMaybeErrorStrings(FormFile(file), validate(holder, file).map(_.toString)*)
       }
   }
 
@@ -93,10 +92,15 @@ object FormFileHolder {
       } yield error
     }
 
-  given validator[TError]: Validator[FormFileHolder[TError], TError | FileTooLarge | InvalidFileExtension] =
-    Validator.of { holder =>
-      holder.maybeFile.flatMap(holder.validation.validate).toVector ++
-        validatorRuleMaxLengthInBytes.validate(holder).toVector ++
-        validatorRuleAcceptableExtensions.validate(holder).toVector
-    }
+  val baseValidator: Validator[FormFileHolder[Any], FileTooLarge | InvalidFileExtension] =
+    Validator.of(
+      validatorRuleMaxLengthInBytes,
+      validatorRuleAcceptableExtensions,
+    )
+
+  def validate[TError](
+    holder: FormFileHolder[TError],
+    file: File,
+  ): Vector[TError | FileTooLarge | InvalidFileExtension] =
+    baseValidator.validate(holder) ++ holder.validation.validate(file)
 }

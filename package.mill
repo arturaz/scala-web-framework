@@ -9,34 +9,15 @@ object testInfra extends Module {
   object js extends FrameworkPlatformModule with FrameworkScalaJSModule with FrameworkTestModule
 }
 
-/** 
- * Yet Another Newtype Library (YANTL)
- * 
- * Originally we used [[https://github.com/kitlangton/neotype neotype]] but:
- *   - it has errors fixed to String, which really interferes with localization (see 
- *     https://github.com/kitlangton/neotype/issues/79).
- *   - it relies on macros. Which seems great, until you realize that those macros have to resolve at compile time 
- *     and your validation logic is now severely restricted.
- */
-object newtypes extends Module {
-  object jvm extends FrameworkPlatformModule
-  object js extends FrameworkPlatformModule with FrameworkScalaJSModule
-
-  object tests extends Module {
-    object jvm extends FrameworkPlatformModule with FrameworkTestModule {
-      override def moduleDeps = Seq(testInfra.jvm, newtypes.jvm)
-    }
-
-    object js extends FrameworkPlatformModule with FrameworkTestModule with FrameworkScalaJSTestModule {
-      override def moduleDeps = Seq(testInfra.js, newtypes.js)
-    }
-  }
-}
-
 /** Code common for all projects that use this stack and shared between JVM and JS. */
 object shared extends Module {
   trait SharedModule extends FrameworkPlatformModule {
     override def ivyDeps = Agg(
+      // Newtypes
+      // https://github.com/arturaz/yantl
+      // https://mvnrepository.com/artifact/io.github.arturaz/yantl
+      ivy"io.github.arturaz::yantl::0.1.0",
+
       // Functional programming library
       // https://typelevel.org/cats/
       // https://mvnrepository.com/artifact/org.typelevel/cats-core
@@ -150,10 +131,10 @@ object shared extends Module {
   }
 
   object jvm extends SharedModule {
-    override def moduleDeps = Seq(newtypes.jvm)
+    override def moduleDeps = Seq()
   }
   object js extends SharedModule with FrameworkScalaJSModule {
-    override def moduleDeps = Seq(newtypes.js)
+    override def moduleDeps = Seq()
   }
 
   /** Tests for the framework code. */
@@ -292,6 +273,19 @@ object server extends FrameworkScalaModule {
     // https://mvnrepository.com/artifact/com.outr/scribe-file
     ivy"com.outr::scribe-file:${Versions.Scribe}",
 
+    // Tracing
+    //
+    // Opentelemetry
+    // https://typelevel.org/otel4s/
+    // https://mvnrepository.com/artifact/org.typelevel/otel4s-oteljava
+    ivy"org.typelevel::otel4s-oteljava:${Versions.Otel4s}",
+    // HTTP4s integration
+    // https://github.com/http4s/http4s-otel4s-middleware
+    // https://mvnrepository.com/artifact/org.http4s/http4s-otel4s-middleware-metrics
+    ivy"org.http4s::http4s-otel4s-middleware-metrics:${Versions.Otel4sHttp4s}",
+    // https://mvnrepository.com/artifact/org.http4s/http4s-otel4s-middleware-trace-server
+    ivy"org.http4s::http4s-otel4s-middleware-trace-server:${Versions.Otel4sHttp4s}",
+
     // Flyway database migrations wrapped in cats-effect
     // https://github.com/geirolz/fly4s
     // https://mvnrepository.com/artifact/com.github.geirolz/fly4s
@@ -328,6 +322,13 @@ object server extends FrameworkScalaModule {
     // https://mvnrepository.com/artifact/is.cir/ciris-http4s
     ivy"is.cir::ciris-http4s:${Versions.Ciris}",
   )
+
+  // override def runtimeIvyDeps = Agg(
+  //   // https://mvnrepository.com/artifact/io.opentelemetry/opentelemetry-exporter-otlp
+  //   ivy"io.opentelemetry:opentelemetry-exporter-otlp:${Versions.OpenTelemetryJava}",
+  //   // https://mvnrepository.com/artifact/io.opentelemetry/opentelemetry-sdk-extension-autoconfigure
+  //   ivy"io.opentelemetry:opentelemetry-sdk-extension-autoconfigure:${Versions.OpenTelemetryJava}"
+  // )
 
   object testInfra extends FrameworkTestModule {
     override def moduleDeps: Seq[JavaModule] = Seq(server, build.framework.testInfra.jvm)

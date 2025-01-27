@@ -1,13 +1,12 @@
 package framework.data
 
-import yantl.Newtype
+import yantl.*
 import framework.utils.NewtypeDouble
-import yantl.ValidatorRule
 
 object Latitude extends NewtypeDouble {
   type TError = ValidatorRule.SmallerThan[Double] | ValidatorRule.LargerThan[Double]
 
-  override val validatorRules = IArray(
+  override val validator = Validator.of(
     ValidatorRule.between[Double](-90, 90)
   )
 
@@ -18,7 +17,7 @@ type Latitude = Latitude.Type
 object Longitude extends NewtypeDouble {
   type TError = ValidatorRule.SmallerThan[Double] | ValidatorRule.LargerThan[Double]
 
-  override val validatorRules = IArray(
+  override val validator = Validator.of(
     ValidatorRule.between[Double](-180, 180)
   )
 
