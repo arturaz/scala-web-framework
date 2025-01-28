@@ -2,16 +2,26 @@ package framework.exts
 
 import cats.data.EitherT
 import cats.effect.IO
+import framework.api.FrameworkHeaders
+import framework.data.FrameworkDateTime
 import framework.prelude.sttpBackend
+import framework.sourcecode.DefinedAt
 import framework.utils.{NetworkError, NetworkOrAuthError}
-import sttp.capabilities.Effect
+import sttp.capabilities.fs2.Fs2Streams
+import sttp.capabilities.{Effect, Streams}
 import sttp.client3.{Request, Response}
 
 import scala.annotation.targetName
 import scala.scalajs.js.JavaScriptException
-import framework.sourcecode.DefinedAt
-import sttp.capabilities.Streams
-import sttp.capabilities.fs2.Fs2Streams
+
+extension [Output, Requirements](req: Request[Output, Requirements]) {
+
+  /** Adds the necessary header to enable client request tracing. */
+  def withClientRequestTracing(now: FrameworkDateTime): Request[Output, Requirements] = {
+    val (name, value) = FrameworkHeaders.`X-Request-Started-At`(now)
+    req.header(name, value)
+  }
+}
 
 /** Requests that cannot fail. */
 extension [Output, Requirements >: Effect[IO]](req: Request[Output, Requirements]) {

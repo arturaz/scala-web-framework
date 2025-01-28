@@ -30,11 +30,20 @@ case class FrameworkDateTime private (ldt: LocalDateTime) extends AnyVal {
   def toZonedDateTime: ZonedDateTime = ldt.atZone(FrameworkDateTime.utc)
   def toInstant: Instant = toZonedDateTime.toInstant
 
+  /** Returns the value as you would get it from [[cats.effect.Clock.realTime]]. */
+  def toFiniteDuration: FiniteDuration = FiniteDuration(toInstant.toEpochMilli(), MILLISECONDS)
+
   /** Returns the timestamp in "yyyy-MM-dd HH:mm:ss" format. */
   def asString: String = s"${ldt.format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")).show} UTC"
 
+  /** Returns the timestamp from the unix epoch in milliseconds. */
+  def toUnixMillis: Long = toInstant.toEpochMilli
+
   def +(duration: FiniteDuration): FrameworkDateTime =
     FrameworkDateTime(ldt.plusNanos(duration.toNanos))
+
+  def -(duration: FiniteDuration): FrameworkDateTime =
+    FrameworkDateTime(ldt.minusNanos(duration.toNanos))
 
   def -(other: FrameworkDateTime): FiniteDuration =
     ChronoUnit.MILLIS.between(other.toZonedDateTime, toZonedDateTime).millis
@@ -46,8 +55,11 @@ object FrameworkDateTime {
   def apply(ldt: LocalDateTime): FrameworkDateTime =
     new FrameworkDateTime(ldt.truncatedTo(ChronoUnit.MILLIS))
 
+  def fromInstant(instant: Instant): FrameworkDateTime =
+    apply(LocalDateTime.ofInstant(instant, utc))
+
   def fromUnixMillis(millis: Long): FrameworkDateTime =
-    apply(LocalDateTime.ofInstant(Instant.ofEpochMilli(millis), utc))
+    fromInstant(Instant.ofEpochMilli(millis))
 
   def now(): FrameworkDateTime = apply(LocalDateTime.now(utc))
 

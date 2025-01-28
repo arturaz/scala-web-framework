@@ -19,6 +19,7 @@ import sttp.capabilities.Effect
 import sttp.client3.Response
 import sttp.tapir.Endpoint
 import com.raquo.airstream.ownership.DynamicSubscription
+import framework.data.FrameworkDateTime
 
 /** Helper for a form that is intended to create or edit a resource.
   *
@@ -48,7 +49,7 @@ sealed abstract class EditForm[TVar[_], A](
     authDataIO: IO[AuthData],
     endpoint: Endpoint[AuthData, A, AuthError, Output, Requirements],
   )(using AppBaseUri): EitherT[IO, NetworkOrAuthError[AuthError], Response[Output]] = {
-    (authDataIO, rxVar.signal.nowIO).parMapN(endpoint.toReq).flatMapT(_.io)
+    (authDataIO, rxVar.signal.nowIO, FrameworkDateTime.nowIO.to[IO]).parMapN(endpoint.toReq).flatMapT(_.io)
   }
 
   /** If the form is validated returns a signal that returns [[Some]] when the form data is valid. */
@@ -92,7 +93,8 @@ sealed abstract class EditForm[TVar[_], A](
   ): Signal[Option[EitherT[IO, NetworkOrAuthError[AuthError], Response[WithInput[ValidatedInput, Output]]]]] =
     sendValidatedAuthedIO(
       authDataIO,
-      (authData, validatedInput: ValidatedInput) => endpoint.toReq(authData, validatedInput).io,
+      (authData, validatedInput: ValidatedInput) =>
+        FrameworkDateTime.nowIO.to[IO].flatMapT(endpoint.toReq(authData, validatedInput, _).io),
     )
 
   /** Helper to process the response that is returned when the send button succeeds.

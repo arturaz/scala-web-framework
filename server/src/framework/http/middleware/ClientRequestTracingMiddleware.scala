@@ -1,0 +1,120 @@
+package framework.http.middleware
+
+import cats.Monad
+import cats.data.Kleisli
+import cats.effect.kernel.Clock
+import framework.api.FrameworkHeaders
+import framework.data.FrameworkDateTime
+import org.http4s.*
+import org.http4s.dsl.Http4sDsl
+import org.http4s.headers.Accept
+import org.http4s.otel4s.middleware.instances.all.*
+import org.typelevel.ci.CIString
+
+import scala.concurrent.duration.FiniteDuration
+
+/** Starts tracing spans based on client request time. */
+object ClientRequestTracingMiddleware {
+  enum ServerSentEventsHandlingMode derives CanEqual {
+
+    /** SSE requests are not traced. */
+    case Ignore
+
+    /** Get the header value from the query parameters. */
+    case GetHeaderFromQueryParameters
+  }
+
+  /** @param maxDriftFromCurrentTime
+    *   the maximum amount of time that we allow the client request time to drift from the current time. This is needed
+    *   because we can't trust the client to always provide the current time, either due to malice or due to bad clock
+    *   settings on the client.
+    * @param spanName
+    *   a function that returns a span name based on the request.
+    * @param headerName
+    *   the name of the header that contains the client request time as a unix timestamp.
+    * @param failOnInvalidHeader
+    *   whether to fail the request if the header is not present.
+    * @param service
+    *   the service to wrap.
+    * @param tracer
+    *   the tracer to use.
+    * @param clock
+    *   the clock to use.
+    * @return
+    *   the wrapped service.
+    */
+  def apply[F[_]: Monad](
+    maxDriftFromCurrentTime: FiniteDuration,
+    spanName: Request[F] => String,
+    headerName: CIString = CIString(FrameworkHeaders.`X-Request-Started-At`.Name),
+    failOnInvalidHeader: Boolean = true,
+    sseHandlingMode: ServerSentEventsHandlingMode = ServerSentEventsHandlingMode.GetHeaderFromQueryParameters,
+  )(service: HttpRoutes[F])(using tracer: Tracer[F], clock: Clock[F]): HttpRoutes[F] = {
+    val dsl = new Http4sDsl[F] {}
+    import dsl.*
+
+    val now = clock.realTimeInstant.map(FrameworkDateTime.fromInstant)
+
+    Kleisli { (req: Request[F]) =>
+      val isSSERequest = req.method == Method.GET && (req.headers.get[headers.Accept] match {
+        case None         => false
+        case Some(accept) => accept.values.exists(_.mediaRange == MediaType.`text/event-stream`)
+      })
+
+      def getHeaderFromQueryParameters =
+        req.uri.query.params.get(headerName.toString).map(value => Header.Raw(headerName, value))
+
+      def getHeaderFromRequest = req.headers.get(`headerName`).map(_.head)
+
+      def getHeader = if (isSSERequest) getHeaderFromQueryParameters else getHeaderFromRequest
+
+      // `OPTIONS` requests usually do not include custom headers from the browser, so just let them through.
+      if (req.method == Method.OPTIONS) service(req)
+      else if (isSSERequest && sseHandlingMode == ServerSentEventsHandlingMode.Ignore) service(req)
+      else {
+        val maybeHeader = getHeader.map(parseHeader)
+
+        maybeHeader match {
+          case None =>
+            if (failOnInvalidHeader) OptionT.liftF(BadRequest(s"Missing header: ${`headerName`}"))
+            else service(req)
+
+          case Some(Left(error)) =>
+            if (failOnInvalidHeader) OptionT.liftF(BadRequest(error))
+            else service(req)
+
+          case Some(Right(at)) =>
+            val io = for {
+              now <- now
+              adjusted = adjustForDrift(now, at, maxDriftFromCurrentTime)
+              spanOps = tracer
+                .spanBuilder(show"client: ${spanName(req)}")
+                .modifyState(_.withStartTimestamp(adjusted.toFiniteDuration))
+                .build
+              maybeResponse <- spanOps.surround(
+                // Propagate the headers to the service so that Otel4s-Http4s integration can use it.
+                tracer.propagate(req.headers).map(req.withHeaders).flatMap(service(_).value)
+              )
+            } yield maybeResponse
+
+            OptionT(io)
+        }
+      }
+    }
+  }
+
+  def parseHeader(header: Header.Raw): Either[String, FrameworkDateTime] = {
+    header.value.toLongOption
+      .toRight(show"Invalid header value for ${header.name}: ${header.value}")
+      .map(FrameworkDateTime.fromUnixMillis)
+  }
+
+  /** Makes sure that the client request time is within `maxDriftFromCurrentTime` from `now`. */
+  def adjustForDrift(now: FrameworkDateTime, at: FrameworkDateTime, maxDrift: FiniteDuration): FrameworkDateTime = {
+    val diff = now - at
+
+    if (diff > maxDrift) now - maxDrift
+    else if (diff < -maxDrift) now + maxDrift
+    else at
+  }
+}

@@ -14,22 +14,30 @@ import sttp.tapir.{DecodeResult, Endpoint, PublicEndpoint}
 import scala.annotation.targetName
 import scala.concurrent.duration.*
 import scala.scalajs.js.JSON
+import framework.data.FrameworkDateTime
+import framework.api.FrameworkHeaders
 
 extension [Input, Error, Output, Requirements](e: PublicEndpoint[Input, Error, Output, Requirements]) {
-  def toReq(params: Input)(using baseUri: AppBaseUri): Request[Either[Error, Output], Requirements] = {
+  def toReq(params: Input, now: FrameworkDateTime)(using
+    baseUri: AppBaseUri
+  ): Request[Either[Error, Output], Requirements] = {
     sttpClientInterpreter
       .toRequestThrowDecodeFailures(e, Some(baseUri.uri))
       .apply(params)
+      .withClientRequestTracing(now)
   }
 }
 
 /** Public infallible endpoint extensions. */
 extension [Input, Output, Requirements](e: PublicEndpoint[Input, Nothing, Output, Requirements]) {
   @targetName("toReqPublicInfallible")
-  def toReq(params: Input)(using baseUri: AppBaseUri): Request[Either[NetworkError, Output], Requirements] = {
+  def toReq(params: Input, now: FrameworkDateTime)(using
+    baseUri: AppBaseUri
+  ): Request[Either[NetworkError, Output], Requirements] = {
     sttpClientInterpreter
       .toRequest[Input, Nothing, Output, Requirements](e, Some(baseUri.uri))
       .apply(params)
+      .withClientRequestTracing(now)
       .mapResponse {
         case failure: DecodeResult.Failure => Left(NetworkError.DecodeError(failure): NetworkError)
         case DecodeResult.Value(either)    => either
@@ -43,11 +51,13 @@ extension [SecurityInput, Input, Output, AuthError, Requirements](
   def toReq(
     securityParams: SecurityInput,
     params: Input,
+    now: FrameworkDateTime,
   )(using baseUri: AppBaseUri): Request[Either[NetworkOrAuthError[AuthError], Output], Requirements] = {
     sttpClientInterpreter
       .toSecureRequest(e, Some(baseUri.uri))
       .apply(securityParams)
       .apply(params)
+      .withClientRequestTracing(now)
       .mapResponse {
         case failure: DecodeResult.Failure   => Left(NetworkOrAuthError.NetworkError(NetworkError.DecodeError(failure)))
         case DecodeResult.Value(Left(error)) => Left(NetworkOrAuthError.AuthError(error))
@@ -198,6 +208,7 @@ extension [SecurityInput, Input, Output, AuthError, Requirements <: ServerSentEv
   def toSSEStreamRaw(
     securityParams: SecurityInput,
     params: Input,
+    now: () => FrameworkDateTime = FrameworkDateTime.now,
     reconnectOnError: Option[OnSSEStreamError[SecurityInput, Input, MessageEvent]] = Some(
       OnSSEStreamError.default[SecurityInput, Input, MessageEvent]
     ),
@@ -206,7 +217,14 @@ extension [SecurityInput, Input, Output, AuthError, Requirements <: ServerSentEv
     val options = js.Dynamic.literal(withCredentials = withCredentials).asInstanceOf[EventSourceInit]
 
     def create(uri: Uri) = new EventSource(uri.toString, options)
-    def createUri(securityParams: SecurityInput, params: Input) = e.toReq(securityParams, params).uri
+    def createUri(securityParams: SecurityInput, params: Input) = {
+      val timestamp = now()
+      val (name, value) = FrameworkHeaders.`X-Request-Started-At`(timestamp)
+      e.toReq(securityParams, params, timestamp)
+        .uri
+        // Add the client tracing as a query parameter because SSE requests do not support custom headers
+        .addParam(name, value)
+    }
 
     reconnectOnError match {
       case None =>
@@ -244,6 +262,7 @@ extension [SecurityInput, Input, Output, AuthError, Requirements <: ServerSentEv
     securityParams: SecurityInput,
     params: Input,
     decode: String => Either[String, Output],
+    now: () => FrameworkDateTime = FrameworkDateTime.now,
     reconnectOnError: Option[OnSSEStreamError[SecurityInput, Input, (MessageEvent, Output)]] = Some(
       OnSSEStreamError.default[SecurityInput, Input, (MessageEvent, Output)]
     ),
@@ -258,7 +277,7 @@ extension [SecurityInput, Input, Output, AuthError, Requirements <: ServerSentEv
       }
     }
 
-    val evtStream = toSSEStreamRaw(securityParams, params, modifiedReconnectOnError, withCredentials)
+    val evtStream = toSSEStreamRaw(securityParams, params, now, modifiedReconnectOnError, withCredentials)
     evtStream.map { evt =>
       val either = for {
         dataStr <- evt.data match {
@@ -291,6 +310,7 @@ extension [SecurityInput, Input, Output, AuthError, Requirements <: ServerSentEv
   def toSSEStreamJson(
     securityParams: SecurityInput,
     params: Input,
+    now: () => FrameworkDateTime = FrameworkDateTime.now,
     reconnectOnError: Option[OnSSEStreamError[SecurityInput, Input, (MessageEvent, Output)]] = Some(
       OnSSEStreamError.default[SecurityInput, Input, (MessageEvent, Output)]
     ),
@@ -304,6 +324,7 @@ extension [SecurityInput, Input, Output, AuthError, Requirements <: ServerSentEv
       securityParams,
       params,
       codec.parseAndDecode(_).left.map(err => s"Failed to decode event data: $err"),
+      now,
       reconnectOnError,
       withCredentials,
     )

@@ -8,13 +8,14 @@ import scribe.Level
 import org.http4s.server.middleware.Logger
 import org.typelevel.ci.CIString
 import scribe.mdc.MDC
+import scala.concurrent.duration.*
 
 case class HttpServerConfig(host: Host, port: Port)
 object HttpServerConfig {
   given cirisConfig[F[_]](using prefix: EnvConfigPrefix): ConfigValue[F, HttpServerConfig] = (
     ciris.env(prefix("HTTP_HOST")).as[Host].default(host"127.0.0.1"),
     ciris.env(prefix("HTTP_PORT")).as[Port].default(port"3005"),
-  ).parMapN(apply)
+  ).mapN(apply)
 }
 
 case class HttpServerLoggingConfig(logHeaders: Boolean, logBody: Boolean, logLevel: Level) {
@@ -38,7 +39,17 @@ object HttpServerLoggingConfig {
     ciris.env(prefix("HTTP_LOG_HEADERS")).as[Boolean].default(true),
     ciris.env(prefix("HTTP_LOG_BODY")).as[Boolean].default(false),
     ciris.env(prefix("HTTP_LOG_LEVEL")).as[Level].default(Level.Info),
-  ).parMapN(apply)
+  ).mapN(apply)
+}
+
+case class ClientRequestTracingConfig(maxDriftFromCurrentTime: FiniteDuration)
+object ClientRequestTracingConfig {
+  given cirisConfig[F[_]](using prefix: EnvConfigPrefix): ConfigValue[F, ClientRequestTracingConfig] =
+    ciris
+      .env(prefix("CLIENT_REQUEST_TRACING_MAX_DRIFT_FROM_CURRENT_TIME"))
+      .as[FiniteDuration]
+      .default(30.seconds)
+      .map(apply)
 }
 
 /** @param corsAllowedDomains
@@ -47,6 +58,7 @@ object HttpServerLoggingConfig {
 case class HttpConfig(
   server: HttpServerConfig,
   logging: HttpServerLoggingConfig,
+  clientRequestTracing: ClientRequestTracingConfig,
   frontendUri: FrontendUri,
   corsAllowedDomains: Set[Host] = Set.empty,
 ) {
@@ -65,7 +77,8 @@ object HttpConfig {
   given cirisConfig[F[_]](using prefix: EnvConfigPrefix): ConfigValue[F, HttpConfig] = (
     HttpServerConfig.cirisConfig,
     HttpServerLoggingConfig.cirisConfig,
+    ClientRequestTracingConfig.cirisConfig,
     ciris.env(prefix("HTTP_FRONTEND_URI")).as[FrontendUri],
     ciris.default(Set.empty), // Do not read this from the environment, as we currently do not need it.
-  ).parMapN(apply)
+  ).mapN(apply)
 }
