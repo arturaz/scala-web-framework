@@ -13,6 +13,7 @@ import org.typelevel.ci.CIString
 
 import scala.concurrent.duration.FiniteDuration
 import org.typelevel.otel4s.trace.TracerProvider
+import org.typelevel.otel4s.trace.SpanKind
 
 /** Starts tracing spans based on client request time. */
 object ClientRequestTracingMiddleware {
@@ -63,10 +64,13 @@ object ClientRequestTracingMiddleware {
           case Some(accept) => accept.values.exists(_.mediaRange == MediaType.`text/event-stream`)
         })
 
-        def getHeaderFromQueryParameters =
-          req.uri.query.params.get(headerName.toString).map(value => Header.Raw(headerName, value))
+        def getHeaderFromQueryParameters = (
+          req.uri.query.params.get(headerName.toString).map(value => Header.Raw(headerName, value)),
+          // Remove the "header" from query parameters to not pollute our spans.
+          req.withUri(req.uri.removeQueryParam(headerName.toString)),
+        )
 
-        def getHeaderFromRequest = req.headers.get(`headerName`).map(_.head)
+        def getHeaderFromRequest = (req.headers.get(`headerName`).map(_.head), req)
 
         def getHeader = if (isSSERequest) getHeaderFromQueryParameters else getHeaderFromRequest
 
@@ -74,7 +78,8 @@ object ClientRequestTracingMiddleware {
         if (req.method == Method.OPTIONS) service(req)
         else if (isSSERequest && sseHandlingMode == ServerSentEventsHandlingMode.Ignore) service(req)
         else {
-          val maybeHeader = getHeader.map(parseHeader)
+          val (maybeRawHeader, req) = getHeader
+          val maybeHeader = maybeRawHeader.map(parseHeader)
 
           maybeHeader match {
             case None =>
@@ -91,7 +96,8 @@ object ClientRequestTracingMiddleware {
                 adjusted = adjustForDrift(now, at, maxDriftFromCurrentTime)
                 spanOps = tracer
                   .spanBuilder(show"client: ${spanName(req)}")
-                  .modifyState(_.withStartTimestamp(adjusted.toFiniteDuration))
+                  .withSpanKind(SpanKind.Client)
+                  .withStartTimestamp(adjusted.toFiniteDuration)
                   .build
                 maybeResponse <- spanOps.surround(
                   // Propagate the headers to the service so that Otel4s-Http4s integration can use it.
