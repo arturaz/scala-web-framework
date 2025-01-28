@@ -47,7 +47,7 @@ object FrameworkHttpServer {
     show"${req.httpVersion} ${req.uri}"
 
   /** The default OpenTelemetry middleware builder that does not redact anything. */
-  def otelMiddleware: ServerMiddlewareBuilder[IO] =
+  def otelMiddleware(using TracerProvider[IO]): ServerMiddlewareBuilder[IO] =
     ServerMiddlewareBuilder
       .default[IO](neverRedactor)
       .withRouteClassifier(RouteClassifier.of { case req => defaultSpanNameForServer(req) })
@@ -60,7 +60,7 @@ object FrameworkHttpServer {
     otelMiddleware: ServerMiddlewareBuilder[IO],
     extraRoutes: HttpRoutes[IO] = healthRoute,
     clientSpanName: Request[IO] => String = defaultSpanNameForClient,
-  )(using Tracer[IO], MeterProvider[IO]): Resource[IO, Server] = {
+  )(using TracerProvider[IO], MeterProvider[IO]): Resource[IO, Server] = {
     val serverInterpreter = Http4sServerInterpreter[IO]()
     val ctxRoutes = createRoutes(serverInterpreter)
     val appliedCtxRoutes = contextMiddleware(ctxRoutes)
@@ -72,14 +72,12 @@ object FrameworkHttpServer {
         .pipe(cfg.corsPolicy.apply)
         .pipe(cfg.logging.logger().apply)
         .pipe(Metrics(metricsOps).apply)
-        .pipe(otelMiddleware.buildHttpRoutesForTracer)
-        // Order matters here, the client tracing middleware needs to be applied first.
-        .pipe(
-          ClientRequestTracingMiddleware[IO](
-            maxDriftFromCurrentTime = cfg.clientRequestTracing.maxDriftFromCurrentTime,
-            spanName = clientSpanName,
-          ).apply
-        )
+      service <- otelMiddleware.buildHttpRoutes(service).toResource
+      // Order matters here, the client tracing middleware needs to be applied first.
+      service <- ClientRequestTracingMiddleware[IO](
+        maxDriftFromCurrentTime = cfg.clientRequestTracing.maxDriftFromCurrentTime,
+        spanName = clientSpanName,
+      )(service).toResource
       httpApp = service.orNotFound
       server <-
         EmberServerBuilder

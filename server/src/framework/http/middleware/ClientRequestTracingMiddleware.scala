@@ -12,6 +12,7 @@ import org.http4s.otel4s.middleware.instances.all.*
 import org.typelevel.ci.CIString
 
 import scala.concurrent.duration.FiniteDuration
+import org.typelevel.otel4s.trace.TracerProvider
 
 /** Starts tracing spans based on client request time. */
 object ClientRequestTracingMiddleware {
@@ -49,55 +50,57 @@ object ClientRequestTracingMiddleware {
     headerName: CIString = CIString(FrameworkHeaders.`X-Request-Started-At`.Name),
     failOnInvalidHeader: Boolean = true,
     sseHandlingMode: ServerSentEventsHandlingMode = ServerSentEventsHandlingMode.GetHeaderFromQueryParameters,
-  )(service: HttpRoutes[F])(using tracer: Tracer[F], clock: Clock[F]): HttpRoutes[F] = {
+  )(service: HttpRoutes[F])(using tracerProvider: TracerProvider[F], clock: Clock[F]): F[HttpRoutes[F]] = {
     val dsl = new Http4sDsl[F] {}
     import dsl.*
 
     val now = clock.realTimeInstant.map(FrameworkDateTime.fromInstant)
 
-    Kleisli { (req: Request[F]) =>
-      val isSSERequest = req.method == Method.GET && (req.headers.get[headers.Accept] match {
-        case None         => false
-        case Some(accept) => accept.values.exists(_.mediaRange == MediaType.`text/event-stream`)
-      })
+    tracerProvider.tracer(sourcecode.FullName.here).get.map { tracer =>
+      Kleisli { (req: Request[F]) =>
+        val isSSERequest = req.method == Method.GET && (req.headers.get[headers.Accept] match {
+          case None         => false
+          case Some(accept) => accept.values.exists(_.mediaRange == MediaType.`text/event-stream`)
+        })
 
-      def getHeaderFromQueryParameters =
-        req.uri.query.params.get(headerName.toString).map(value => Header.Raw(headerName, value))
+        def getHeaderFromQueryParameters =
+          req.uri.query.params.get(headerName.toString).map(value => Header.Raw(headerName, value))
 
-      def getHeaderFromRequest = req.headers.get(`headerName`).map(_.head)
+        def getHeaderFromRequest = req.headers.get(`headerName`).map(_.head)
 
-      def getHeader = if (isSSERequest) getHeaderFromQueryParameters else getHeaderFromRequest
+        def getHeader = if (isSSERequest) getHeaderFromQueryParameters else getHeaderFromRequest
 
-      // `OPTIONS` requests usually do not include custom headers from the browser, so just let them through.
-      if (req.method == Method.OPTIONS) service(req)
-      else if (isSSERequest && sseHandlingMode == ServerSentEventsHandlingMode.Ignore) service(req)
-      else {
-        val maybeHeader = getHeader.map(parseHeader)
+        // `OPTIONS` requests usually do not include custom headers from the browser, so just let them through.
+        if (req.method == Method.OPTIONS) service(req)
+        else if (isSSERequest && sseHandlingMode == ServerSentEventsHandlingMode.Ignore) service(req)
+        else {
+          val maybeHeader = getHeader.map(parseHeader)
 
-        maybeHeader match {
-          case None =>
-            if (failOnInvalidHeader) OptionT.liftF(BadRequest(s"Missing header: ${`headerName`}"))
-            else service(req)
+          maybeHeader match {
+            case None =>
+              if (failOnInvalidHeader) OptionT.liftF(BadRequest(s"Missing header: ${`headerName`}"))
+              else service(req)
 
-          case Some(Left(error)) =>
-            if (failOnInvalidHeader) OptionT.liftF(BadRequest(error))
-            else service(req)
+            case Some(Left(error)) =>
+              if (failOnInvalidHeader) OptionT.liftF(BadRequest(error))
+              else service(req)
 
-          case Some(Right(at)) =>
-            val io = for {
-              now <- now
-              adjusted = adjustForDrift(now, at, maxDriftFromCurrentTime)
-              spanOps = tracer
-                .spanBuilder(show"client: ${spanName(req)}")
-                .modifyState(_.withStartTimestamp(adjusted.toFiniteDuration))
-                .build
-              maybeResponse <- spanOps.surround(
-                // Propagate the headers to the service so that Otel4s-Http4s integration can use it.
-                tracer.propagate(req.headers).map(req.withHeaders).flatMap(service(_).value)
-              )
-            } yield maybeResponse
+            case Some(Right(at)) =>
+              val io = for {
+                now <- now
+                adjusted = adjustForDrift(now, at, maxDriftFromCurrentTime)
+                spanOps = tracer
+                  .spanBuilder(show"client: ${spanName(req)}")
+                  .modifyState(_.withStartTimestamp(adjusted.toFiniteDuration))
+                  .build
+                maybeResponse <- spanOps.surround(
+                  // Propagate the headers to the service so that Otel4s-Http4s integration can use it.
+                  tracer.propagate(req.headers).map(req.withHeaders).flatMap(service(_).value)
+                )
+              } yield maybeResponse
 
-            OptionT(io)
+              OptionT(io)
+          }
         }
       }
     }

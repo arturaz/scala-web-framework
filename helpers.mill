@@ -52,8 +52,7 @@ object Versions {
 
   final val OpenTelemetryJava = "1.46.0"
   final val Otel4s = "0.12.0-RC2"
-  // Build with fixes for: https://github.com/http4s/http4s-otel4s-middleware/pull/171
-  final val Otel4sHttp4s = "0.11-a6b935d-20250128T113102Z-SNAPSHOT"
+  final val Otel4sHttp4s = "0.11.0-rc.1"
 }
 
 object Libraries {
