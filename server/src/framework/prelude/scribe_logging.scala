@@ -33,6 +33,7 @@ def applyLoggingDefaults(isProduction: IsProductionMode): SyncIO[Unit] = SyncIO 
       .replace()
 
     val _ = Logger("doobie").withMinimumLevel(Level.Debug).replace()
+    // val _ = Logger("io.lettuce.core.protocol.CommandHandler").withMinimumLevel(Level.Trace).replace()
 
     // Log at debug level for application code.
     val _ = appLogger.withMinimumLevel(Level.Debug).replace()

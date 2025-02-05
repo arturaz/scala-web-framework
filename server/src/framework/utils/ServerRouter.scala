@@ -1,5 +1,7 @@
 package framework.utils
 
+import framework.http.middleware.GetCurrentRequest
+
 /** Helper trait for creating routes from endpoints.
   *
   * Example:
@@ -7,7 +9,7 @@ package framework.utils
   * class ServerRouter(using Transactor[IO]) extends framework.utils.ServerRouter[ServerContext] {
   *    override def routesVector(
   *      serverInterpreter: Http4sServerInterpreter[IO]
-  *    ): NonEmptyVector[ContextRoutes[ServerContext, IO]] = {
+  *    )(using getRequest: GetCurrentRequest[IO]): NonEmptyVector[ContextRoutes[ServerContext, IO]] = {
   *      NonEmptyVector.of(
   *        serverInterpreter.toContextRoutes(
   *          Endpoints.Users.me
@@ -25,9 +27,13 @@ trait ServerRouter[Context] {
   export sttp.tapir.server.http4s.{Http4sServerInterpreter, RichHttp4sEndpoint}
 
   /** Creates routes that depend on the [[Context]]. */
-  def routesVector(serverInterpreter: Http4sServerInterpreter[IO]): NonEmptyVector[ContextRoutes[Context, IO]]
+  def routesVector(serverInterpreter: Http4sServerInterpreter[IO])(using
+    getRequest: GetCurrentRequest[IO]
+  ): NonEmptyVector[ContextRoutes[Context, IO]]
 
   /** Creates routes that depend on the [[Context]]. */
-  def routes(serverInterpreter: Http4sServerInterpreter[IO]): ContextRoutes[Context, IO] =
+  def routes(serverInterpreter: Http4sServerInterpreter[IO])(using
+    getRequest: GetCurrentRequest[IO]
+  ): ContextRoutes[Context, IO] =
     routesVector(serverInterpreter).reduceK
 }

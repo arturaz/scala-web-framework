@@ -9,12 +9,39 @@ import org.http4s.server.middleware.Logger
 import org.typelevel.ci.CIString
 import scribe.mdc.MDC
 import scala.concurrent.duration.*
+import java.nio.file.Path
 
-case class HttpServerConfig(host: Host, port: Port)
+/** TLS configuration for the HTTP server.
+  *
+  * @param keyStoreFile
+  *   path to the JKS keystore file
+  * @param keyStorePassword
+  *   password for the keystore
+  * @param keyPassword
+  *   password for the key
+  */
+case class HttpServerTLSConfig(
+  keyStoreFile: Path,
+  keyStorePassword: String,
+  keyPassword: String,
+)
+object HttpServerTLSConfig {
+  given cirisConfig[F[_]](using prefix: EnvConfigPrefix): ConfigValue[F, HttpServerTLSConfig] = (
+    ciris.env(prefix("HTTP_TLS_KEYSTORE_FILE")).as[Path],
+    ciris.env(prefix("HTTP_TLS_KEYSTORE_PASSWORD")).as[String],
+    ciris.env(prefix("HTTP_TLS_KEY_PASSWORD")).as[String],
+  ).mapN(apply)
+}
+
+case class HttpServerConfig(host: Host, port: Port, tls: Option[HttpServerTLSConfig])
 object HttpServerConfig {
   given cirisConfig[F[_]](using prefix: EnvConfigPrefix): ConfigValue[F, HttpServerConfig] = (
     ciris.env(prefix("HTTP_HOST")).as[Host].default(host"127.0.0.1"),
     ciris.env(prefix("HTTP_PORT")).as[Port].default(port"3005"),
+    ciris.env(prefix("HTTP_TLS")).as[Boolean].default(false).flatMap {
+      case false => ConfigValue.default(None)
+      case true  => HttpServerTLSConfig.cirisConfig.map(Some(_))
+    },
   ).mapN(apply)
 }
 

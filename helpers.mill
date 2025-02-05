@@ -44,15 +44,16 @@ object Versions {
   final val Monocle = "3.2.0"
   final val Ciris = "3.7.0"
   // Build with fixes for:
-  // https://github.com/profunktor/redis4cats/pull/950
   // https://github.com/profunktor/redis4cats/pull/952
-  final val Redis4Cats = "1.7.0-6-1252c76-SNAPSHOT"
+  // https://github.com/profunktor/redis4cats/pull/963
+  final val Redis4Cats = "1.7.0-20-77770cc-SNAPSHOT"
 
   final val Squants = "1.8.3"
 
   final val OpenTelemetryJava = "1.46.0"
   final val Otel4s = "0.12.0-RC2"
   final val Otel4sHttp4s = "0.11.0-rc.1"
+  final val Otel4sRedis4Cats = "0.1-a6fe9af-20250131T145230Z-SNAPSHOT"
 }
 
 object Libraries {
@@ -281,12 +282,10 @@ def syncDirectories(
 }
 
 object OpenTelemetry {
-  /** Environment variables for development with Jeager trace collector. */
+  /** Environment variables for development with Grafana LGTM OpenTelemetry stack. */
   def environmentVariablesForDevelopment(serviceName: String): Map[String, String] = Map(
     // https://opentelemetry.io/docs/languages/java/configuration/#environment-variables-and-system-properties
     "OTEL_JAVA_GLOBAL_AUTOCONFIGURE_ENABLED" -> "true",
     "OTEL_SERVICE_NAME" -> serviceName,
-    // Jeager does not support metrics and we haven't set up Prometheus yet.
-    "OTEL_METRICS_EXPORTER" -> "none",
   )
 }

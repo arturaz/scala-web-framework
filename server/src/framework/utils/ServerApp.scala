@@ -77,13 +77,18 @@ trait ServerApp extends IOApp {
   }
 
   /** https://typelevel.org/otel4s/oteljava/metrics-jvm-runtime.html#java-17-and-newer */
-  def registerJavaRuntimeMetrics(openTelemetry: JOpenTelemetry): Resource[IO, RuntimeMetrics] = {
-    Resource.fromAutoCloseable(IO(RuntimeMetrics.create(openTelemetry)))
-  }
+  def registerJavaRuntimeMetrics(openTelemetry: JOpenTelemetry): Resource[IO, RuntimeMetrics] = for {
+    _ <- Resource.eval(log.info("Registering JVM runtime metrics to OpenTelemetry..."))
+    metrics <- Resource.fromAutoCloseable(IO(RuntimeMetrics.create(openTelemetry)))
+    _ <- Resource.eval(log.info("Registered JVM runtime metrics to OpenTelemetry."))
+  } yield metrics
 
   /** https://typelevel.org/otel4s/instrumentation/metrics-cats-effect-io-runtime.html#registering-metrics-collectors */
-  def registerCatsEffectMetrics(using MeterProvider[IO]): Resource[IO, Unit] =
-    IORuntimeMetrics.register[IO](runtime.metrics, IORuntimeMetrics.Config.default)
+  def registerCatsEffectMetrics(using MeterProvider[IO]): Resource[IO, Unit] = for {
+    _ <- Resource.eval(log.info("Registering Cats Effect metrics to OpenTelemetry..."))
+    _ <- IORuntimeMetrics.register[IO](runtime.metrics, IORuntimeMetrics.Config.default)
+    _ <- Resource.eval(log.info("Registered Cats Effect metrics to OpenTelemetry."))
+  } yield ()
 
   /** Handles some built-in commands.
     *

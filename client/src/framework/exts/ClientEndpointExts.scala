@@ -216,7 +216,11 @@ extension [SecurityInput, Input, Output, AuthError, Requirements <: ServerSentEv
   )(using baseUri: AppBaseUri, definedAt: DefinedAt): EventStream[MessageEvent] = {
     val options = js.Dynamic.literal(withCredentials = withCredentials).asInstanceOf[EventSourceInit]
 
-    def create(uri: Uri) = new EventSource(uri.toString, options)
+    def create(uri: Uri) = {
+      val uriStr = uri.toString
+      logDebug(s"Creating SSE stream for $uri, options=", options)
+      new EventSource(uriStr, options)
+    }
     def createUri(securityParams: SecurityInput, params: Input) = {
       val timestamp = now()
       val (name, value) = FrameworkHeaders.`X-Request-Started-At`(timestamp)

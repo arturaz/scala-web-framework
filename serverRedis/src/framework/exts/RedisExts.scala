@@ -1,10 +1,12 @@
 package framework.exts
 
-import cats.effect.Concurrent
+import framework.prelude.{*, given}
+import cats.effect.{Concurrent, MonadCancelThrow}
 import cats.syntax.all.*
 import cats.{Applicative, Foldable}
 import dev.profunktor.redis4cats.data.{RedisChannel, RedisPatternEvent}
-import dev.profunktor.redis4cats.pubsub.PubSubCommands
+import dev.profunktor.redis4cats.otel4s.{TracedPubSubCommands, TracedSubscribeCommands}
+import dev.profunktor.redis4cats.pubsub.{PublishCommands, SubscribeCommands}
 import dev.profunktor.redis4cats.streams.Streaming
 import dev.profunktor.redis4cats.streams.data.{MessageId, XAddMessage}
 import framework.data.MapEncoder
@@ -12,40 +14,77 @@ import framework.redis.*
 import fs2.Stream
 import io.scalaland.chimney.partial.Result
 import io.scalaland.chimney.{PartialTransformer, Transformer}
+import org.typelevel.otel4s.trace.Tracer
+import org.typelevel.otel4s.trace.SpanOps
+import dev.profunktor.redis4cats.data.RedisCodec
+import java.nio.ByteBuffer
+import framework.data.WithTracingData
+import framework.data.SpanOpsWithTracingData
 
-extension [F[_], K, V](pubSub: PubSubCommands[[X] =>> Stream[F, X], K, V]) {
+extension [K, V](codec: RedisCodec[K, V]) {
+
+  /** Invariant mapping. */
+  def imap[K1, V1](
+    kMapper: K => K1,
+    vMapper: V => V1,
+  )(kContramapper: K1 => K, vContramapper: V1 => V): RedisCodec[K1, V1] = RedisCodec(
+    new io.lettuce.core.codec.RedisCodec[K1, V1] {
+      override def encodeValue(value: V1): ByteBuffer = codec.underlying.encodeValue(vContramapper(value))
+      override def encodeKey(key: K1): ByteBuffer = codec.underlying.encodeKey(kContramapper(key))
+      override def decodeValue(bytes: ByteBuffer): V1 = vMapper(codec.underlying.decodeValue(bytes))
+      override def decodeKey(bytes: ByteBuffer): K1 = kMapper(codec.underlying.decodeKey(bytes))
+    }
+  )
+}
+
+extension [F[_], K, V](pubSub: PublishCommands[F, [X] =>> Stream[F, X], K, V]) {
 
   /** Publishes a message to the specified channel once.
     *
     * @see
     *   [[PubSubCommands.publish]]
     */
-  def publishOnce(channel: RedisChannel[K], value: V)(using Concurrent[F]): F[Unit] = {
-    val pipe = pubSub.publish(channel)
-    Stream.emit(value).through(pipe).compile.drain
-  }
-
-  /** Publishes a message to the specified channel once.
-    *
-    * @see
-    *   [[PubSubCommands.publish]]
-    */
-  def publishOnceTyped[M](channel: RedisChannelTyped[K, M], value: M)(using
+  def publishTyped[M](channel: RedisChannelTyped[K, M], value: M)(using
     transformer: Transformer[M, V],
     concurrent: Concurrent[F],
   ): F[Unit] =
-    publishOnce(channel.channel, transformer.transform(value))
+    pubSub.publish(channel.channel, transformer.transform(value))
 
   /** Publishes a message to all specified channels once. */
-  def publishOnceToAll[C[_]: Foldable](channels: C[RedisChannel[K]], value: V)(using Concurrent[F]): F[Unit] =
-    channels.traverse_(publishOnce(_, value))
+  def publishToAll[C[_]: Foldable](channels: C[RedisChannel[K]], value: V)(using Concurrent[F]): F[Unit] =
+    channels.traverse_(pubSub.publish(_, value))
 
   /** Publishes a message to all specified channels once. */
-  def publishOnceToAllTyped[C[_]: Foldable, M](channels: C[RedisChannelTyped[K, M]], value: M)(using
+  def publishToAllTyped[C[_]: Foldable, M](channels: C[RedisChannelTyped[K, M]], value: M)(using
     Transformer[M, V],
     Concurrent[F],
   ): F[Unit] =
-    channels.traverse_(publishOnceTyped(_, value))
+    channels.traverse_(publishTyped(_, value))
+}
+
+private inline def transformValue[F[_]: Applicative, K, V, M](channel: RedisChannelTyped[K, M], value: V)(using
+  transformer: PartialTransformer[V, M],
+  onTransformError: OnRedisMessageTransformError[F, K, V],
+): F[Either[Unit, M]] =
+  transformer.transform(value) match {
+    case Result.Value(value)   => Right(value).pure
+    case errors: Result.Errors => onTransformError.onTransformError(channel, value, errors).as(Left(()))
+  }
+
+private inline def transformEvt[F[_]: Applicative, K, V, M](
+  pattern: RedisPatternTyped[K, M],
+  evt: RedisPatternEvent[K, V],
+)(using
+  transformer: PartialTransformer[V, M],
+  onTransformError: OnRedisMessageTransformError[F, Unit, RedisPatternEvent[K, V]],
+): F[Either[Unit, RedisPatternEvent[K, M]]] =
+  transformer.transform(evt.data) match {
+    case Result.Value(value) =>
+      Right(evt.copy(data = value: M /* Without the type ascription the stream just silently fails :/ */ )).pure
+    case errors: Result.Errors => onTransformError.onTransformError(RedisChannel(()), evt, errors).as(Left(()))
+  }
+
+extension [F[_], K, V](pubSub: SubscribeCommands[F, [X] =>> Stream[F, X], K, V]) {
 
   /** Subscribes to the specified channel and transforms the value using the [[PartialTransformer]].
     *
@@ -59,18 +98,10 @@ extension [F[_], K, V](pubSub: PubSubCommands[[X] =>> Stream[F, X], K, V]) {
     channel: RedisChannelTyped[K, M]
   )(using
     transformer: PartialTransformer[V, M],
-    applicative: Applicative[F],
+    F: MonadCancelThrow[F],
     onTransformError: OnRedisMessageTransformError[F, K, V],
   ): Stream[F, M] = {
-    pubSub
-      .subscribe(channel.channel)
-      .evalMapChunk { value =>
-        transformer.transform(value) match {
-          case Result.Value(value)   => Right(value).pure
-          case errors: Result.Errors => onTransformError.onTransformError(channel, value, errors).as(Left(()))
-        }
-      }
-      .collect { case Right(value) => value }
+    pubSub.subscribe(channel.channel).evalMapChunk(transformValue(channel, _)).collect { case Right(value) => value }
   }
 
   /** Subscribes to the specified pattern and transforms the value using the [[PartialTransformer]].
@@ -85,28 +116,59 @@ extension [F[_], K, V](pubSub: PubSubCommands[[X] =>> Stream[F, X], K, V]) {
     pattern: RedisPatternTyped[K, M]
   )(using
     transformer: PartialTransformer[V, M],
-    applicative: Applicative[F],
+    F: MonadCancelThrow[F],
     onTransformError: OnRedisMessageTransformError[F, Unit, RedisPatternEvent[K, V]],
   ): Stream[F, RedisPatternEvent[K, M]] = {
-    pubSub
-      .psubscribe(pattern.pattern)
-      .evalMapChunk { evt =>
-        transformer.transform(evt.data) match {
-          case Result.Value(value) =>
-            Right(evt.copy(data = value: M /* Without the type ascription the stream just silently fails :/ */ )).pure
-          case errors: Result.Errors => onTransformError.onTransformError(RedisChannel(()), evt, errors).as(Left(()))
-        }
-      }
-      .collect { case Right(value) => value }
+    pubSub.psubscribe(pattern.pattern).evalMapChunk(transformEvt(pattern, _)).collect { case Right(value) => value }
   }
 }
 
-extension [F[_], K, V](streaming: Streaming[[X] =>> Stream[F, X], K, V]) {
+extension [F[_], K, V](pubSub: TracedSubscribeCommands[F, [X] =>> Stream[F, X], K, V]) {
 
-  /** Appends a single message to the stream. */
-  def appendOnce(message: XAddMessage[K, V])(using Concurrent[F]): F[MessageId] = {
-    val pipe = streaming.append
-    Stream.emit(message).through(pipe).compile.onlyOrError
+  /** Subscribes to the specified channel and transforms the value using the [[PartialTransformer]].
+    *
+    * If the transformation fails, `onTransformError` will be called with the original value and the message will be
+    * ignored.
+    *
+    * @see
+    *   [[PubSubCommands.subscribe]]
+    */
+  def subscribeTypedWithTracedEvents[M](
+    channel: RedisChannelTyped[K, WithTracingData[M]]
+  )(using
+    transformer: PartialTransformer[V, WithTracingData[M]],
+    F: MonadCancelThrow[F],
+    onTransformError: OnRedisMessageTransformError[F, K, V],
+  ): Stream[F, SpanOpsWithTracingData[F, M]] = {
+    pubSub
+      .subscribeWithTracedEvents(channel.channel)
+      .evalMapChunk { case (spanOps, value) =>
+        transformValue(channel, value).map(_.map(SpanOpsWithTracingData(spanOps, _)))
+      }
+      .collect { case Right(tpl) => tpl }
+  }
+
+  /** Subscribes to the specified pattern and transforms the value using the [[PartialTransformer]].
+    *
+    * If the transformation fails, `onTransformError` will be called with the original value and the message will be
+    * ignored.
+    *
+    * @see
+    *   [[PubSubCommands.psubscribe]]
+    */
+  def psubscribeTypedWithTracedEvents[M](
+    pattern: RedisPatternTyped[K, WithTracingData[M]]
+  )(using
+    transformer: PartialTransformer[V, WithTracingData[M]],
+    F: MonadCancelThrow[F],
+    onTransformError: OnRedisMessageTransformError[F, Unit, RedisPatternEvent[K, V]],
+  ): Stream[F, SpanOpsWithTracingData[F, RedisPatternEvent[K, M]]] = {
+    pubSub
+      .psubscribeWithTracedEvents(pattern.pattern)
+      .evalMapChunk { case (spanOps, evt) =>
+        transformEvt(pattern, evt).map(_.map(evt => SpanOpsWithTracingData(spanOps, evt.sequence)))
+      }
+      .collect { case Right(tpl) => tpl }
   }
 }
 

@@ -97,7 +97,7 @@ extension (obj: EventStream.type) {
   }
 
   /** Creates an [[EventStream]] from a DOM event source which emits `Right([[MessageEvent]])` and then finally
-    * `Left([[ErrorEvent]])`.
+    * `Left([[ErrorEvent]])`, after which the event source is closed.
     */
   def fromDomEventSourceEither(
     create: => EventSource
@@ -108,7 +108,11 @@ extension (obj: EventStream.type) {
           {
             val evtSource = create
             evtSource.onmessage = evt => fireValue(Right(evt))
-            evtSource.onerror = evt => fireValue(Left(evt))
+            evtSource.onerror = evt => {
+              fireValue(Left(evt))
+              // Make sure to manually close the event source to prevent reconnection.
+              evtSource.close()
+            }
             evtSource
           },
       stop = (_, evtSource) => {

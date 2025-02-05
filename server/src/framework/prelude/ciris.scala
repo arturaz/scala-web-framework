@@ -4,6 +4,7 @@ import yantl.Newtype
 import sttp.model.Uri
 import ciris.ConfigError
 import scribe.Level
+import java.nio.file.Path
 
 export framework.config.EnvConfigPrefix
 export ciris.{ConfigDecoder, ConfigValue}
@@ -14,6 +15,9 @@ given ConfigDecoder[String, Uri] =
 
 given ConfigDecoder[String, Level] =
   ConfigDecoder.instance((key, str: String) => Level.get(str).toRight(ConfigError(s"Invalid log level: $str")))
+
+given ConfigDecoder[String, Path] =
+  ConfigDecoder.instance((key, str: String) => Right(Path.of(str)))
 
 given configDecoderForUriWrapper[Wrapper](using newtype: Newtype.WithType[Uri, Wrapper]): ConfigDecoder[Uri, Wrapper] =
   ConfigDecoder[Uri].map(newtype.make(_).getOrThrow)

@@ -166,6 +166,19 @@ object sharedSquants extends Module {
   }
 }
 
+/** Redis related things shared between JVM and JS. */
+object sharedRedis extends FrameworkScalaModule {
+  trait SharedModule extends FrameworkPlatformModule
+
+  object jvm extends SharedModule {
+    override def moduleDeps = Seq(shared.jvm)
+  }
+
+  object js extends SharedModule with FrameworkScalaJSModule {
+    override def moduleDeps = Seq(shared.js)
+  }
+}
+
 /** Code common for all projects that use this stack for the client (JS platform). */
 object client extends FrameworkScalaJSModule {
   override def moduleDeps = Seq(shared.js)
@@ -359,7 +372,7 @@ object server extends FrameworkScalaModule {
 }
 
 object serverRedis extends FrameworkScalaModule {
-  override def moduleDeps = Seq(server)
+  override def moduleDeps = Seq(server, sharedRedis.jvm)
 
   override def ivyDeps = Agg(
     // Redis client
@@ -368,6 +381,13 @@ object serverRedis extends FrameworkScalaModule {
     ivy"dev.profunktor::redis4cats-effects:${Versions.Redis4Cats}",
     // https://mvnrepository.com/artifact/dev.profunktor/redis4cats-streams
     ivy"dev.profunktor::redis4cats-streams:${Versions.Redis4Cats}",
+
+    // Otel4s and Redis4Cats integration
+    // https://github.com/arturaz/otel4s-redis4cats
+    // https://mvnrepository.com/artifact/io.github.arturaz/otel4s-redis4cats-effects
+    ivy"io.github.arturaz::otel4s-redis4cats-effects:${Versions.Otel4sRedis4Cats}",
+    // https://mvnrepository.com/artifact/io.github.arturaz/otel4s-redis4cats-streams
+    ivy"io.github.arturaz::otel4s-redis4cats-streams:${Versions.Otel4sRedis4Cats}",
   )
 }
 

@@ -8,12 +8,18 @@ import framework.tapir.capabilities.ServerSentEvents
 import scribe.mdc.MDC
 import sttp.capabilities.fs2.Fs2Streams
 import sttp.model.sse.ServerSentEvent
-import sttp.tapir.{*, given}
+import sttp.tapir.{AttributeKey => _, *, given}
 import sttp.tapir.server.*
 import sttp.tapir.server.http4s.*
 
 import scala.annotation.targetName
 import scala.concurrent.duration.FiniteDuration
+import framework.utils.StreamRegistry
+import framework.utils.StreamRegistry.StreamDetails
+import org.typelevel.otel4s.AttributeKey
+import framework.http.middleware.GetCurrentRequest
+import framework.data.AttributeWithCirceEncoder
+import org.http4s.Request
 
 trait OnSSEStreamFinalizer[F[_]] {
   def applicative: Applicative[F]
@@ -49,14 +55,14 @@ extension [SECURITY_INPUT, INPUT, ERROR_OUTPUT, OUTPUT, R <: ServerSentEvents](
   e: Endpoint[SECURITY_INPUT, INPUT, ERROR_OUTPUT, OUTPUT, R]
 ) {
 
-  /** Turns the endpoint into a simple server-sent events endpoint.
-    *
-    * @param keepAlive
-    *   a ``
-    */
+  /** Turns the endpoint into a simple server-sent events endpoint. */
   def toSSE[F[_]: Temporal](keepAlive: Option[SSEKeepAliveConfig])(using
     codec: TapirCodec[String, OUTPUT, ?]
-  )(using OnSSEStreamFinalizer[F]): Endpoint[SECURITY_INPUT, INPUT, ERROR_OUTPUT, Stream[F, OUTPUT], Fs2Streams[F]] = {
+  )(using
+    OnSSEStreamFinalizer[F],
+    StreamRegistry[F],
+    GetCurrentRequest[F],
+  ): Endpoint[SECURITY_INPUT, INPUT, ERROR_OUTPUT, Stream[F, OUTPUT], Fs2Streams[F]] = {
     e.toSSE(keepAlive) { output =>
       val encoded = codec.encode(output)
       ServerSentEvent(data = Some(encoded))
@@ -66,7 +72,11 @@ extension [SECURITY_INPUT, INPUT, ERROR_OUTPUT, OUTPUT, R <: ServerSentEvents](
   /** Turns the endpoint into a simple server-sent events endpoint that serves JSON. */
   def toSSEJson[F[_]: Temporal](keepAlive: Option[SSEKeepAliveConfig])(using
     encoder: CirceEncoder[OUTPUT]
-  )(using OnSSEStreamFinalizer[F]): Endpoint[SECURITY_INPUT, INPUT, ERROR_OUTPUT, Stream[F, OUTPUT], Fs2Streams[F]] = {
+  )(using
+    OnSSEStreamFinalizer[F],
+    StreamRegistry[F],
+    GetCurrentRequest[F],
+  ): Endpoint[SECURITY_INPUT, INPUT, ERROR_OUTPUT, Stream[F, OUTPUT], Fs2Streams[F]] = {
     e.toSSE(keepAlive) { output =>
       val encoded = encoder(output).noSpaces
       ServerSentEvent(data = Some(encoded))
@@ -76,7 +86,11 @@ extension [SECURITY_INPUT, INPUT, ERROR_OUTPUT, OUTPUT, R <: ServerSentEvents](
   /** Turns the endpoint into a simple server-sent events endpoint. */
   def toSSE[F[_]: Temporal](keepAlive: Option[SSEKeepAliveConfig])(
     mapper: OUTPUT => ServerSentEvent
-  )(using OnSSEStreamFinalizer[F]): Endpoint[SECURITY_INPUT, INPUT, ERROR_OUTPUT, Stream[F, OUTPUT], Fs2Streams[F]] = {
+  )(using
+    OnSSEStreamFinalizer[F],
+    StreamRegistry[F],
+    GetCurrentRequest[F],
+  ): Endpoint[SECURITY_INPUT, INPUT, ERROR_OUTPUT, Stream[F, OUTPUT], Fs2Streams[F]] = {
     e.toSSEStream { stream =>
       val events = stream.map(mapper)
       val keepAliveEvents = keepAlive.fold2(Stream.empty, _.asStream[F])
@@ -88,9 +102,41 @@ extension [SECURITY_INPUT, INPUT, ERROR_OUTPUT, OUTPUT, R <: ServerSentEvents](
   def toSSEStream[F[_]](
     pipe: fs2.Pipe[F, OUTPUT, ServerSentEvent]
   )(using
-    onStreamError: OnSSEStreamFinalizer[F]
+    onStreamError: OnSSEStreamFinalizer[F],
+    registry: StreamRegistry[F],
+    getRequest: GetCurrentRequest[F],
   ): Endpoint[SECURITY_INPUT, INPUT, ERROR_OUTPUT, Stream[F, OUTPUT], Fs2Streams[F]] = {
     val sseBody = serverSentEventsBody[F]
+    val streamName = StreamRegistry.StreamName.fromEndpoint("SSE: ", e)
+
+    def attributesForReq(req: Request[F]) = {
+      AttributeWithCirceEncoder.fromAttribute(AttributeKey.string("method")(req.method.show)) ::
+        AttributeWithCirceEncoder.fromAttribute(AttributeKey.string("uri")(req.uri.show)) ::
+        AttributeWithCirceEncoder.fromAttribute(
+          AttributeKey.string("httpVersion")(req.httpVersion.show)
+        ) ::
+        req.isSecure.map { isSecure =>
+          AttributeWithCirceEncoder.fromAttribute(AttributeKey.boolean("isSecure")(isSecure))
+        }.toList :::
+        req.server.map { server =>
+          AttributeWithCirceEncoder.fromAttribute(AttributeKey.string("server")(server.show))
+        }.toList :::
+        req.remote.map { remote =>
+          AttributeWithCirceEncoder.fromAttribute(AttributeKey.string("remote")(remote.show))
+        }.toList :::
+        req.headers.redactSensitive().headers.map { header =>
+          AttributeWithCirceEncoder
+            .fromAttribute(AttributeKey.string(show"header.${header.name}")(header.value))
+        }
+    }
+
+    /** It seems that no logging is done if the stream fails, so we need to do it ourselves. */
+    def logErrors[A]: fs2.Pipe[F, A, A] =
+      _.onFinalizeCase {
+        case ExitCase.Succeeded    => onStreamError.onSucceeded(e)
+        case ExitCase.Canceled     => onStreamError.onCancelled(e)
+        case ExitCase.Errored(err) => onStreamError.onError(e, err)
+      }(using onStreamError.applicative)
 
     val sseEndpoint =
       e.withOutputPublic(sseBody.toEndpointIO)
@@ -103,15 +149,17 @@ extension [SECURITY_INPUT, INPUT, ERROR_OUTPUT, OUTPUT, R <: ServerSentEvents](
         ]]
     val endpoint =
       sseEndpoint
-        .mapOut[fs2.Stream[F, OUTPUT]](_ => throw new NotImplementedError("this should never be invoked"))(
-          pipe(_)
-            // It seems that no logging is done if the stream fails, so we need to do it ourselves
-            .onFinalizeCase {
-              case ExitCase.Succeeded    => onStreamError.onSucceeded(e)
-              case ExitCase.Canceled     => onStreamError.onCancelled(e)
-              case ExitCase.Errored(err) => onStreamError.onError(e, err)
-            }(using onStreamError.applicative)
-        )
+        .mapOut[fs2.Stream[F, OUTPUT]](_ => throw new NotImplementedError("this should never be invoked")) { stream =>
+          for {
+            maybeReq <- Stream.eval(getRequest.tryGet)
+            maybeStreamDetails = maybeReq.map { req =>
+              val attributes = attributesForReq(req)
+              StreamDetails(attributes*)
+            }
+            response <- registry.register(streamName, maybeStreamDetails, stream.through(pipe)).through(logErrors)
+          } yield response
+        }
+
     endpoint
   }
 }
