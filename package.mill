@@ -296,6 +296,10 @@ object server extends FrameworkScalaModule {
     // https://github.com/http4s/http4s-otel4s-middleware
     // https://mvnrepository.com/artifact/org.http4s/http4s-otel4s-middleware-metrics
     ivy"org.http4s::http4s-otel4s-middleware-metrics:${Versions.Otel4sHttp4s}",
+    // Support for declarative configuration
+    // https://opentelemetry.io/docs/languages/java/configuration/#declarative-configuration
+    // https://mvnrepository.com/artifact/io.opentelemetry/opentelemetry-sdk-extension-incubator
+    ivy"io.opentelemetry:opentelemetry-sdk-extension-incubator:${Versions.OpenTelemetryJavaIncubator}",
     // https://mvnrepository.com/artifact/org.http4s/http4s-otel4s-middleware-trace-server
     ivy"org.http4s::http4s-otel4s-middleware-trace-server:${Versions.Otel4sHttp4s}",
     // JVM runtime metrics

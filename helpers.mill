@@ -51,6 +51,7 @@ object Versions {
   final val Squants = "1.8.3"
 
   final val OpenTelemetryJava = "1.46.0"
+  final val OpenTelemetryJavaIncubator = OpenTelemetryJava + "-alpha"
   final val Otel4s = "0.12.0-RC2"
   final val Otel4sHttp4s = "0.11.0-rc.1"
   final val Otel4sRedis4Cats = "0.1-a6fe9af-20250131T145230Z-SNAPSHOT"
