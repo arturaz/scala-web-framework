@@ -24,14 +24,14 @@ object Versions {
     *
     * See the newest versions in https://github.com/scala/scala3/releases.
     */
-  final val Scala = "3.5.2"
+  final val Scala = "3.6.3"
 
   /** Look up the version compatible with [[Scala]] version in https://mvnrepository.com/artifact/com.lihaoyi/ammonite.
     */
   final val Ammonite = "3.0.0-2-6342755f"
 
   /** [[https://scala-js.org]] */
-  final val ScalaJS = "1.16.0"
+  final val ScalaJS = "1.18.2"
 
   final val Cats = "2.12.0"
   final val MUnit = "1.0.0"
