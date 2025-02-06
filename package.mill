@@ -79,7 +79,7 @@ object shared extends Module {
       // https://github.com/jkugiya/ulid-scala
       // https://mvnrepository.com/artifact/com.github.jkugiya/ulid-scala
       // https://github.com/jkugiya/ulid-scala/pull/9
-      ivy"com.github.jkugiya::ulid-scala::1.0.4-SNAPSHOT",
+      ivy"com.github.jkugiya::ulid-scala::1.0.5",
 
       // Endpoint description library
       // https://tapir.softwaremill.com/en/latest/
