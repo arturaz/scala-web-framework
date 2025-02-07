@@ -46,7 +46,7 @@ object AutocompleteData {
       case v: RawInput[_]     => Left(s"Can't extract value from $v to make a '${ct.runtimeClass.getName}'")
     }
 
-  given transformerToOptionOfB[A: ClassTag, B](using
+  given transformerToOptionOfB[A, B](using
     aToB: Transformer[A, B]
   ): Transformer[AutocompleteData[A], Option[B]] =
     transformerToOptionOfA[A].andThen((opt: Option[A]) => opt.map(aToB.transform))
