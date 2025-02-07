@@ -33,7 +33,16 @@ object HttpServerTLSConfig {
   ).mapN(apply)
 }
 
-case class HttpServerConfig(host: Host, port: Port, tls: Option[HttpServerTLSConfig])
+/** @param useHttp2
+  *   whether to enable HTTP 2. Enabling it is recommended because browsers limit SSE to 6 connections per domain on
+  *   HTTP 1.1. (see https://developer.mozilla.org/en-US/docs/Web/API/EventSource)
+  */
+case class HttpServerConfig(
+  host: Host,
+  port: Port,
+  tls: Option[HttpServerTLSConfig],
+  useHttp2: Boolean,
+)
 object HttpServerConfig {
   given cirisConfig[F[_]](using prefix: EnvConfigPrefix): ConfigValue[F, HttpServerConfig] = (
     ciris.env(prefix("HTTP_HOST")).as[Host].default(host"127.0.0.1"),
@@ -42,6 +51,7 @@ object HttpServerConfig {
       case false => ConfigValue.default(None)
       case true  => HttpServerTLSConfig.cirisConfig.map(Some(_))
     },
+    ciris.env(prefix("HTTP_USE_HTTP2")).as[Boolean].default(false),
   ).mapN(apply)
 }
 

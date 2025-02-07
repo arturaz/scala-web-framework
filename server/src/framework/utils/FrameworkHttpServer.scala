@@ -6,6 +6,7 @@ import framework.config.HttpConfig
 import framework.data.FrameworkDateTime
 import framework.http.middleware.*
 import framework.prelude.*
+import fs2.io.net.tls.TLSContext
 import org.http4s.*
 import org.http4s.circe.*
 import org.http4s.dsl.io.*
@@ -14,14 +15,12 @@ import org.http4s.otel4s.middleware.metrics.OtelMetrics
 import org.http4s.otel4s.middleware.redact.{PathRedactor, QueryRedactor}
 import org.http4s.otel4s.middleware.trace.server.{PathAndQueryRedactor, RouteClassifier, ServerMiddlewareBuilder}
 import org.http4s.server.middleware.Metrics
-import org.http4s.server.HttpMiddleware
-import org.http4s.server.{ContextMiddleware, Router, Server}
+import org.http4s.server.{ContextMiddleware, HttpMiddleware, Router, Server}
 import org.typelevel.otel4s.metrics.MeterProvider
 import org.typelevel.otel4s.trace.TracerProvider
 import sttp.tapir.server.http4s.Http4sServerInterpreter
 
 import scala.util.chaining.*
-import fs2.io.net.tls.TLSContext
 
 object FrameworkHttpServer {
   object Routes {
@@ -68,9 +67,6 @@ object FrameworkHttpServer {
     * @param extraRoutes
     *   additional routes to attach, like those in [[Routes]]. These routes won't have client tracing applied. Use
     *   [[HttpRoutes.empty]] to not add any extra routes.
-    * @param enableHttp2
-    *   whether to enable HTTP/2. Enabling it is recommended because browsers limit SSE to 6 connections per domain on
-    *   HTTP/1. (see https://developer.mozilla.org/en-US/docs/Web/API/EventSource)
     */
   def serverResource[Context](
     cfg: HttpConfig,
@@ -79,7 +75,6 @@ object FrameworkHttpServer {
     otelMiddleware: ServerMiddlewareBuilder[IO],
     extraRoutes: HttpRoutes[IO],
     clientSpanName: Request[IO] => String = defaultSpanNameForClient,
-    enableHttp2: Boolean = true,
   )(using TracerProvider[IO], MeterProvider[IO]): Resource[IO, Server] = {
     val serverInterpreter = Http4sServerInterpreter[IO]()
     val loggerMiddleware = cfg.logging.logger()
@@ -141,7 +136,7 @@ object FrameworkHttpServer {
           .withHost(cfg.server.host)
           .withPort(cfg.server.port)
           .withHttpApp(httpApp)
-          .pipe(b => if (enableHttp2) b.withHttp2 else b.withoutHttp2)
+          .pipe(b => if (cfg.server.useHttp2) b.withHttp2 else b.withoutHttp2)
           .pipe(b => maybeTls.fold(b)(b.withTLS(_)))
           .build
     } yield server
