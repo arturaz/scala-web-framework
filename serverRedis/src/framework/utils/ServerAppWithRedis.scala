@@ -13,6 +13,7 @@ import dev.profunktor.redis4cats.{Redis, RedisCommands}
 import framework.config.IsProductionMode
 import framework.prelude.{*, given}
 import org.typelevel.otel4s.trace.TracerProvider
+import dev.profunktor.redis4cats.otel4s.utils.EnhanceTimeoutException
 
 case class RedisResourceResult[K, V](
   client: RedisClient,
@@ -41,13 +42,22 @@ trait ServerAppWithRedis { self: ServerApp =>
       redisClient <- RedisClient[IO].fromUri(redisUri)
       _ <- Resource.eval(log.info(show"Connected to Redis server at '$redisUri'."))
       redisCmd <- Redis[IO].fromClient(redisClient, codec)
-      redisCmd <- TracedRedisCommands(redisCmd, tracingConfig).toResource
+      exceptionWrapper = EnhanceTimeoutException[IO]
+      redisCmd <- TracedRedisCommands(redisCmd, tracingConfig)
+        .map(cmd => cmd.withWrapper(w => w.combine(exceptionWrapper)))
+        .toResource
       mkPubSub = PubSub
         .mkPubSubConnection[IO, K, V](redisClient, codec)
-        .evalMap(TracedPubSubCommands(_, tracingConfig))
+        .evalMap(
+          TracedPubSubCommands(_, tracingConfig)
+            .map(cmd => cmd.withWrapper(w => w.combine(exceptionWrapper)))
+        )
       mkStreaming = RedisStream
         .mkStreamingConnectionResource[IO, K, V](redisClient, codec)
-        .evalMap(TracedStreaming(_, tracingConfig))
+        .evalMap(
+          TracedStreaming(_, tracingConfig)
+            .map(cmd => cmd.withWrapper(w => w.combine(exceptionWrapper)))
+        )
     } yield RedisResourceResult(redisClient, redisCmd, mkPubSub, mkStreaming)
   }
 
