@@ -6,6 +6,7 @@ import framework.utils.StreamRegistry.{StreamCount, StreamName, StreamStats}
 import fs2.Stream
 
 import java.util.concurrent.CancellationException
+import framework.utils.StreamRegistry.StreamDetails
 
 class StreamRegistryTest extends FrameworkTestSuite {
   val streamName = StreamName.makeOrThrow("test")
@@ -24,37 +25,47 @@ class StreamRegistryTest extends FrameworkTestSuite {
           .start
         getResult = fiber.join.flatMap(_.embedError)
         _ <- startDeferred.get
-      } yield (getResult, fiber.cancel, deferred, registry)
+        get = registry.get.map(mapGet)
+      } yield (getResult, fiber.cancel, deferred, get)
     )
   )
 
-  fixture.test("register - normal completion") { case (getResult, cancel, deferred, registry) =>
+  case class StreamStatsTest(count: StreamCount, details: Set[StreamDetails])
+  object StreamStatsTest {
+    def fromStreamStats(s: StreamStats): StreamStatsTest =
+      apply(s.count, s.details.valuesIterator.toSet)
+  }
+
+  def mapGet(m: Map[StreamName, StreamStats]): Map[StreamName, StreamStatsTest] =
+    m.view.mapValues(StreamStatsTest.fromStreamStats).toMap
+
+  fixture.test("register - normal completion") { case (getResult, cancel, deferred, get) =>
     for {
-      _ <- assertIO(registry.get, Map(streamName -> StreamStats(StreamCount(1), Set.empty)))
+      _ <- IO(assertIO(get, Map(streamName -> StreamStatsTest(StreamCount(1), Set.empty))))
       _ <- deferred.complete(Right(1))
       result <- getResult
-      _ <- assertIO(registry.get, Map.empty)
+      _ <- assertIO(get, Map.empty)
       _ <- IO(assertEquals(result, Vector(1)))
     } yield ()
   }
 
-  fixture.test("register - error completion") { case (getResult, cancel, deferred, registry) =>
+  fixture.test("register - error completion") { case (getResult, cancel, deferred, get) =>
     for {
-      _ <- assertIO(registry.get, Map(streamName -> StreamStats(StreamCount(1), Set.empty)))
+      _ <- assertIO(get, Map(streamName -> StreamStatsTest(StreamCount(1), Set.empty)))
       exception = new Exception("test")
       _ <- deferred.complete(Left(exception))
       result <- getResult.attempt
-      _ <- assertIO(registry.get, Map.empty)
+      _ <- assertIO(get, Map.empty)
       _ <- IO(assertEquals(result, Left(exception)))
     } yield ()
   }
 
-  fixture.test("register - cancellation") { case (getResult, cancel, deferred, registry) =>
+  fixture.test("register - cancellation") { case (getResult, cancel, deferred, get) =>
     for {
-      _ <- assertIO(registry.get, Map(streamName -> StreamStats(StreamCount(1), Set.empty)))
+      _ <- assertIO(get, Map(streamName -> StreamStatsTest(StreamCount(1), Set.empty)))
       _ <- cancel
       _ <- interceptMessageIO[CancellationException]("Outcome was Canceled")(getResult)
-      _ <- assertIO(registry.get, Map.empty)
+      _ <- assertIO(get, Map.empty)
     } yield ()
   }
 }
