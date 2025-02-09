@@ -2,6 +2,7 @@ package framework.data
 
 import sttp.model.Uri
 import org.scalajs.dom.Location
+import org.scalajs.dom.html.Document
 
 /** Specifies the base [[Uri]] for the application where the server is running. */
 trait AppBaseUri {
@@ -21,6 +22,17 @@ trait AppBaseUri {
 object AppBaseUri {
   given Show[AppBaseUri] = _.toString
 
+  /** Extracts the scheme from the [[Location]] object. */
+  def scheme(location: Location): String =
+    location.protocol.stripSuffix(":")
+
+  def locationPort(location: Location): Either[String, Short] =
+    (location.port, scheme(location)) match {
+      case ("", "http")   => Right(80.toShort)
+      case ("", "https")  => Right(443.toShort)
+      case (port, scheme) => port.toShortOption.toRight(show"Cannot parse port '$port' for scheme '$scheme'")
+    }
+
   /** Determines the base [[AppBaseUri]] from the location.
     *
     * @param productionPorts
@@ -33,7 +45,8 @@ object AppBaseUri {
     productionPorts: Set[Short] = Set(80, 443),
     portForDevelopmentServer: Short = 3005,
   ): AppBaseUri = {
-    val scheme = location.protocol.stripSuffix(":")
+    val scheme = AppBaseUri.scheme(location)
+    val port = AppBaseUri.locationPort(location)
 
     val (isProd, serverPort) = (location.port, scheme) match {
       // If the port is empty then we're in one of the production scenarios
@@ -50,4 +63,34 @@ object AppBaseUri {
       def isProduction: Boolean = isProd
     }
   }
+
+  /** Determines the base [[AppBaseUri]] from the meta tag.
+    *
+    * @param document
+    *   The document to get the meta tag from.
+    * @param metaTag
+    *   The meta tag to get the content from.
+    * @param metaTagContentForProduction
+    *   The content of the meta tag that indicates we're in production.
+    * @param portForDevelopmentServer
+    *   The port to use if we're in development.
+    */
+  def determineFromMetaTag(
+    document: Document = org.scalajs.dom.document,
+    metaTag: String = "environment",
+    metaTagContentForProduction: Set[String] = Set("production", "staging"),
+    portForDevelopmentServer: Short = 3005,
+  ): AppBaseUri = {
+    val isProd = document.getMetaContent(metaTag).exists(metaTagContentForProduction.contains)
+    val location = document.location
+    val scheme = AppBaseUri.scheme(location)
+    val port = locationPort(location).getOrThrow
+    val serverPort = if (isProd) port else portForDevelopmentServer
+
+    new AppBaseUri {
+      val uri: Uri = Uri(scheme = scheme, host = location.hostname, port = serverPort)
+      def isProduction: Boolean = isProd
+    }
+  }
+
 }
