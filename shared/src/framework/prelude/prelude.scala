@@ -1,7 +1,5 @@
 package framework.prelude
 
-import scala.annotation.nowarn
-
 export cats.{~>, Id, Show}
 export cats.data.{EitherT, NonEmptyChain, NonEmptyList, NonEmptyMap, NonEmptySet, NonEmptyVector, OptionT}
 export cats.effect.{IO, Resource, SyncIO}
