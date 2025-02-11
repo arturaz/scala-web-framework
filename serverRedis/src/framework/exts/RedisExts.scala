@@ -1,25 +1,22 @@
 package framework.exts
 
-import framework.prelude.{*, given}
 import cats.effect.{Concurrent, MonadCancelThrow}
 import cats.syntax.all.*
 import cats.{Applicative, Foldable}
-import dev.profunktor.redis4cats.data.{RedisChannel, RedisPatternEvent}
+import dev.profunktor.redis4cats.data.{RedisChannel, RedisCodec, RedisPatternEvent}
 import dev.profunktor.redis4cats.otel4s.{TracedPubSubCommands, TracedSubscribeCommands}
 import dev.profunktor.redis4cats.pubsub.{PublishCommands, SubscribeCommands}
 import dev.profunktor.redis4cats.streams.Streaming
 import dev.profunktor.redis4cats.streams.data.{MessageId, XAddMessage}
-import framework.data.MapEncoder
+import framework.data.{MapEncoder, SpanOpsWithTracingData, WithTracingData}
+import framework.prelude.{*, given}
 import framework.redis.*
 import fs2.Stream
 import io.scalaland.chimney.partial.Result
 import io.scalaland.chimney.{PartialTransformer, Transformer}
-import org.typelevel.otel4s.trace.Tracer
-import org.typelevel.otel4s.trace.SpanOps
-import dev.profunktor.redis4cats.data.RedisCodec
+import org.typelevel.otel4s.trace.{SpanOps, Tracer}
+
 import java.nio.ByteBuffer
-import framework.data.WithTracingData
-import framework.data.SpanOpsWithTracingData
 
 extension [K, V](codec: RedisCodec[K, V]) {
 
@@ -47,7 +44,7 @@ extension [F[_], K, V](pubSub: PublishCommands[F, [X] =>> Stream[F, X], K, V]) {
   def publishTyped[M](channel: RedisChannelTyped[K, M], value: M)(using
     transformer: Transformer[M, V],
     concurrent: Concurrent[F],
-  ): F[Unit] =
+  ): F[Long] =
     pubSub.publish(channel.channel, transformer.transform(value))
 
   /** Publishes a message to all specified channels once. */

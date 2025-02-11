@@ -14,6 +14,10 @@ import framework.config.IsProductionMode
 import framework.prelude.{*, given}
 import org.typelevel.otel4s.trace.TracerProvider
 import dev.profunktor.redis4cats.otel4s.utils.EnhanceTimeoutException
+import io.lettuce.core.ClientOptions
+import io.lettuce.core.TimeoutOptions
+import io.lettuce.core.TimeoutOptions.TimeoutSource
+import io.lettuce.core.protocol.RedisCommand
 
 case class RedisResourceResult[K, V](
   client: RedisClient,
@@ -39,24 +43,42 @@ trait ServerAppWithRedis { self: ServerApp =>
   ): Resource[IO, RedisResourceResult[K, V]] = {
     for {
       _ <- Resource.eval(log.info(show"Connecting to Redis server at '$redisUri'..."))
-      redisClient <- RedisClient[IO].fromUri(redisUri)
+      options = ClientOptions
+        .builder()
+        // .timeoutOptions(
+        //   TimeoutOptions
+        //     .builder()
+        //     .timeoutSource(new TimeoutSource {
+        //       override def getTimeout(command: RedisCommand[?, ?, ?]): Long = {
+        //         command.getType().toString() match {
+        //           case "SUBSCRIBE" => Long.MaxValue
+        //           case _           => 60 * 1000L
+        //         }
+        //       }
+        //     })
+        //     .build()
+        // )
+        .build()
+      redisClient <- RedisClient[IO].custom(redisUri, options)
       _ <- Resource.eval(log.info(show"Connected to Redis server at '$redisUri'."))
       redisCmd <- Redis[IO].fromClient(redisClient, codec)
       exceptionWrapper = EnhanceTimeoutException[IO]
+      loggingWrapper = LoggingCommandWrapper[IO](framework.prelude.log, scribe.Level.Info)
+      commandWrapper = loggingWrapper.combine(exceptionWrapper)
       redisCmd <- TracedRedisCommands(redisCmd, tracingConfig)
-        .map(cmd => cmd.withWrapper(w => w.combine(exceptionWrapper)))
+        .map(cmd => cmd.withWrapper(w => w.combine(commandWrapper)))
         .toResource
       mkPubSub = PubSub
         .mkPubSubConnection[IO, K, V](redisClient, codec)
         .evalMap(
           TracedPubSubCommands(_, tracingConfig)
-            .map(cmd => cmd.withWrapper(w => w.combine(exceptionWrapper)))
+            .map(cmd => cmd.withWrapper(w => w.combine(commandWrapper)))
         )
       mkStreaming = RedisStream
         .mkStreamingConnectionResource[IO, K, V](redisClient, codec)
         .evalMap(
           TracedStreaming(_, tracingConfig)
-            .map(cmd => cmd.withWrapper(w => w.combine(exceptionWrapper)))
+            .map(cmd => cmd.withWrapper(w => w.combine(commandWrapper)))
         )
     } yield RedisResourceResult(redisClient, redisCmd, mkPubSub, mkStreaming)
   }
