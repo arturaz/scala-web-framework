@@ -31,4 +31,17 @@ object JWT {
   extension (jwt: JWT) {
     def token: String = jwt
   }
+
+  /** A JWT with an expiration date. */
+  case class Expiring(private val jwt: JWT, expiresAt: Option[FrameworkDateTime]) {
+
+    /** The JWT, without any checks. */
+    def unsafe: JWT = jwt
+
+    /** Returns the JWT if it's still valid. */
+    def access(now: FrameworkDateTime): Option[JWT] = expiresAt match {
+      case None            => Some(jwt)
+      case Some(expiresAt) => if (expiresAt.isAfter(now)) Some(jwt) else None
+    }
+  }
 }
