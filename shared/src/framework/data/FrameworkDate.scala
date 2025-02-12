@@ -16,7 +16,8 @@ import framework.prelude.{*, given}
 import cats.syntax.either.*
 
 /** A date in the local timezone. */
-case class FrameworkDate(ld: LocalDate) extends AnyVal {
+case class FrameworkDate(ld: LocalDate) extends AnyVal with Ordered[FrameworkDate] {
+  override def compare(that: FrameworkDate): Int = ld.compareTo(that.ld)
 
   /** Returns the date in "yyyy-MM-dd" format. */
   def asString: String = ld.format(FrameworkDate.formatter)

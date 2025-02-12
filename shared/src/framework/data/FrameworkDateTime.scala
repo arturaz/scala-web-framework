@@ -18,7 +18,9 @@ import scala.concurrent.duration.*
   * This precision is used to make sure we do not have problems with databases which often will only store milliseconds
   * precision.
   */
-case class FrameworkDateTime private (ldt: LocalDateTime) extends AnyVal {
+case class FrameworkDateTime private (ldt: LocalDateTime) extends AnyVal with Ordered[FrameworkDateTime] {
+  override def compare(that: FrameworkDateTime): Int = ldt.compareTo(that.ldt)
+
   def toDate: FrameworkDate = FrameworkDate(ldt.toLocalDate)
 
   /** Returns true if the given [[FrameworkDateTime]] is on the same day. */
