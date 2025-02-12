@@ -6,6 +6,7 @@ import framework.data.{HasSurroundingPages, PageCursor, PageCursorDirection}
 import framework.db.*
 import io.scalaland.chimney.Transformer
 
+/** The entry point to using this is either [[connectionIO]] or [[connectionIOMapped]]. */
 extension [PrimaryColumn, SecondaryColumn, PageSize](cursor: PageCursor[PrimaryColumn, SecondaryColumn, PageSize]) {
 
   /** Produces the SQL fragment that filters the previous/next page. */
@@ -73,7 +74,26 @@ extension [PrimaryColumn, SecondaryColumn, PageSize](cursor: PageCursor[PrimaryC
 
   /** Returns the [[ConnectionIO]] that fetches results and checks whether the previous/next page are available.
     *
-    * Additionally transforms the fetched rows using `process`.
+    * Additionally transforms the fetched rows using the `process` function.
+    *
+    * Example:
+    * {{{
+    * val t = GeneralPractices
+    * val dbIO = request.cursor
+    *   .connectionIO(
+    *     tables = t,
+    *     columns = Columns(t.AdminListItem),
+    *     whereFragment = None,
+    *     colPrimary = t.cId,
+    *     colSecondary = t.cCreatedAt,
+    *     order = SqlOrder.Desc,
+    *     getPrimary = _.id,
+    *     getSecondary = _.createdAt,
+    *   )
+    *   .to[Vector]
+    *
+    * dbIO.perform.map(AdminGeneralPracticesListResponse(_))
+    * }}}
     */
   def connectionIOMapped[RowsResult, ProcessedResult](
     tables: Fragment,
@@ -105,7 +125,10 @@ extension [PrimaryColumn, SecondaryColumn, PageSize](cursor: PageCursor[PrimaryC
     )
   }
 
-  /** Returns the [[ConnectionIO]] that fetches results and checks whether the previous/next page are available. */
+  /** Returns the [[ConnectionIO]] that fetches results and checks whether the previous/next page are available.
+    *
+    * Basically [[connectionIOMapped]] with the `process` function set to the identity function.
+    */
   def connectionIO[Result](
     tables: Fragment,
     columns: Columns[Result],
