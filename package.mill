@@ -350,6 +350,11 @@ object server extends FrameworkScalaModule {
     ivy"is.cir::ciris:${Versions.Ciris}",
     // https://mvnrepository.com/artifact/is.cir/ciris-http4s
     ivy"is.cir::ciris-http4s:${Versions.Ciris}",
+
+    // Calculating diffs for auditing
+    // https://github.com/jatcwang/difflicious
+    // https://mvnrepository.com/artifact/com.github.jatcwang/difflicious-cats
+    ivy"com.github.jatcwang::difflicious-cats:0.4.3",
   )
 
   override def runIvyDeps = Agg(
