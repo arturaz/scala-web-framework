@@ -97,6 +97,14 @@ object FrameworkDateTime {
     given Ordering[Type] = Ordering.by(unwrap)
 
     given Conversion[Type, FrameworkDateTime] = unwrap
+
+    def schemaFor: Schema[Type] = FrameworkDateTime.schema.map(v => make(v).toOption)(unwrap)
+  }
+  object Newtype {
+    extension [A](obj: yantl.Newtype.WithType[FrameworkDateTime, A] & yantl.Newtype.WithoutValidation) {
+      def now(): A = obj.apply(FrameworkDateTime.now())
+      def nowIO: SyncIO[A] = SyncIO(now())
+    }
   }
 
   given asInstant: Conversion[FrameworkDateTime, Instant] = _.toInstant
