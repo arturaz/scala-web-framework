@@ -22,4 +22,8 @@ extension (connectionIO: ConnectionIO[Int]) {
   /** Returns true if the number of affected rows is 1. */
   def singleOrFalse: ConnectionIO[Boolean] =
     connectionIO.map(_ == 1)
+
+  /** Returns an [[OptionT]] with `Some` if the update was successful, `None` otherwise. */
+  def singleOrNoneT: OptionT[ConnectionIO, Unit] =
+    OptionT(connectionIO.map(rows => if (rows == 1) Some(()) else None))
 }
