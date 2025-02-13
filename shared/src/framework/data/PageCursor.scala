@@ -34,7 +34,7 @@ import urldsl.errors.DummyError
 case class PageCursor[+PrimaryColumn, +SecondaryColumn, +PageSize](
   cursor: Option[PageCursor.Cursor[PrimaryColumn, SecondaryColumn]],
   pageSize: PageSize,
-) {
+) derives CanEqual {
   override def toString(): String =
     s"PageCursor(pageSize = ${pageSize}, cursor = ${cursor})"
 
@@ -205,18 +205,23 @@ object PageCursor {
   ): CirceCodec[PageCursor[PrimaryColumn, SecondaryColumn, PageSize]] =
     CirceCodec.derived
 
-  /** Default way to encode a cursor so it could be used in Tapir URI paths. */
+  /** Default way to encode a cursor so it could be used in Tapir URI paths.
+    *
+    * @note
+    *   even default page size is encoded as "ps-XXX" because at the moment Waypoint, the frontend router that we are
+    *   using has hard time matching route segments that are empty.
+    */
   given tapirCodec[PrimaryColumn, SecondaryColumn, PageSize: CanEqual1](using
     cursorCodec: TapirCodec[String, Cursor[PrimaryColumn, SecondaryColumn], TapirCodecFormat.TextPlain],
     pageSizeCodec: TapirCodec[String, PageSize, TapirCodecFormat.TextPlain],
-    pageSizeEmpty: Empty[PageSize],
   ): TapirCodec[String, PageCursor[PrimaryColumn, SecondaryColumn, PageSize], TapirCodecFormat.TextPlain] = {
     val prefix = "ps-"
 
     TapirCodec.string
       .mapDecode {
-        case "" => DecodeResult.Value(apply(None, pageSizeEmpty.empty))
-        case str =>
+        // !!! See above for motivation !!!
+        // case "" => DecodeResult.Value(apply(None, pageSizeEmpty.empty))
+        str =>
           def decodePageSize(pageSizeRaw: String) =
             pageSizeCodec.decode(pageSizeRaw.stripPrefix(prefix))
 
@@ -235,8 +240,10 @@ object PageCursor {
           }
       } {
         case PageCursor(None, pageSize) =>
-          // If this is the default page with default page size, we don't need to encode it at all
-          if (pageSize.isEmpty) "" else show"$prefix${pageSizeCodec.encode(pageSize)}"
+          // !!! See above for motivation !!!
+          // // If this is the default page with default page size, we don't need to encode it at all
+          // if (pageSize.isEmpty) "" else
+          show"$prefix${pageSizeCodec.encode(pageSize)}"
         case PageCursor(Some(cursor), pageSize) =>
           // If we have other parts of the cursor, include page size as well
           show"$prefix${pageSizeCodec.encode(pageSize)},${cursorCodec.encode(cursor)}"
