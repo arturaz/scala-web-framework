@@ -50,6 +50,10 @@ extension [A](signal: Signal[A]) {
 
 extension [A](signal: Signal[Option[A]]) {
 
+  /** Map the [[Some]] value in the signal using `Option.flatMap` */
+  def mapSomeOpt[B](f: A => Option[B]): Signal[Option[B]] =
+    signal.map(_.flatMap(f))
+
   /** Subscribes to a [[Signal]] to receive the first `Some` value and immediately unsubscribes. */
   def toIOOnSome: IO[A] =
     signal.toIOMapFilter(identity)
