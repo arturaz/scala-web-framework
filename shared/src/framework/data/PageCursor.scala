@@ -206,32 +206,39 @@ object PageCursor {
     CirceCodec.derived
 
   /** Default way to encode a cursor so it could be used in Tapir URI paths. */
-  given tapirCodec[PrimaryColumn, SecondaryColumn, PageSize](using
+  given tapirCodec[PrimaryColumn, SecondaryColumn, PageSize: CanEqual1](using
     cursorCodec: TapirCodec[String, Cursor[PrimaryColumn, SecondaryColumn], TapirCodecFormat.TextPlain],
     pageSizeCodec: TapirCodec[String, PageSize, TapirCodecFormat.TextPlain],
+    pageSizeEmpty: Empty[PageSize],
   ): TapirCodec[String, PageCursor[PrimaryColumn, SecondaryColumn, PageSize], TapirCodecFormat.TextPlain] = {
     val prefix = "ps-"
-    TapirCodec.string
-      .mapDecode { str =>
-        def decodePageSize(pageSizeRaw: String) =
-          pageSizeCodec.decode(pageSizeRaw.stripPrefix(prefix))
 
-        str.split(",", 2) match {
-          case Array(pageSizeRaw) =>
-            for {
-              pageSize <- decodePageSize(pageSizeRaw)
-            } yield apply(None, pageSize)
-          case Array(pageSizeRaw, cursorRaw) =>
-            for {
-              pageSize <- decodePageSize(pageSizeRaw)
-              cursor <- cursorCodec.decode(cursorRaw)
-            } yield apply(Some(cursor), pageSize)
-          case other =>
-            DecodeResult.Error(str, new Exception(show"Expected 2 parts, got ${other.length} parts"))
-        }
+    TapirCodec.string
+      .mapDecode {
+        case "" => DecodeResult.Value(apply(None, pageSizeEmpty.empty))
+        case str =>
+          def decodePageSize(pageSizeRaw: String) =
+            pageSizeCodec.decode(pageSizeRaw.stripPrefix(prefix))
+
+          str.split(",", 2) match {
+            case Array(pageSizeRaw) =>
+              for {
+                pageSize <- decodePageSize(pageSizeRaw)
+              } yield apply(None, pageSize)
+            case Array(pageSizeRaw, cursorRaw) =>
+              for {
+                pageSize <- decodePageSize(pageSizeRaw)
+                cursor <- cursorCodec.decode(cursorRaw)
+              } yield apply(Some(cursor), pageSize)
+            case other =>
+              DecodeResult.Error(str, new Exception(show"Expected 2 parts, got ${other.length} parts"))
+          }
       } {
-        case PageCursor(None, pageSize) => show"$prefix${pageSizeCodec.encode(pageSize)}"
+        case PageCursor(None, pageSize) =>
+          // If this is the default page with default page size, we don't need to encode it at all
+          if (pageSize.isEmpty) "" else show"$prefix${pageSizeCodec.encode(pageSize)}"
         case PageCursor(Some(cursor), pageSize) =>
+          // If we have other parts of the cursor, include page size as well
           show"$prefix${pageSizeCodec.encode(pageSize)},${cursorCodec.encode(cursor)}"
       }
   }
