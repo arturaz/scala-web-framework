@@ -100,6 +100,8 @@ object FrameworkDateTime {
 
     given Conversion[Type, FrameworkDateTime] = unwrap
 
+    given CanEqual1[Type] = CanEqual.derived
+
     given TapirCodec[String, Type, TapirCodecFormat.TextPlain] =
       FrameworkDateTime.tapirCodec.mapEither(makeAsString)(unwrap)
 
