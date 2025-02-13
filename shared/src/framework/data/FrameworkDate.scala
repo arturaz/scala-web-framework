@@ -14,6 +14,8 @@ import framework.utils.FrameworkPlatform
 import framework.exts.{*, given}
 import framework.prelude.{*, given}
 import cats.syntax.either.*
+import framework.utils.UrlConvertible
+import urldsl.errors.DummyError
 
 /** A date in the local timezone. */
 case class FrameworkDate(ld: LocalDate) extends AnyVal with Ordered[FrameworkDate] {
@@ -48,6 +50,11 @@ object FrameworkDate {
       year * 10000 + month * 100 + day
     })
 
+  given tapirCodec: TapirCodec[String, FrameworkDate, TapirCodecFormat.TextPlain] =
+    TapirCodec.string.mapEither(str => Try(apply(LocalDate.parse(str, formatter))).toEither.leftMap(_.toString))(
+      _.ld.format(formatter)
+    )
+
   given schema: Schema[FrameworkDate] =
     Schema(SchemaType.SInteger()).description("A date in YYYYmmdd format").encodedExample("20241231")
 
@@ -60,6 +67,11 @@ object FrameworkDate {
 
     given Transformer[Type, FrameworkDate] = unwrap
     given Transformer[FrameworkDate, Type] = make(_).getOrThrow
+
+    given TapirCodec[String, Type, TapirCodecFormat.TextPlain] =
+      FrameworkDate.tapirCodec.mapEither(makeAsString)(unwrap)
+
+    given UrlConvertible[Type, DummyError] = UrlConvertible.fromCodec
 
     given CanEqual1[Type] = CanEqual.derived
 

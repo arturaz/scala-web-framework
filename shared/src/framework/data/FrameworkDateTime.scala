@@ -12,6 +12,8 @@ import framework.prelude.{*, given}
 import cats.syntax.either.*
 import framework.utils.FrameworkPlatform
 import scala.concurrent.duration.*
+import framework.utils.UrlConvertible
+import urldsl.errors.DummyError
 
 /** A timestamp in the UTC timezone with the precision of milliseconds.
   *
@@ -97,6 +99,11 @@ object FrameworkDateTime {
     given Ordering[Type] = Ordering.by(unwrap)
 
     given Conversion[Type, FrameworkDateTime] = unwrap
+
+    given TapirCodec[String, Type, TapirCodecFormat.TextPlain] =
+      FrameworkDateTime.tapirCodec.mapEither(makeAsString)(unwrap)
+
+    given UrlConvertible[Type, DummyError] = UrlConvertible.fromCodec
 
     def schemaFor: Schema[Type] = FrameworkDateTime.schema.map(v => make(v).toOption)(unwrap)
   }
