@@ -2,8 +2,10 @@ package framework.data
 
 import framework.utils.NewtypeDouble
 import framework.prelude.{*, given}
+import framework.exts.*
 import sttp.tapir.{Schema, SchemaType}
 import yantl.*
+import sttp.model.Uri
 
 object Latitude extends NewtypeDouble {
   type TError = ValidatorRule.SmallerThan[Double] | ValidatorRule.LargerThan[Double]
@@ -30,7 +32,18 @@ object Longitude extends NewtypeDouble {
 type Longitude = Longitude.Type
 
 /** Latitude and longitude. */
-case class LatLng(latitude: Latitude, longitude: Longitude) derives CanEqual, Schema, CirceCodec
+case class LatLng(latitude: Latitude, longitude: Longitude) derives CanEqual, Schema, CirceCodec {
+
+  /** Formats as 54.992078, 23.687857. */
+  def asString: String = s"${latitude.unwrap}, ${longitude.unwrap}"
+
+  /** Returns an Uri for Google Maps for this location. */
+  def googleMapsUri: Uri =
+    Uri
+      .parse("https://maps.google.com")
+      .getOrThrow
+      .addQuerySegmentKV("q", show"${latitude.unwrap},${longitude.unwrap}")
+}
 object LatLng {
   def zero: LatLng = apply(Latitude.zero, Longitude.zero)
 
