@@ -12,4 +12,5 @@ object MaybeGetHead {
   given [A]: MaybeGetHead[NonEmptyVector[A], A] = c => Some(c.head)
   given [A]: MaybeGetHead[NonEmptyList[A], A] = c => Some(c.head)
   given [A]: MaybeGetHead[Chain[A], A] = _.headOption
+  given [A]: MaybeGetHead[Iterator[A], A] = iter => if (iter.hasNext) Some(iter.next()) else None
 }
