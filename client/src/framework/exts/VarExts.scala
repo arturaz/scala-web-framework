@@ -25,4 +25,8 @@ extension [A](rxVar: Var[A]) {
     val lens = f(GenLens[A])
     rxVar.zoomLazyLens(lens)
   }
+
+  /** Updates the value if the given function returns `Some`. */
+  def maybeUpdate(f: A => Option[A]): Unit =
+    f(rxVar.now()).foreach(rxVar.set)
 }
