@@ -7,7 +7,14 @@ import cats.syntax.functor.*
 import com.raquo.airstream.core.Signal
 import com.raquo.airstream.split.Splittable
 import com.raquo.airstream.state.Var
-import framework.data.{AuthLoadingStatus, HasSurroundingPages, LoadingStatus, PageCursor, PublicLoadingStatus}
+import framework.data.{
+  AuthLoadingStatus,
+  HasSurroundingPages,
+  LoadingStatus,
+  PageCursor,
+  PageCursors,
+  PublicLoadingStatus,
+}
 import framework.sourcecode.DefinedAt
 import framework.utils.NetworkError
 import monocle.AppliedLens
@@ -79,13 +86,10 @@ object FetchRequest {
       extractSurroundingPages: A => HasSurroundingPages[Data],
       cursorLens: Input1 => AppliedLens[Input1, PageCursor[CursorPrimaryColumn, CursorSecondaryColumn, PageSize]],
       getFirst: Data => Option[(CursorPrimaryColumn, CursorSecondaryColumn)],
-    ): Option[Input1] = {
-      val lens = cursorLens(input)
-      val cursor = lens.get
+    ): Option[PageCursor[CursorPrimaryColumn, CursorSecondaryColumn, PageSize]] = {
+      val cursor = cursorLens(input).get
 
-      extractSurroundingPages(fetchedData)
-        .previousPageCursor(cursor, getFirst)
-        .map(lens.replace)
+      extractSurroundingPages(fetchedData).previousPageCursor(cursor, getFirst)
     }
 
     /** Helper to construct the [[PageCursor]] for the next page.
@@ -97,13 +101,10 @@ object FetchRequest {
       extractSurroundingPages: A => HasSurroundingPages[Data],
       cursorLens: Input1 => AppliedLens[Input1, PageCursor[CursorPrimaryColumn, CursorSecondaryColumn, PageSize]],
       getLast: Data => Option[(CursorPrimaryColumn, CursorSecondaryColumn)],
-    ): Option[Input1] = {
-      val lens = cursorLens(input)
-      val cursor = lens.get
+    ): Option[PageCursor[CursorPrimaryColumn, CursorSecondaryColumn, PageSize]] = {
+      val cursor = cursorLens(input).get
 
-      extractSurroundingPages(fetchedData)
-        .nextPageCursor(cursor, getLast)
-        .map(lens.replace)
+      extractSurroundingPages(fetchedData).nextPageCursor(cursor, getLast)
     }
 
     /** Helper to construct the [[PageCursor]]s for the previous, current and next page. */
@@ -112,10 +113,11 @@ object FetchRequest {
       cursorLens: Input1 => AppliedLens[Input1, PageCursor[CursorPrimaryColumn, CursorSecondaryColumn, PageSize]],
       getFirst: Data => Option[(CursorPrimaryColumn, CursorSecondaryColumn)],
       getLast: Data => Option[(CursorPrimaryColumn, CursorSecondaryColumn)],
-    ): (Option[Input1], PageCursor[CursorPrimaryColumn, CursorSecondaryColumn, PageSize], Option[Input1]) = {
-      (
+    ): PageCursors[Input1, CursorPrimaryColumn, CursorSecondaryColumn, PageSize] = {
+      PageCursors(
+        PageCursor.Lens(cursorLens),
+        input,
         previousPageCursor(extractSurroundingPages, cursorLens, getFirst),
-        cursorLens(input).get,
         nextPageCursor(extractSurroundingPages, cursorLens, getLast),
       )
     }
@@ -138,67 +140,13 @@ object FetchRequest {
       cursorLens: Input1 => AppliedLens[Input1, PageCursor[CursorPrimaryColumn, CursorSecondaryColumn, PageSize]],
       getPrimary: Element => CursorPrimaryColumn,
       getSecondary: Element => CursorSecondaryColumn,
-    ): (Option[Input1], PageCursor[CursorPrimaryColumn, CursorSecondaryColumn, PageSize], Option[Input1]) = {
+    ): PageCursors[Input1, CursorPrimaryColumn, CursorSecondaryColumn, PageSize] = {
       pageCursors(
         extractSurroundingPages,
         cursorLens,
         collection => collection.headOption.map(elem => (getPrimary(elem), getSecondary(elem))),
         collection => collection.lastOption.map(elem => (getPrimary(elem), getSecondary(elem))),
       )
-    }
-  }
-  object WithInput {
-    extension [Input, A](withInputSignal: Signal[WithInput[Input, A]]) {
-
-      /** Helper to construct the [[PageCursor]] [[Signal]]s for the previous page, current cursor and next page.
-        *
-        * @return
-        *   (previousPageCursor, currentPageCursor, nextPageCursor)
-        */
-      def pageCursorSignals[Input1 >: Input, CursorPrimaryColumn, CursorSecondaryColumn, PageSize, Data](
-        extractSurroundingPages: A => HasSurroundingPages[Data],
-        cursorLens: Input1 => AppliedLens[Input1, PageCursor[CursorPrimaryColumn, CursorSecondaryColumn, PageSize]],
-        getFirst: Data => Option[(CursorPrimaryColumn, CursorSecondaryColumn)],
-        getLast: Data => Option[(CursorPrimaryColumn, CursorSecondaryColumn)],
-      ): (
-        Signal[Option[Input1]],
-        Signal[PageCursor[CursorPrimaryColumn, CursorSecondaryColumn, PageSize]],
-        Signal[Option[Input1]],
-      ) = {
-        val s = withInputSignal.map(_.pageCursors(extractSurroundingPages, cursorLens, getFirst, getLast))
-        (s.map(_._1), s.map(_._2), s.map(_._3))
-      }
-
-      /** Helper to construct the [[PageCursor]] [[Signal]]s for the previous page, current cursor and next page when
-        * [[HasSurroundingPages]] contains an indexed collection.
-        *
-        * @return
-        *   (previousPageCursor, currentPageCursor, nextPageCursor)
-        */
-      def pageCursorSignalsForIndexedSeq[
-        Input1 >: Input,
-        CursorPrimaryColumn,
-        CursorSecondaryColumn,
-        PageSize,
-        Element,
-        Collection[X] <: IndexedSeq[X],
-      ](
-        extractSurroundingPages: A => HasSurroundingPages[Collection[Element]],
-        cursorLens: Input1 => AppliedLens[Input1, PageCursor[CursorPrimaryColumn, CursorSecondaryColumn, PageSize]],
-        getPrimary: Element => CursorPrimaryColumn,
-        getSecondary: Element => CursorSecondaryColumn,
-      ): (
-        Signal[Option[Input1]],
-        Signal[PageCursor[CursorPrimaryColumn, CursorSecondaryColumn, PageSize]],
-        Signal[Option[Input1]],
-      ) = {
-        withInputSignal.pageCursorSignals(
-          extractSurroundingPages,
-          cursorLens,
-          collection => collection.headOption.map(elem => (getPrimary(elem), getSecondary(elem))),
-          collection => collection.lastOption.map(elem => (getPrimary(elem), getSecondary(elem))),
-        )
-      }
     }
   }
 

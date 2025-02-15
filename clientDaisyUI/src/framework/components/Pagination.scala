@@ -1,8 +1,8 @@
 package framework.components
 
-import framework.data.{MaybeSignal, PageCursor}
-import framework.utils.{NamedEnum, RouterOps, ZoomedOwnerlessSignal}
 import cats.syntax.all.*
+import framework.data.{MaybeSignal, PageCursor, PageCursors}
+import framework.utils.{NamedEnum, RouterOps, ZoomedOwnerlessSignal}
 
 import L.*
 
@@ -24,21 +24,22 @@ trait PaginationL18n {
   *   turns a 1-based page number into a string
   */
 def Pagination[Page](
-  previousPageSignal: MaybeSignal[Option[Page]],
-  currentPageSignal: MaybeSignal[PageCursor[?, ?, ?]],
-  nextPageSignal: MaybeSignal[Option[Page]],
+  cursors: MaybeSignal[PageCursors.OfInput[Page]]
 )(using router: RouterOps[Page], l18n: PaginationL18n) = {
+  val signal = cursors.deunionizeSignal
+
   div(
     cls := "join",
-    child.maybe <-- previousPageSignal.deunionizeSignal.splitOption { (_, signal) =>
+    child.maybe <-- signal.map(_.previousPage).splitOption { (_, signal) =>
       a(cls := "join-item btn", navigateTo(signal), child.text <-- l18n.previousPageText)
     },
     button(
       cls := "join-item btn",
-      child.text <-- currentPageSignal.deunionizeSignal
-        .combineWithFn(l18n.pageNumberToText)((c, fn) => fn(c.pageIndex + 1)),
+      child.text <-- signal
+        .map(_.pageIndex)
+        .combineWithFn(l18n.pageNumberToText)((pageIndex, fn) => fn(pageIndex + 1)),
     ),
-    child.maybe <-- nextPageSignal.deunionizeSignal.splitOption { (_, signal) =>
+    child.maybe <-- signal.map(_.nextPage).splitOption { (_, signal) =>
       a(cls := "join-item btn", navigateTo(signal), child.text <-- l18n.nextPageText)
     },
   )
@@ -61,9 +62,7 @@ def PageSizeSelector[PageSize: CanEqual1](
 }
 
 def PaginationWithPageSizeSelector[Page, PageSize: CanEqual1](
-  previousPageSignal: MaybeSignal[Option[Page]],
-  currentPageSignal: MaybeSignal[PageCursor[?, ?, PageSize]],
-  nextPageSignal: MaybeSignal[Option[Page]],
+  cursors: MaybeSignal[PageCursors.OfInput[Page]],
   pageSizeSignal: ZoomedOwnerlessSignal[PageSize],
 )(using RouterOps[Page], PaginationL18n)(using pageSizeEnum: NamedEnum.WithIntRepresentation[PageSize]) = {
   val hasDifferentPageSizes = pageSizeEnum.values.size > 1
@@ -72,6 +71,17 @@ def PaginationWithPageSizeSelector[Page, PageSize: CanEqual1](
     cls := "flex my-4 gap-10",
     cls := (if (hasDifferentPageSizes) "justify-between" else "justify-center"),
     when(hasDifferentPageSizes)(PageSizeSelector(pageSizeSignal)),
-    Pagination(previousPageSignal, currentPageSignal, nextPageSignal),
+    Pagination(cursors),
   )
 }
+
+// def PaginationWithPageSizeSelector[Page, PageSize: CanEqual1](
+//   pageCursors: PageCursors.Applicable[Page, ?, ?, PageSize],
+//   pageSizeSignal: ZoomedOwnerlessSignal[PageSize],
+// )(using RouterOps[Page], PaginationL18n)(using pageSizeEnum: NamedEnum.WithIntRepresentation[PageSize]) =
+//   PaginationWithPageSizeSelector(
+//     pageCursors.previousPageCursor,
+//     pageCursors.currentPageCursor,
+//     pageCursors.nextPageCursor,
+//     pageSizeSignal,
+//   )

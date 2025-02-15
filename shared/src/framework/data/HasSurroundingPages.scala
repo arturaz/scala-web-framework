@@ -4,6 +4,8 @@ import framework.prelude.*
 
 /** Indicates whether the previous/next page are available. */
 case class HasSurroundingPages[Data](data: Data, pages: HasSurroundingPages.Pages) derives CanEqual {
+  def isEmpty(using Data <:< Iterable[?]): Boolean = data.isEmpty
+  def nonEmpty(using Data <:< Iterable[?]): Boolean = data.nonEmpty
 
   /** Returns the cursor for the previous page if that is available. */
   def previousPageCursor[PrimaryColumn, SecondaryColumn, PageSize](

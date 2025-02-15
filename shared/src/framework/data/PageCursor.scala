@@ -22,9 +22,10 @@ import urldsl.errors.DummyError
   * `PageCursor.hasSurroundingPages` to determine whether the previous/next page are available.
   *
   * @tparam PrimaryColumn
-  *   the type of the primary column, ordering is done by primarily by this.
+  *   the type of the primary column, ordering is done by primarily by this. For example, a "Created At" column.
   * @tparam SecondaryColumn
-  *   the type of the secondary column, used to distinguish between records that have the same [[PrimaryColumn]].
+  *   the type of the secondary column, used to distinguish between records that have the same [[PrimaryColumn]], for
+  *   example an "ID" column.
   * @tparam PageSize
   *   the type of the page size. This would usually be an `enum` or a refined type preventing malicious clients from
   *   asking for really large pages.
@@ -34,7 +35,7 @@ import urldsl.errors.DummyError
 case class PageCursor[+PrimaryColumn, +SecondaryColumn, +PageSize](
   cursor: Option[PageCursor.Cursor[PrimaryColumn, SecondaryColumn]],
   pageSize: PageSize,
-) derives CanEqual {
+) extends PageCursor.PageIndex derives CanEqual {
   override def toString(): String =
     s"PageCursor(pageSize = ${pageSize}, cursor = ${cursor})"
 
@@ -96,6 +97,11 @@ case class PageCursor[+PrimaryColumn, +SecondaryColumn, +PageSize](
     PageCursor.withPageSize(pageSize).previous(data, pageIndex)(getPrimary, getSecondary)
 }
 object PageCursor {
+  trait PageIndex {
+
+    /** Index of the current page. */
+    def pageIndex: Int
+  }
 
   /** Creates a builder for cursors that are of page size [[PageSize]]. */
   def withPageSize[PageSize](pageSize: PageSize): Builder[PageSize] = Builder(pageSize)
@@ -318,5 +324,16 @@ object PageCursor {
       TapirCodec[String, Cursor[PrimaryColumn, SecondaryColumn], TapirCodecFormat.TextPlain]
     ): UrlConvertible[Cursor[PrimaryColumn, SecondaryColumn], DummyError] =
       UrlConvertible.fromCodec
+  }
+
+  /** Allows you to get the new input that uses the cursor. */
+  case class Lens[Input, CursorPrimaryColumn, CursorSecondaryColumn, PageSize](
+    lens: Input => AppliedLens[Input, PageCursor[CursorPrimaryColumn, CursorSecondaryColumn, PageSize]]
+  ) {
+    def get(input: Input): PageCursor[CursorPrimaryColumn, CursorSecondaryColumn, PageSize] =
+      lens(input).get
+
+    def set(cursor: PageCursor[CursorPrimaryColumn, CursorSecondaryColumn, PageSize], input: Input): Input =
+      lens(input).replace(cursor)
   }
 }
