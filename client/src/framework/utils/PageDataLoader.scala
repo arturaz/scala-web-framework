@@ -56,28 +56,22 @@ trait PageDataLoader {
     @targetName("publicPossiblyNotFound")
     def public[Output](
       createRequest: Input => EitherT[IO, NetworkError, Option[Output]]
-    )(
-      whenLoaded: WithInput[Input, Output] => PageRenderResult
-    ): PageRenderResult =
+    ): BuilderWithRequest[Input, Output] =
       authenticated[Nothing, Output](
         createRequest.andThen(_.leftMap(_.asNetworkOrAuthError))
-      )(whenLoaded)
+      )
 
     /** Loads public data which is always found. */
     def public[Output](
       createRequest: Input => EitherT[IO, NetworkError, Output]
-    )(
-      whenLoaded: WithInput[Input, Output] => PageRenderResult
-    ): PageRenderResult =
-      public(createRequest.andThen(_.map(_.some)))(whenLoaded)
+    ): BuilderWithRequest[Input, Output] =
+      public(createRequest.andThen(_.map(_.some)))
 
     /** Loads private data which can be not found. */
     @targetName("authenticatedPossiblyNotFound")
     def authenticated[AuthError, Output](
       createRequest: Input => EitherT[IO, NetworkOrAuthError[AuthError], Option[Output]]
-    )(
-      whenLoaded: WithInput[Input, Output] => PageRenderResult
-    ): PageRenderResult = {
+    ): BuilderWithRequest[Input, Output] = BuilderWithRequest { whenLoaded =>
       val request = FetchRequest(createRequest)
 
       val pageDataSignal = inputSignal.distinct.flatMapSwitch(request.startWith)
@@ -107,10 +101,15 @@ trait PageDataLoader {
     /** Loads private data which is always found. */
     def authenticated[AuthError, Output](
       createRequest: Input => EitherT[IO, NetworkOrAuthError[AuthError], Output]
-    )(
-      whenLoaded: WithInput[Input, Output] => PageRenderResult
-    ): PageRenderResult = {
-      authenticated(createRequest.andThen(_.map(_.some)))(whenLoaded)
+    ): BuilderWithRequest[Input, Output] = {
+      authenticated(createRequest.andThen(_.map(_.some)))
     }
+  }
+
+  class BuilderWithRequest[Input, Output](
+    private val build: (WithInput[Input, Output] => PageRenderResult) => PageRenderResult
+  ) {
+    def apply(whenLoaded: WithInput[Input, Output] => PageRenderResult): PageRenderResult =
+      build(whenLoaded)
   }
 }
