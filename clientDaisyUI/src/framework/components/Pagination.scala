@@ -25,7 +25,7 @@ trait PaginationL18n {
   */
 def Pagination[Page](
   cursors: MaybeSignal[PageCursors.OfInput[Page]]
-)(using router: RouterOps[Page], l18n: PaginationL18n) = {
+)(using router: RouterOps.In[Page], l18n: PaginationL18n) = {
   val signal = cursors.deunionizeSignal
 
   div(
@@ -64,7 +64,7 @@ def PageSizeSelector[PageSize: CanEqual1](
 def PaginationWithPageSizeSelector[Page, PageSize: CanEqual1](
   cursors: MaybeSignal[PageCursors.OfInput[Page]],
   pageSizeSignal: ZoomedOwnerlessSignal[PageSize],
-)(using RouterOps[Page], PaginationL18n)(using pageSizeEnum: NamedEnum.WithIntRepresentation[PageSize]) = {
+)(using RouterOps.In[Page], PaginationL18n)(using pageSizeEnum: NamedEnum.WithIntRepresentation[PageSize]) = {
   val hasDifferentPageSizes = pageSizeEnum.values.size > 1
 
   div(

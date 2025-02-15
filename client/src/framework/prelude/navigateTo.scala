@@ -1,15 +1,15 @@
 package framework.prelude
 
 import com.raquo.laminar.api.L.*
-import org.scalajs.dom
-
-import scala.util.control.NonFatal
-import framework.utils.RouterOps
-import com.raquo.waypoint.Router
 import com.raquo.laminar.modifiers.EventListener
+import com.raquo.waypoint.Router
+import framework.utils.RouterOps
+import org.scalajs.dom
 import org.scalajs.dom.MouseEvent
-import scala.util.chaining.*
+
 import scala.annotation.targetName
+import scala.util.chaining.*
+import scala.util.control.NonFatal
 
 /** Navigates to the given page.
   *
@@ -17,13 +17,13 @@ import scala.annotation.targetName
   *   code taken from [[https://github.com/raquo/Waypoint#responding-to-link-clicks]].
   */
 def navigateTo[BasePage, AppPage <: BasePage](signal: Signal[AppPage])(using
-  router: RouterOps[BasePage]
+  router: RouterOps.In[BasePage]
 ): Binder[HtmlElement] =
   navigateTo(signal.map(Some.apply))
 
 @targetName("navigateToOption")
 def navigateTo[BasePage, AppPage <: BasePage](signal: Signal[Option[AppPage]])(using
-  router: RouterOps[BasePage]
+  router: RouterOps.In[BasePage]
 ): Binder[HtmlElement] =
   Binder { el =>
     val isLinkElement = el.ref.isInstanceOf[dom.html.Anchor]
@@ -45,7 +45,7 @@ def navigateTo[BasePage, AppPage <: BasePage](signal: Signal[Option[AppPage]])(u
   }
 
 def navigateTo[BasePage, AppPage <: BasePage](page: AppPage)(using
-  router: RouterOps[BasePage]
+  router: RouterOps.In[BasePage]
 ): Binder[HtmlElement] =
   navigateTo(Signal.fromValue(page))
 
