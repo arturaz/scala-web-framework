@@ -8,7 +8,7 @@ given newTypePartialTransformer[TUnderlying, TWrapped](using
   newType: yantl.Newtype.WithType[TUnderlying, TWrapped]
 ): PartialTransformer[TUnderlying, TWrapped] =
   PartialTransformer { from =>
-    Result.fromEither(newType.makeAsStrings(from).left.map(errs => Result.Errors.fromStrings(errs.head, errs.tail*)))
+    Result.fromEither(newType.make.asStrings(from).left.map(errs => Result.Errors.fromStrings(errs.head, errs.tail*)))
   }
 
 /** Allows converting newtype values from their wrapped type to the underlying type using chimney. */

@@ -116,9 +116,7 @@ trait LocalizationSupport {
     /** The localized text. */
     def text(value: A): LocaleEnum ?=> String
   }
-  object LocalizedTextOfValue
-      extends /* wisteria.SumDerivation[LocalizedTextOfValue] */ magnolia1.AutoDerivation[LocalizedTextOfValue]
-      with LocalizedTextOfValueLowPriorityImplicits {
+  object LocalizedTextOfValue extends LocalizedTextOfValueLowPriorityImplicits {
 
     /** These have to be extension methods due to limitations of `union-derivation`. */
     extension [A](lto: LocalizedTextOfValue[A]) {
@@ -135,23 +133,26 @@ trait LocalizationSupport {
       override def text(value: A): LocaleEnum ?=> String = (locale: LocaleEnum) ?=> localize(value, locale)
     }
 
-    override def join[T](caseClass: magnolia1.CaseClass[LocalizedTextOfValue, T]): LocalizedTextOfValue[T] =
-      of { (value, locale) =>
-        caseClass.parameters.iterator
-          .map { param =>
-            val pValue = param.deref(value)
-            val text = param.typeclass.text(pValue)(using locale)
-            text
-          }
-          .mkString("\n")
-      }
+    /** Summons an instance for the type of given value. */
+    def summonFor[A](value: A)(using lto: LocalizedTextOfValue[A]): LocalizedTextOfValue[A] = lto
 
-    override def split[T](sealedTrait: magnolia1.SealedTrait[LocalizedTextOfValue, T]): LocalizedTextOfValue[T] =
-      of { (value, locale) =>
-        sealedTrait.choose(value) { sub =>
-          sub.typeclass.text(sub.cast(value))(using locale)
-        }
-      }
+    // override def join[T](caseClass: magnolia1.CaseClass[LocalizedTextOfValue, T]): LocalizedTextOfValue[T] =
+    //   of { (value, locale) =>
+    //     caseClass.parameters.iterator
+    //       .map { param =>
+    //         val pValue = param.deref(value)
+    //         val text = param.typeclass.text(pValue)(using locale)
+    //         text
+    //       }
+    //       .mkString("\n")
+    //   }
+
+    // override def split[T](sealedTrait: magnolia1.SealedTrait[LocalizedTextOfValue, T]): LocalizedTextOfValue[T] =
+    //   of { (value, locale) =>
+    //     sealedTrait.choose(value) { sub =>
+    //       sub.typeclass.text(sub.cast(value))(using locale)
+    //     }
+    //   }
 
     // override inline def split[DerivationType: SumOf]: LocalizedTextOfValue[DerivationType] =
     //   of { (value, localeEnum) =>

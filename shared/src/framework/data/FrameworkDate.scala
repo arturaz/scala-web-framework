@@ -69,7 +69,7 @@ object FrameworkDate {
     given Transformer[FrameworkDate, Type] = make(_).getOrThrow
 
     given TapirCodec[String, Type, TapirCodecFormat.TextPlain] =
-      FrameworkDate.tapirCodec.mapEither(makeAsString)(unwrap)
+      FrameworkDate.tapirCodec.mapEither(make.asString)(unwrap)
 
     given UrlConvertible[Type, DummyError] = UrlConvertible.fromCodec
 

@@ -7,9 +7,10 @@ import fs2.Stream
 
 import java.util.concurrent.CancellationException
 import framework.utils.StreamRegistry.StreamDetails
+import framework.prelude.given
 
 class StreamRegistryTest extends FrameworkTestSuite {
-  val streamName = StreamName.makeOrThrow("test")
+  val streamName = StreamName.make.orThrow("test")
 
   val fixture = ResourceFunFixture(
     Resource.eval(

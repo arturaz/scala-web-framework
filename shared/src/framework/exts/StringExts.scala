@@ -17,11 +17,11 @@ extension (s: String) {
 
   /** Returns the string with the first character lowercased. */
   def firstCharToLower: String =
-    s"${s.head.toLower}${s.tail}"
+    if (s.isEmpty) s else s"${s.head.toLower}${s.tail}"
 
   /** Returns the string with the first character uppercased. */
   def firstCharToUpper: String =
-    s"${s.head.toUpper}${s.tail}"
+    if (s.isEmpty) s else s"${s.head.toUpper}${s.tail}"
 
   /** Indents all the lines in the string. */
   def indentLines(count: Int, indentString: String = " ", indentFirstLine: Boolean = true): String = {

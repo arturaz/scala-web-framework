@@ -1,22 +1,41 @@
 package framework.components
 
-import framework.utils.UpdatableSignal
-import L.*
 import alleycats.Empty
-import io.scalaland.chimney.Transformer
 import framework.data.FrameworkDate
-import framework.localization.LocalizationSupport
-import framework.localization.LocalizedAppliedValidator
+import framework.localization.{LocalizationSupport, LocalizedAppliedValidate}
+import framework.utils.UpdatableSignal
+import io.scalaland.chimney.Transformer
+
+import L.*
 
 /** A text-based field. */
 def TextLikeFieldInput[A: Empty: CanEqual1](
   signal: UpdatableSignal[A],
   submitting: Signal[Boolean],
   inputModifiers: Seq[HtmlMod] = Seq.empty,
+)(using
+  PerformValidations,
+  LocalizedAppliedValidate[A],
+  Transformer[A, String],
+  Transformer[String, A],
+  TextKindFor[A],
+) = {
+  FormInput.textLike(
+    signal,
+    validation = PerformValidations.summon,
+    inputModifiers = inputModifiers ++ Vector(disabled <-- submitting),
+  )
+}
+
+/** A text-based field with label. */
+def TextLikeFieldInputWithLabel[A: Empty: CanEqual1](
+  signal: UpdatableSignal[A],
+  submitting: Signal[Boolean],
+  inputModifiers: Seq[HtmlMod] = Seq.empty,
 )(using l18n: LocalizationSupport)(using
   PerformValidations,
   l18n.LocaleEnum,
-  LocalizedAppliedValidator[A],
+  LocalizedAppliedValidate[A],
   Transformer[A, String],
   Transformer[String, A],
   TextKindFor[A],
@@ -37,7 +56,7 @@ def TextLikeOptionalFieldInput[A: Empty: CanEqual1](
 )(using l18n: LocalizationSupport)(using
   PerformValidations,
   l18n.LocaleEnum,
-  LocalizedAppliedValidator[A],
+  LocalizedAppliedValidate[A],
   Transformer[A, String],
   Transformer[String, A],
   TextKindFor[A],
@@ -57,7 +76,7 @@ def DateLikeOptionalFieldInput[A: Empty: CanEqual1](
 )(using l18n: LocalizationSupport)(using
   PerformValidations,
   l18n.LocaleEnum,
-  LocalizedAppliedValidator[A],
+  LocalizedAppliedValidate[A],
   Transformer[A, FrameworkDate],
   Transformer[FrameworkDate, A],
   l18n.LocalizedTextOf[A],

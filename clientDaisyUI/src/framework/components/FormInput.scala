@@ -35,7 +35,7 @@ import framework.data.AutocompleteData
 import framework.utils.FetchRequest
 import io.scalaland.chimney.PartialTransformer
 import yantl.Validator
-import framework.localization.LocalizedAppliedValidator
+import framework.localization.LocalizedAppliedValidate
 
 /** Various helpers for form inputs. */
 object FormInput {
@@ -45,7 +45,7 @@ object FormInput {
 
   def validationMessages[A, TError](
     signal: Signal[A],
-    validation: Option[LocalizedAppliedValidator[A]],
+    validation: Option[LocalizedAppliedValidate[A]],
   ): Modifier[ReactiveElement[Element]] = {
     validation match {
       case None             => emptyNode
@@ -55,7 +55,7 @@ object FormInput {
 
   def validationMessages[A, TError](
     signal: Signal[A]
-  )(using validator: LocalizedAppliedValidator[A]): DynamicInserter = {
+  )(using validator: LocalizedAppliedValidate[A]): DynamicInserter = {
     val errorMsgs = signal.flatMapSwitch(validator.errorMessages).map { errors =>
       if (errors.isEmpty) None
       else
@@ -87,32 +87,28 @@ object FormInput {
   def stringWithLabel[A](
     label: String,
     signal: ZoomedOwnerlessSignal[A],
-    validation: Option[LocalizedAppliedValidator[A]],
+    validation: Option[LocalizedAppliedValidate[A]],
     altLabel: Seq[Modifier[Span]] = Seq.empty,
     beforeLabel: Seq[Modifier[Div]] = Seq.empty,
     beforeInput: Seq[Modifier[Div]] = Seq.empty,
     afterInput: Seq[Modifier[Div]] = Seq.empty,
     inputModifiers: Seq[Modifier[Input]] = Seq.empty,
-    withMargin: Boolean = true,
     placeholder: Option[String] = None,
-  )(using Transformer[A, String], Transformer[String, A]): Div = {
-    div(
-      when(withMargin)(cls := "mb-4"),
-      L.label(
-        when(label.nonEmpty || altLabel.nonEmpty)(
-          div(
-            cls := "label",
-            beforeLabel,
-            when(label.nonEmpty)(span(cls := "label-text", label)),
-            when(altLabel.nonEmpty)(span(cls := "label-text-alt", altLabel)),
-          )
-        ),
+  )(using Transformer[A, String], Transformer[String, A]): Label = {
+    L.label(
+      when(label.nonEmpty || altLabel.nonEmpty)(
         div(
-          cls := "input input-bordered flex items-center gap-2",
-          beforeInput,
-          string(signal, placeholder.map(L.placeholder := _), inputModifiers),
-          afterInput,
-        ),
+          cls := "label",
+          beforeLabel,
+          when(label.nonEmpty)(span(cls := "label-text", label)),
+          when(altLabel.nonEmpty)(span(cls := "label-text-alt", altLabel)),
+        )
+      ),
+      div(
+        cls := "input input-bordered flex items-center gap-2",
+        beforeInput,
+        string(signal, placeholder.map(L.placeholder := _), inputModifiers),
+        afterInput,
       ),
       validationMessages(signal.signal, validation),
     )
@@ -120,7 +116,7 @@ object FormInput {
 
   def stringWithLabelLocalized[A](
     signal: ZoomedOwnerlessSignal[A],
-    validation: Option[LocalizedAppliedValidator[A]],
+    validation: Option[LocalizedAppliedValidate[A]],
     altLabel: Seq[Modifier[Span]] = Seq.empty,
     beforeLabel: Seq[Modifier[Div]] = Seq.empty,
     beforeInput: Seq[Modifier[Div]] = Seq.empty,
@@ -128,7 +124,7 @@ object FormInput {
     inputModifiers: Seq[Modifier[Input]] = Seq.empty,
   )(using l18n: LocalizationSupport)(using Transformer[A, String], Transformer[String, A], l18n.LocaleEnum)(using
     lto: l18n.LocalizedTextOf[A]
-  ): ReactiveHtmlElement[HTMLDivElement] =
+  ): Label =
     stringWithLabel(
       label = lto.text,
       signal = signal,
@@ -146,20 +142,17 @@ object FormInput {
     beforeInput: Seq[Modifier[ReactiveHtmlElement[html.Element]]] = Seq.empty,
     afterInput: Seq[Modifier[ReactiveHtmlElement[html.Element]]] = Seq.empty,
     inputModifiers: Seq[Modifier[ReactiveHtmlElement[HTMLDivElement]]] = Seq.empty,
-  )(using transformer: Transformer[A, String]): ReactiveHtmlElement[HTMLDivElement] = {
-    div(
-      cls := "mb-4",
-      L.label(
-        div(cls := "label", span(cls := "label-text", label)),
+  )(using transformer: Transformer[A, String]): Label = {
+    L.label(
+      div(cls := "label", span(cls := "label-text", label)),
+      div(
+        cls := "input input-bordered flex items-center gap-2",
+        beforeInput,
         div(
-          cls := "input input-bordered flex items-center gap-2",
-          beforeInput,
-          div(
-            inputModifiers,
-            child.text <-- signal.map(transformer.transform),
-          ),
-          afterInput,
+          inputModifiers,
+          child.text <-- signal.map(transformer.transform),
         ),
+        afterInput,
       ),
     )
   }
@@ -180,18 +173,16 @@ object FormInput {
   def textAreaWithLabel[A](
     label: Seq[Modifier[Span]],
     signal: ZoomedOwnerlessSignal[A],
-    validation: Option[LocalizedAppliedValidator[A]],
+    validation: Option[LocalizedAppliedValidate[A]],
     beforeLabel: Seq[Modifier[Div]] = Seq.empty,
     altLabel: Seq[Modifier[Span]] = Seq.empty,
     beforeBottomLabel: Seq[Modifier[Div]] = Seq.empty,
     bottomLabel: Seq[Modifier[Span]] = Seq.empty,
     bottomAltLabel: Seq[Modifier[Span]] = Seq.empty,
     textAreaModifiers: Seq[Modifier[ReactiveHtmlElement[HTMLTextAreaElement]]] = Seq.empty,
-    labelClassName: Seq[String] = Seq("mb-4"),
   )(using Transformer[A, String], Transformer[String, A]): ReactiveHtmlElement[HTMLLabelElement] = {
     L.label(
       cls := "form-control",
-      cls := labelClassName,
       when(beforeLabel.nonEmpty || label.nonEmpty || altLabel.nonEmpty)(
         div(
           cls := "label",
@@ -215,7 +206,7 @@ object FormInput {
 
   def textAreaWithLabelLocalized[A](
     signal: ZoomedOwnerlessSignal[A],
-    validation: Option[LocalizedAppliedValidator[A]],
+    validation: Option[LocalizedAppliedValidate[A]],
     beforeLabel: Seq[Modifier[Div]] = Seq.empty,
     altLabel: Seq[Modifier[Span]] = Seq.empty,
     textAreaModifiers: Seq[Modifier[ReactiveHtmlElement[HTMLTextAreaElement]]] = Seq.empty,
@@ -240,7 +231,7 @@ object FormInput {
     val id = idForLabel(label)
 
     L.label(
-      className := "form-control mb-4",
+      className := "form-control",
       div(
         cls := "label",
         beforeLabel,
@@ -258,9 +249,33 @@ object FormInput {
     )
   }
 
+  def textLike[A](
+    signal: ZoomedOwnerlessSignal[A],
+    validation: Option[LocalizedAppliedValidate[A]],
+    inputModifiers: Seq[HtmlMod] = Seq.empty,
+  )(using Transformer[A, String], Transformer[String, A])(using
+    textKind: TextKindFor[A]
+  ) = textKind.textKind match {
+    case TextKind.SingleLine =>
+      stringWithLabel(
+        label = "",
+        signal = signal,
+        validation = validation,
+        inputModifiers = inputModifiers,
+      )
+
+    case TextKind.MultiLine =>
+      textAreaWithLabel(
+        label = Seq.empty,
+        signal = signal,
+        validation = validation,
+        textAreaModifiers = inputModifiers,
+      )
+  }
+
   def textLikeWithLabelLocalized[A](
     signal: ZoomedOwnerlessSignal[A],
-    validation: Option[LocalizedAppliedValidator[A]],
+    validation: Option[LocalizedAppliedValidate[A]],
     beforeLabel: Seq[Modifier[ReactiveHtmlElement[html.Element]]] = Seq.empty,
     altLabel: Seq[Modifier[Span]] = Seq.empty,
     inputModifiers: Seq[HtmlMod] = Seq.empty,
@@ -289,14 +304,14 @@ object FormInput {
 
   def date[A](
     signal: ZoomedOwnerlessSignal[A],
-    validation: Option[LocalizedAppliedValidator[A]],
+    validation: Option[LocalizedAppliedValidate[A]],
     modInput: L.Input => L.Modifier[L.Label] = input => input,
   )(using
     toDate: Transformer[A, FrameworkDate],
     fromDate: Transformer[FrameworkDate, A],
   ): ReactiveHtmlElement[HTMLLabelElement] = {
     L.label(
-      className := "form-control mb-4",
+      className := "form-control",
       modInput(
         L.input(
           cls := "input input-bordered w-40 pl-3 pr-0",
@@ -314,7 +329,7 @@ object FormInput {
   def dateWithLabel[A](
     label: String,
     signal: ZoomedOwnerlessSignal[A],
-    validation: Option[LocalizedAppliedValidator[A]],
+    validation: Option[LocalizedAppliedValidate[A]],
     beforeLabel: Seq[Modifier[Div]] = Seq.empty,
     altLabel: Seq[Modifier[Span]] = Seq.empty,
     modInput: L.Input => L.Modifier[L.Element] = input => input,
@@ -368,7 +383,7 @@ object FormInput {
 
   def dateWithLabelLocalized[A](
     signal: ZoomedOwnerlessSignal[A],
-    validation: Option[LocalizedAppliedValidator[A]],
+    validation: Option[LocalizedAppliedValidate[A]],
     beforeLabel: Seq[Modifier[Div]] = Seq.empty,
     altLabel: Seq[Modifier[Span]] = Seq.empty,
     modInput: L.Input => L.Modifier[L.Element] = input => input,
@@ -395,6 +410,7 @@ object FormInput {
     beforeSelect: Seq[L.Node] = Seq.empty,
     beforeChange: () => Boolean = () => true,
     style: ComponentStyle = ComponentStyle.Standalone,
+    withMargin: Boolean = true,
   )(using CanEqual[A, A], DefinedAt) = {
     val selectElem = selectElement(
       selected,
@@ -411,7 +427,7 @@ object FormInput {
       case ComponentStyle.Standalone =>
         nodeSeq(
           label(
-            cls := "form-control w-full max-w-xs mb-4 input input-bordered",
+            cls := "form-control w-full max-w-xs input input-bordered",
             div(cls := "flex items-center", beforeSelect, selectElem),
           )
         )
@@ -463,7 +479,7 @@ object FormInput {
     beforeChange: () => Boolean = () => true,
   )(using CanEqual[A, A]) = {
     label(
-      cls := "form-control w-full max-w-xs mb-4 input input-bordered",
+      cls := "form-control w-full max-w-xs input input-bordered",
       div(
         cls := "flex items-center",
         beforeSelect,
@@ -519,7 +535,7 @@ object FormInput {
   def file[TError](
     holder: UpdatableSignal[FormFileHolder[TError]],
     inputModifiers: Seq[Modifier[Input]] = Seq.empty,
-  )(using LocalizedAppliedValidator[FormFileHolder[TError]]) = {
+  )(using LocalizedAppliedValidate[FormFileHolder[TError]]) = {
     div(
       input(
         `type` := "file",
@@ -537,9 +553,8 @@ object FormInput {
     holder: UpdatableSignal[FormFileHolder[TError]],
     altLabel: String = "",
     inputModifiers: Seq[Modifier[Input]] = Seq.empty,
-  )(using LocalizedAppliedValidator[FormFileHolder[TError]]) = {
+  )(using LocalizedAppliedValidate[FormFileHolder[TError]]) = {
     div(
-      cls := "mb-4",
       div(
         cls := "label",
         span(cls := "label-text", label),
@@ -799,7 +814,6 @@ object FormInput {
             validation = None,
             beforeInput = Vector(content.searchIcon),
             inputModifiers = Vector(focus <-- focusSearchBus.events.mapToStrict(true)),
-            withMargin = false,
           ).amend(cls := "mt-2")
         },
       ),

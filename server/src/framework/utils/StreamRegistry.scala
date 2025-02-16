@@ -66,10 +66,10 @@ object StreamRegistry {
   /** A name for the stream which is used in metrics. Should not include details that vary with each request. */
   object StreamName extends NewtypeNonEmptyString {
     def fromEndpoint(e: EndpointMetaOps): StreamName =
-      makeOrThrow(e.showShort)
+      make.orThrow(e.showShort)
 
     def fromEndpoint(prefix: String, e: EndpointMetaOps): StreamName =
-      makeOrThrow(show"$prefix${e.showShort}")
+      make.orThrow(show"$prefix${e.showShort}")
   }
   type StreamName = StreamName.Type
 

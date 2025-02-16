@@ -20,6 +20,7 @@ import sttp.client3.Response
 import sttp.tapir.Endpoint
 import com.raquo.airstream.ownership.DynamicSubscription
 import framework.data.FrameworkDateTime
+import framework.api.DataUpdateRequest
 
 /** Helper for a form that is intended to create or edit a resource.
   *
@@ -76,10 +77,26 @@ sealed abstract class EditForm[TVar[_], A](
   )(using
     PartialTransformer[A, ValidatedInput]
   ): Signal[Option[EitherT[IO, NetworkOrAuthError[AuthError], Response[WithInput[ValidatedInput, Output]]]]] = {
-    validatedInputAndAuthSignal(authDataIO).mapSome { io =>
-      io.flatMapT { (authData, validatedInput) =>
-        createRequest(authData, validatedInput).map(_.mapBody(WithInput(validatedInput, _)))
-      }
+    sendValidatedAuthedIO(Signal.fromValue(()), authDataIO, (_, auth, input) => createRequest(auth, input))
+  }
+
+  /** Validates the form data and if that is valid sends it to the given endpoint.
+    *
+    * You will most likely need to specify the [[ValidatedInput]] type parameter somewhere.
+    */
+  def sendValidatedAuthedIO[ExtraData, AuthData, ValidatedInput, AuthError, Output](
+    extraData: Signal[ExtraData],
+    authDataIO: IO[AuthData],
+    createRequest: (ExtraData, AuthData, ValidatedInput) => EitherT[IO, NetworkOrAuthError[AuthError], Response[Output]],
+  )(using
+    PartialTransformer[A, ValidatedInput]
+  ): Signal[Option[EitherT[IO, NetworkOrAuthError[AuthError], Response[WithInput[ValidatedInput, Output]]]]] = {
+    validatedInputAndAuthSignal(authDataIO).combineWithFn(extraData) {
+      case (None, _) => None
+      case (Some(io), extraData) =>
+        Some(io.flatMapT { (authData, validatedInput) =>
+          createRequest(extraData, authData, validatedInput).map(_.mapBody(WithInput(validatedInput, _)))
+        })
     }
   }
 
@@ -95,6 +112,35 @@ sealed abstract class EditForm[TVar[_], A](
       authDataIO,
       (authData, validatedInput: ValidatedInput) =>
         FrameworkDateTime.nowIO.to[IO].flatMapT(endpoint.toReq(authData, validatedInput, _).io),
+    )
+
+  /** Validates the form data and if that is valid sends it to the given endpoint.
+    *
+    * The endpoint should accept a [[DataUpdateRequest]].
+    */
+  def sendValidatedAuthedToDataUpdateRequestEndpointIO[
+    AuthData,
+    InputId,
+    ValidatedInput,
+    AuthError,
+    Output,
+    Requirements >: Effect[IO],
+  ](
+    authDataIO: IO[AuthData],
+    inputId: InputId,
+    currentInputSignal: Signal[ValidatedInput],
+    endpoint: Endpoint[AuthData, DataUpdateRequest[InputId, ValidatedInput], AuthError, Output, Requirements],
+  )(using
+    PartialTransformer[A, ValidatedInput],
+    AppBaseUri,
+  ): Signal[Option[EitherT[IO, NetworkOrAuthError[AuthError], Response[WithInput[ValidatedInput, Output]]]]] =
+    sendValidatedAuthedIO(
+      currentInputSignal,
+      authDataIO,
+      (currentInput, authData, validatedInput: ValidatedInput) => {
+        val updateReq = DataUpdateRequest(inputId, expected = currentInput, toSet = validatedInput)
+        FrameworkDateTime.nowIO.to[IO].flatMapT(now => endpoint.toReq(authData, updateReq, now).io)
+      },
     )
 
   /** Helper to process the response that is returned when the send button succeeds.

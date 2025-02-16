@@ -8,7 +8,7 @@ import squants.market.Currency
 import squants.mass.{Mass, MassUnit}
 
 import L.*
-import framework.localization.LocalizedAppliedValidator
+import framework.localization.LocalizedAppliedValidate
 
 object FormInputSquants {
   def money[A](
@@ -30,7 +30,7 @@ object FormInputSquants {
   def moneyWithLabelLocalized[A](
     currencySignal: Signal[Option[Currency]],
     signal: ZoomedOwnerlessSignal[A],
-    validation: Option[LocalizedAppliedValidator[A]],
+    validation: Option[LocalizedAppliedValidate[A]],
     altLabel: Seq[Modifier[Span]] = Seq.empty,
     inputModifiers: Modifier[Input]*
   )(using l18n: LocalizationSupport)(using

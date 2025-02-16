@@ -1,6 +1,7 @@
 package framework.utils.postgis
 
 import doobie.util.meta.Meta
+import framework.prelude.given
 import framework.data.{LatLng, Latitude, Longitude}
 // import net.postgis.jdbc.geometry.Point // Doobie RC6 and up
 import org.postgis.Point
@@ -9,7 +10,7 @@ import org.postgis.Point
 object WithLatLngBackedByPostGIS {
   given latLngMeta: Meta[LatLng] =
     doobie.postgres.pgisgeographyimplicits.PointType.imap(p =>
-      // LatLng(Latitude.makeOrThrow(p.y), Longitude.makeOrThrow(p.x))
-      LatLng(Latitude.makeOrThrow(p.getY), Longitude.makeOrThrow(p.getX))
+      // LatLng(Latitude.make.orThrow(p.y), Longitude.make.orThrow(p.x))
+      LatLng(Latitude.make.orThrow(p.getY), Longitude.make.orThrow(p.getX))
     )(p => new Point(p.longitude.unwrap, p.latitude.unwrap))
 }

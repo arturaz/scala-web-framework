@@ -103,7 +103,7 @@ object FrameworkDateTime {
     given CanEqual1[Type] = CanEqual.derived
 
     given TapirCodec[String, Type, TapirCodecFormat.TextPlain] =
-      FrameworkDateTime.tapirCodec.mapEither(makeAsString)(unwrap)
+      FrameworkDateTime.tapirCodec.mapEither(make.asString)(unwrap)
 
     given UrlConvertible[Type, DummyError] = UrlConvertible.fromCodec
 

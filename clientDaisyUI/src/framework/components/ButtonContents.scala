@@ -19,18 +19,18 @@ object ButtonContents {
     *   Can be [[L.emptyNode]] if there is no icon.
     */
   def default(
-    sendText: String,
-    sendingText: String,
-    cancelText: String,
+    sendText: MaybeSignal[String],
+    sendingText: MaybeSignal[String],
+    cancelText: MaybeSignal[String],
     icon: Node,
   ): ButtonContents = apply(
     whenSubmitting = Vector(
       Spinner,
       div(
-        p(sendingText),
-        p(cls := "text-xs", cancelText),
+        p(child.text <-- sendingText.deunionizeSignal),
+        p(cls := "text-xs", child.text <-- cancelText.deunionizeSignal),
       ),
     ),
-    whenNotSubmitting = Vector(icon, textToTextNode(sendText)),
+    whenNotSubmitting = Vector(icon, span(child.text <-- sendText.deunionizeSignal)),
   )
 }

@@ -213,7 +213,8 @@ object db
 
   /** Export from this to get [[Get]] and [[Put]] instances for [[LatLng]] which uses [[PGpoint]] internally. */
   object WithLatLngBackedByPoint {
-    given latLngGet: Get[LatLng] = Get[PGpoint].map(p => LatLng(Latitude.makeOrThrow(p.y), Longitude.makeOrThrow(p.x)))
+    given latLngGet: Get[LatLng] =
+      Get[PGpoint].map(p => LatLng(Latitude.make.orThrow(p.y), Longitude.make.orThrow(p.x)))
     given latLngPut: Put[LatLng] = Put[PGpoint].contramap(p => new PGpoint(p.longitude.unwrap, p.latitude.unwrap))
     given latLngRead: Read[LatLng] = Read.fromGet
     given latLngWrite: Write[LatLng] = Write.fromPut

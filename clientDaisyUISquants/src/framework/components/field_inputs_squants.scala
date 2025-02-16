@@ -7,7 +7,7 @@ import io.scalaland.chimney.Transformer
 import squants.market.Currency
 
 import L.*
-import framework.localization.LocalizedAppliedValidator
+import framework.localization.LocalizedAppliedValidate
 
 /** A money-based optional field. */
 def MoneyLikeOptionalFieldInput[A: Empty: CanEqual1](
@@ -17,7 +17,7 @@ def MoneyLikeOptionalFieldInput[A: Empty: CanEqual1](
 )(using l18n: LocalizationSupport)(using
   PerformValidations,
   l18n.LocaleEnum,
-  LocalizedAppliedValidator[A],
+  LocalizedAppliedValidate[A],
   Transformer[A, BigDecimal],
   Transformer[BigDecimal, A],
   l18n.LocalizedTextOf[A],

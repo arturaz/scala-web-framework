@@ -1,7 +1,7 @@
 package framework.utils
 
 import alleycats.Empty
-import framework.prelude.*
+import framework.prelude.{*, given}
 import io.scalaland.chimney.partial.Result.Errors
 import io.scalaland.chimney.{PartialTransformer, Transformer}
 import yantl.Newtype
@@ -116,7 +116,7 @@ trait UnvalidatedNewtypeOf[
     CirceCodec.from(decoder, encoder).imap(apply)(unwrap)
 
   given partialTransformer: PartialTransformer[Type, TValidatedWrapper] =
-    PartialTransformer.fromEitherStrings(unvalidated => companionOfValidated.makeAsStrings(unvalidated))
+    PartialTransformer.fromEitherStrings(unvalidated => companionOfValidated.make.asStrings(unvalidated))
 
   given validator: Validator[Type, TValidationError] = companionOfValidated.validator
 

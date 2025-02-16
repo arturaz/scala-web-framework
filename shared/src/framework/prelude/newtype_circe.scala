@@ -8,7 +8,7 @@ given newTypeCirceCodec[TUnderlying, TWrapper](using
   encoder: CirceEncoder[TUnderlying],
   decoder: CirceDecoder[TUnderlying],
 ): CirceCodec[TWrapper] =
-  CirceCodec.from(decoder, encoder).iemap(newType.makeAsString)(newType.unwrap)
+  CirceCodec.from(decoder, encoder).iemap(newType.make.asString)(newType.unwrap)
 
 given newTypeStringKeyDecoder[TWrapper](using
   newType: yantl.Newtype.WithType[String, TWrapper]

@@ -14,7 +14,9 @@ type SendRequestIO[AuthError, Response] = EitherT[IO, NetworkOrAuthError[AuthErr
   * @tparam AuthError
   *   error if authentication fails, use [[Nothing]] if authentication is not required
   */
-case class SendSignal[AuthError, Response](signal: Signal[Option[SyncIO[Option[SendRequestIO[AuthError, Response]]]]]) {
+case class SendSignal[AuthError, Response](
+  signal: Signal[Option[SyncIO[Option[SendRequestIO[AuthError, Response]]]]]
+) {
   lazy val canSendSignal: Signal[Boolean] = signal.map(_.isDefined)
 
   def map[Response2](f: Response => Response2): SendSignal[AuthError, Response2] =
