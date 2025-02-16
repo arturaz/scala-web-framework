@@ -59,7 +59,7 @@ extension [PrimaryColumn, SecondaryColumn, PageSize](cursor: PageCursor[PrimaryC
     colPrimary: Column[PrimaryColumn],
     colSecondary: Column[SecondaryColumn],
     order: SqlOrder,
-  )(using Write[PrimaryColumn], Write[SecondaryColumn], Read[Result], Transformer[PageSize, Long]): Query0[Result] = {
+  )(using Write[PrimaryColumn], Write[SecondaryColumn], Transformer[PageSize, Long]): Query0[Result] = {
     val whereSql = whereFragment.getOrElse(sql"1=1")
 
     sql"""
@@ -108,7 +108,6 @@ extension [PrimaryColumn, SecondaryColumn, PageSize](cursor: PageCursor[PrimaryC
   )(using
     Write[PrimaryColumn],
     Write[SecondaryColumn],
-    Read[RowsResult],
     Transformer[PageSize, Long],
   ): PageCursorConnectionIOBuilder[PrimaryColumn, SecondaryColumn, PageSize, RowsResult, ProcessedResult] = {
     PageCursorConnectionIOBuilder[PrimaryColumn, SecondaryColumn, PageSize, RowsResult, ProcessedResult](
@@ -141,7 +140,6 @@ extension [PrimaryColumn, SecondaryColumn, PageSize](cursor: PageCursor[PrimaryC
   )(using
     Write[PrimaryColumn],
     Write[SecondaryColumn],
-    Read[Result],
     Transformer[PageSize, Long],
   ): PageCursorConnectionIOBuilder[PrimaryColumn, SecondaryColumn, PageSize, Result, Result] = {
     cursor.connectionIOMapped(
@@ -172,7 +170,6 @@ case class PageCursorConnectionIOBuilder[PrimaryColumn, SecondaryColumn, PageSiz
 )(using
   Write[PrimaryColumn],
   Write[SecondaryColumn],
-  Read[RowsResult],
   Transformer[PageSize, Long],
 ) {
   def queryWithoutProcessing: Query0[RowsResult] =
