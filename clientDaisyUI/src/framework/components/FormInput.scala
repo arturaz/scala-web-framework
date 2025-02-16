@@ -410,7 +410,6 @@ object FormInput {
     beforeSelect: Seq[L.Node] = Seq.empty,
     beforeChange: () => Boolean = () => true,
     style: ComponentStyle = ComponentStyle.Standalone,
-    withMargin: Boolean = true,
   )(using CanEqual[A, A], DefinedAt) = {
     val selectElem = selectElement(
       selected,
