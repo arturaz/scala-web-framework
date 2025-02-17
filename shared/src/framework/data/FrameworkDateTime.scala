@@ -56,7 +56,7 @@ case class FrameworkDateTime private (ldt: LocalDateTime) extends AnyVal with Or
 object FrameworkDateTime {
   private val utc = ZoneId.of("UTC")
   val HumanReadableFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss 'UTC'")
-  val FromToStringFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ssX")
+  val FromToStringFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss'Z'")
 
   def apply(ldt: LocalDateTime): FrameworkDateTime =
     new FrameworkDateTime(ldt.truncatedTo(ChronoUnit.MILLIS))
@@ -83,7 +83,7 @@ object FrameworkDateTime {
       .fromUsing[Long]
       .imap(millis => apply(LocalDateTime.ofInstant(Instant.ofEpochMilli(millis), utc)))(_.toInstant.toEpochMilli)
 
-  /** Parses a date in "yyyy-MM-ddTHH:mm:ss.SSSZ" format. */
+  /** Parses a date in specified format ("yyyy-MM-ddTHH:mm:ss.SSSZ" by default). */
   def fromString(
     str: String,
     formatter: DateTimeFormatter = FromToStringFormatter,
@@ -117,6 +117,29 @@ object FrameworkDateTime {
     given UrlConvertible[Type, DummyError] = UrlConvertible.fromCodec
 
     def schemaFor: Schema[Type] = FrameworkDateTime.schema.map(v => make(v).toOption)(unwrap)
+
+    def DefaultFormatter: DateTimeFormatter = FromToStringFormatter
+
+    case class CannotParseError(value: String, error: String, formatter: DateTimeFormatter)
+
+    /** Parses a date in specified format ([[DefaultFormatter]] by default). */
+    def fromString(
+      str: String,
+      formatter: DateTimeFormatter = DefaultFormatter,
+    ): Either[Vector[CannotParseError | TError], Type] =
+      FrameworkDateTime
+        .fromString(str, formatter)
+        .left
+        .map(err => Vector(CannotParseError(value = str, error = err, formatter)))
+        .flatMap(make(_))
+
+    extension (value: Type) {
+
+      /** Returns the timestamp in [[DefaultFormatter]] format. */
+      def asString: String = unwrap(value).asString(DefaultFormatter)
+
+      def asString(formatter: DateTimeFormatter): String = unwrap(value).asString(formatter)
+    }
   }
   object Newtype {
     extension [A](obj: yantl.Newtype.WithType[FrameworkDateTime, A] & yantl.Newtype.WithoutValidation) {
