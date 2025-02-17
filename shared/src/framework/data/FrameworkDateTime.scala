@@ -1,19 +1,18 @@
 package framework.data
 
 import cats.Show
-import sttp.tapir.{Schema, SchemaType}
-
-import java.time.format.DateTimeFormatter
-import java.time.{Instant, LocalDateTime, ZoneId, ZonedDateTime}
-import scala.util.Try
-import java.time.temporal.ChronoUnit
+import cats.syntax.either.*
 import framework.exts.{*, given}
 import framework.prelude.{*, given}
-import cats.syntax.either.*
-import framework.utils.FrameworkPlatform
-import scala.concurrent.duration.*
-import framework.utils.UrlConvertible
+import framework.utils.{FrameworkPlatform, UrlConvertible}
+import sttp.tapir.{Schema, SchemaType}
 import urldsl.errors.DummyError
+
+import java.time.format.DateTimeFormatter
+import java.time.temporal.ChronoUnit
+import java.time.{Instant, LocalDateTime, ZoneId, ZonedDateTime}
+import scala.concurrent.duration.*
+import scala.util.Try
 
 /** A timestamp in the UTC timezone with the precision of milliseconds.
   *
@@ -37,8 +36,10 @@ case class FrameworkDateTime private (ldt: LocalDateTime) extends AnyVal with Or
   /** Returns the value as you would get it from [[cats.effect.Clock.realTime]]. */
   def toFiniteDuration: FiniteDuration = FiniteDuration(toInstant.toEpochMilli(), MILLISECONDS)
 
-  /** Returns the timestamp in "yyyy-MM-dd HH:mm:ss" format. */
-  def asString: String = s"${ldt.format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")).show} UTC"
+  /** Returns the timestamp in "yyyy-MM-dd HH:mm:ss UTC" format. */
+  def asString: String = asString(FrameworkDateTime.HumanReadableFormatter)
+
+  def asString(formatter: DateTimeFormatter): String = ldt.format(formatter)
 
   /** Returns the timestamp from the unix epoch in milliseconds. */
   def toUnixMillis: Long = toInstant.toEpochMilli
@@ -54,7 +55,8 @@ case class FrameworkDateTime private (ldt: LocalDateTime) extends AnyVal with Or
 }
 object FrameworkDateTime {
   private val utc = ZoneId.of("UTC")
-  private val fromToStringFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd_HH:mm:ss.SSS")
+  val HumanReadableFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss 'UTC'")
+  val FromToStringFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ssX")
 
   def apply(ldt: LocalDateTime): FrameworkDateTime =
     new FrameworkDateTime(ldt.truncatedTo(ChronoUnit.MILLIS))
@@ -81,10 +83,17 @@ object FrameworkDateTime {
       .fromUsing[Long]
       .imap(millis => apply(LocalDateTime.ofInstant(Instant.ofEpochMilli(millis), utc)))(_.toInstant.toEpochMilli)
 
-  given tapirCodec: TapirCodec[String, FrameworkDateTime, TapirCodecFormat.TextPlain] =
-    TapirCodec.string.mapEither(str =>
-      Try(apply(LocalDateTime.parse(str, fromToStringFormatter))).toEither.leftMap(_.toString)
-    )(_.ldt.format(fromToStringFormatter))
+  /** Parses a date in "yyyy-MM-ddTHH:mm:ss.SSSZ" format. */
+  def fromString(
+    str: String,
+    formatter: DateTimeFormatter = FromToStringFormatter,
+  ): Either[String, FrameworkDateTime] =
+    Try(apply(LocalDateTime.parse(str, formatter))).toEither.leftMap(_.toString)
+
+  given tapirCodec: TapirCodec[String, FrameworkDateTime, TapirCodecFormat.TextPlain] = {
+    val formatter = FromToStringFormatter
+    TapirCodec.string.mapEither(fromString(_, formatter))(_.asString(formatter))
+  }
 
   given schema: Schema[FrameworkDateTime] =
     Schema(SchemaType.SInteger())
