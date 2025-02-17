@@ -7,6 +7,10 @@ import org.scalajs.dom.{HTMLButtonElement, HTMLDialogElement}
 import scala.annotation.implicitNotFound
 
 import L.*
+import framework.utils.NewtypeBoolean
+import scala.collection.immutable.Queue
+import scala.concurrent.Future
+import scala.concurrent.Promise
 
 object AppMainModal {
   trait Data {
@@ -18,9 +22,33 @@ object AppMainModal {
     "`import appPageInit.appMainModal`."
 )
 abstract class AppMainModal[Data <: AppMainModal.Data] {
-  protected val dataVar: Var[Option[Data]] = Var(Option.empty[Data])
+  case class DataBox(data: Data, closed: Promise[Unit])
 
-  def show(data: Data): Unit = dataVar.set(Some(data))
+  protected val dataVar: Var[Queue[DataBox]] = Var(Queue.empty[DataBox]).setDisplayName("AppMainModal")
+  protected val currentDataSignal: Signal[Option[DataBox]] = dataVar.signal.map(_.headOption).distinct
+
+  /** Shows a modal. If there is already a modal, this one will be shown after the previous one is closed.
+    *
+    * @return
+    *   A future that completes when the modal is closed.
+    */
+  def showFuture(data: Data): Future[Unit] = {
+    val promise = Promise[Unit]()
+    val box = DataBox(data, promise)
+    dataVar.update(q => q.enqueue(box))
+    promise.future
+  }
+
+  /** Shows a modal. If there is already a modal, this one will be shown after the previous one is closed. */
+  def show(data: Data): Unit = {
+    val _ = showFuture(data)
+  }
+
+  /** Closes the current modal, switching to the next one, if any. */
+  def close(): Unit = dataVar.update(_.tail)
+
+  /** Closes all modals. */
+  def closeAll(): Unit = dataVar.set(Queue.empty)
 
   /** Turns [[Data]] into HTML title. */
   def renderDataAsTitle(data: Data): Seq[Node]
@@ -46,16 +74,16 @@ abstract class AppMainModal[Data <: AppMainModal.Data] {
         cls := "modal-box",
         h3(
           cls := "font-bold text-lg flex items-center gap-2",
-          children <-- dataVar.signal.map {
-            case Some(data) => renderDataAsTitle(data)
-            case None       => List(textToTextNode("You Should Not Be Seeing This"))
+          children <-- currentDataSignal.map {
+            case Some(box) => renderDataAsTitle(box.data)
+            case None      => Nil // These are briefly seen while closing animation plays
           },
         ),
         div(
           cls := "py-4 prose",
-          children <-- dataVar.signal.map {
-            case Some(data) => renderDataAsContent(data)
-            case None       => List(p("If you are seeing this, something has gone wrong."))
+          children <-- currentDataSignal.map {
+            case Some(box) => renderDataAsContent(box.data)
+            case None      => Nil // These are briefly seen while closing animation plays
           },
         ),
         div(
@@ -66,16 +94,25 @@ abstract class AppMainModal[Data <: AppMainModal.Data] {
           ),
         ),
       ),
-      dataVar.signal --> { dataOpt =>
+      currentDataSignal.changedValues --> { case (previousDataOpt, dataOpt) =>
+        previousDataOpt.flatten.foreach { box =>
+          logDebug(s"AppMainModal: modal for data closed: ${box.data}")(using box.data.definedAt)
+          box.closed.success(())
+        }
+
         dataOpt match {
           case None =>
-            log("Closing modal.")
+            logDebug("AppMainModal: closing modal.")
             tag.ref.close()
 
-          case Some(data) =>
-            log(s"Opening modal with data: $data.")(using data.definedAt)
+          case Some(DataBox(data, _)) =>
+            logDebug(s"AppMainModal: opening modal with data: $data.")(using data.definedAt)
             tag.ref.showModal()
         }
+      },
+      eventProp("close") --> { _ =>
+        logDebug("AppMainModal: modal closed.")
+        close()
       },
     )
   }
