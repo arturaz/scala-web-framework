@@ -20,8 +20,9 @@ import org.typelevel.otel4s.AttributeKey
 import framework.http.middleware.GetCurrentRequest
 import framework.data.AttributeWithCirceEncoder
 import org.http4s.Request
+import java.io.IOException
 
-trait OnSSEStreamFinalizer[F[_]] {
+trait SSEStreamFinalizer[F[_]] {
   def applicative: Applicative[F]
 
   /** The stream has succesfully finished. */
@@ -30,20 +31,29 @@ trait OnSSEStreamFinalizer[F[_]] {
   /** The stream has been cancelled. */
   def onCancelled(endpoint: Endpoint[?, ?, ?, ?, ?]): F[Unit]
 
+  /** The stream has failed due to a broken pipe (the client has closed the connection and we tried to send something).
+    */
+  def onBrokenPipe(endpoint: Endpoint[?, ?, ?, ?, ?]): F[Unit]
+
   /** The stream has failed. */
   def onError(endpoint: Endpoint[?, ?, ?, ?, ?], error: Throwable): F[Unit]
 }
-object OnSSEStreamFinalizer {
+object SSEStreamFinalizer {
   given defaultForIO(using
     pkg: sourcecode.Pkg,
     fileName: sourcecode.FileName,
     name: sourcecode.Name,
     line: sourcecode.Line,
     mdc: MDC,
-  ): OnSSEStreamFinalizer[IO] = new {
+  ): SSEStreamFinalizer[IO] = new {
     override def applicative: Applicative[IO] = summon
     override def onSucceeded(endpoint: Endpoint[?, ?, ?, ?, ?]): IO[Unit] = IO.unit
-    override def onCancelled(endpoint: Endpoint[?, ?, ?, ?, ?]): IO[Unit] = IO.unit
+    override def onCancelled(endpoint: Endpoint[?, ?, ?, ?, ?]): IO[Unit] =
+      log.debug(s"Cancelled SSE stream for endpoint ${endpoint.showDetail}")
+
+    override def onBrokenPipe(endpoint: Endpoint[?, ?, ?, ?, ?]): IO[Unit] =
+      log.debug(s"Broken pipe (client disconnected) in SSE stream for endpoint ${endpoint.showDetail}")
+
     override def onError(endpoint: Endpoint[?, ?, ?, ?, ?], error: Throwable): IO[Unit] =
       log.error(s"Error in SSE stream for endpoint ${endpoint.showDetail}", error)
   }
@@ -59,7 +69,7 @@ extension [SECURITY_INPUT, INPUT, ERROR_OUTPUT, OUTPUT, R <: ServerSentEvents](
   def toSSE[F[_]: Temporal](keepAlive: Option[SSEKeepAliveConfig])(using
     codec: TapirCodec[String, OUTPUT, ?]
   )(using
-    OnSSEStreamFinalizer[F],
+    SSEStreamFinalizer[F],
     StreamRegistry[F],
     GetCurrentRequest[F],
   ): Endpoint[SECURITY_INPUT, INPUT, ERROR_OUTPUT, Stream[F, OUTPUT], Fs2Streams[F]] = {
@@ -73,7 +83,7 @@ extension [SECURITY_INPUT, INPUT, ERROR_OUTPUT, OUTPUT, R <: ServerSentEvents](
   def toSSEJson[F[_]: Temporal](keepAlive: Option[SSEKeepAliveConfig])(using
     encoder: CirceEncoder[OUTPUT]
   )(using
-    OnSSEStreamFinalizer[F],
+    SSEStreamFinalizer[F],
     StreamRegistry[F],
     GetCurrentRequest[F],
   ): Endpoint[SECURITY_INPUT, INPUT, ERROR_OUTPUT, Stream[F, OUTPUT], Fs2Streams[F]] = {
@@ -87,7 +97,7 @@ extension [SECURITY_INPUT, INPUT, ERROR_OUTPUT, OUTPUT, R <: ServerSentEvents](
   def toSSE[F[_]: Temporal](keepAlive: Option[SSEKeepAliveConfig])(
     mapper: OUTPUT => ServerSentEvent
   )(using
-    OnSSEStreamFinalizer[F],
+    SSEStreamFinalizer[F],
     StreamRegistry[F],
     GetCurrentRequest[F],
   ): Endpoint[SECURITY_INPUT, INPUT, ERROR_OUTPUT, Stream[F, OUTPUT], Fs2Streams[F]] = {
@@ -102,7 +112,7 @@ extension [SECURITY_INPUT, INPUT, ERROR_OUTPUT, OUTPUT, R <: ServerSentEvents](
   def toSSEStream[F[_]](
     pipe: fs2.Pipe[F, OUTPUT, ServerSentEvent]
   )(using
-    onStreamError: OnSSEStreamFinalizer[F],
+    streamFinalizer: SSEStreamFinalizer[F],
     registry: StreamRegistry[F],
     getRequest: GetCurrentRequest[F],
   ): Endpoint[SECURITY_INPUT, INPUT, ERROR_OUTPUT, Stream[F, OUTPUT], Fs2Streams[F]] = {
@@ -133,10 +143,11 @@ extension [SECURITY_INPUT, INPUT, ERROR_OUTPUT, OUTPUT, R <: ServerSentEvents](
     /** It seems that no logging is done if the stream fails, so we need to do it ourselves. */
     def logErrors[A]: fs2.Pipe[F, A, A] =
       _.onFinalizeCase {
-        case ExitCase.Succeeded    => onStreamError.onSucceeded(e)
-        case ExitCase.Canceled     => onStreamError.onCancelled(e)
-        case ExitCase.Errored(err) => onStreamError.onError(e, err)
-      }(using onStreamError.applicative)
+        case ExitCase.Succeeded                                                      => streamFinalizer.onSucceeded(e)
+        case ExitCase.Canceled                                                       => streamFinalizer.onCancelled(e)
+        case ExitCase.Errored(err: IOException) if err.getMessage() == "Broken pipe" => streamFinalizer.onBrokenPipe(e)
+        case ExitCase.Errored(err)                                                   => streamFinalizer.onError(e, err)
+      }(using streamFinalizer.applicative)
 
     val sseEndpoint =
       e.withOutputPublic(sseBody.toEndpointIO)
