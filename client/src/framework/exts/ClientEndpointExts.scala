@@ -183,8 +183,9 @@ object OnSSEStreamError {
     logError(
       s"Error in SSE stream (url=$uri, index=$connectionIndex), waiting for ${waitingFor.prettyFractional} " +
         s"before reconnecting.",
-      s"securityInput=$securityInput",
-      s"input=$input",
+      s"[securityInput=$securityInput]",
+      s"[input=$input]",
+      "error=",
       error,
     )
 
