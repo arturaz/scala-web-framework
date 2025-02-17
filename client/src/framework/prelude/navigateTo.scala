@@ -33,7 +33,7 @@ def navigateTo[BasePage, AppPage <: BasePage](signal: Signal[Option[AppPage]])(u
         val urlSignal = signal.map(_.fold("")(router.absoluteUrlForPage))
         el.amend(href <-- urlSignal)
       } catch {
-        case NonFatal(err) => logError(s"navigateTo: $err")
+        case NonFatal(err) => log.error(s"navigateTo: $err")
       }
     }
 

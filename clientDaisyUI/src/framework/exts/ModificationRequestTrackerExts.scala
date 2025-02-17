@@ -94,10 +94,10 @@ extension (tracker: ModificationRequestTracker) {
 
     onClick(_.sample(sendSignal.signal, tracker.canCancel)) --> {
       case (None, None) =>
-        logError("Can't neither send or cancel, both signals are `None`, the button should be disabled.")
+        log.error("Can't neither send or cancel, both signals are `None`, the button should be disabled.")
 
       case (Some(_), Some(cancel)) =>
-        logError("Can't send and cancel at the same time, choosing to cancel.")
+        log.error("Can't send and cancel at the same time, choosing to cancel.")
         cancel()
 
       case (None, Some(cancel)) =>
@@ -110,7 +110,7 @@ extension (tracker: ModificationRequestTracker) {
           case Some(ModificationRequestTracker.Result.Cancelled) =>
             log("Request cancelled.")
           case Some(ModificationRequestTracker.Result.Error(err)) =>
-            logError(s"Request error: $err")
+            log.error(s"Request error: $err")
             errorHandler(err)
           case Some(ModificationRequestTracker.Result.Finished(response)) =>
             callback(response)

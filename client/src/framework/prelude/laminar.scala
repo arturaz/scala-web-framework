@@ -53,7 +53,7 @@ def observeTopVisibility[El <: L.Element](
     callback = { (obs, entry, ctx) =>
       // Get the position of the top relative to viewport
       val topPosition = entry.boundingClientRect.top
-      logDebug("obs", obs, "entry", entry, "ctx", ctx, "topPosition", topPosition)
+      log.debug("obs", obs, "entry", entry, "ctx", ctx, "topPosition", topPosition)
 
       if (topPosition >= 0) {
         if (!visible) {

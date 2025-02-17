@@ -232,7 +232,7 @@ object FetchRequest {
 
     override def restart()(implicit definedAt: DefinedAt): Unit = {
       current.now() match {
-        case None       => logError("Can't restart without input")
+        case None       => log.error("Can't restart without input")
         case Some(data) => val _ = startWith(data.input)
       }
     }

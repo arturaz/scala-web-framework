@@ -180,7 +180,7 @@ object OnSSEStreamError {
   )(using definedAt: DefinedAt): (SecurityInput, Input, FiniteDuration) = {
     val waitingFor = defaultWaitFor(connectionIndex)
 
-    logError(
+    log.error(
       s"Error in SSE stream (url=$uri, index=$connectionIndex), waiting for ${waitingFor.prettyFractional} " +
         s"before reconnecting.",
       s"[securityInput=$securityInput]",
@@ -219,7 +219,7 @@ extension [SecurityInput, Input, Output, AuthError, Requirements <: ServerSentEv
 
     def create(uri: Uri) = {
       val uriStr = uri.toString
-      logDebug(s"Creating SSE stream for $uri, options=", options)
+      log.debug(s"Creating SSE stream for $uri, options=", options)
       new EventSource(uriStr, options)
     }
     def createUri(securityParams: SecurityInput, params: Input) = {

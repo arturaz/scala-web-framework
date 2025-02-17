@@ -447,7 +447,7 @@ object FormInput {
         value <-- selected.signal.map { value =>
           val name = options.find(_._1 == value) match {
             case None =>
-              logError(s"Value $value not found in $options, this should never happen and is a bug.")
+              log.error(s"Value $value not found in $options, this should never happen and is a bug.")
               "it's a bug :("
             case Some((_, name)) => name
           }
@@ -458,7 +458,7 @@ object FormInput {
           options
             .find(_._2 == name)
             .getOrElse {
-              logError(s"Option $name not found in $options, this should never happen and is a bug.")
+              log.error(s"Option $name not found in $options, this should never happen and is a bug.")
               options.head
             }
             ._1

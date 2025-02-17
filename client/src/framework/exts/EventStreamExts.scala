@@ -67,7 +67,7 @@ extension (obj: EventStream.type) {
       stop = startIndex => {
         maybeSubscription match {
           case None =>
-            logWarning("No subscription to stop")
+            log.warning("No subscription to stop")
           case Some(subscription) =>
             stop(startIndex, subscription)
             maybeSubscription = None

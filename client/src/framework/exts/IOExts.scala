@@ -1,6 +1,6 @@
 package framework.exts
 
-import framework.prelude.{executionContext, ioRuntime, logError}
+import framework.prelude.{executionContext, ioRuntime, log}
 import com.raquo.airstream.core.EventStream
 import cats.effect.IO
 
@@ -12,7 +12,7 @@ implicit class IOExts[A](private val io: IO[A]) extends AnyVal {
   def unsafeRunAsyncOrHandleError(onValue: A => Unit): Unit = {
     io.unsafeRunAsync {
       case Right(value) => onValue(value)
-      case Left(error)  => logError(error)
+      case Left(error)  => log.error(error)
     }
   }
 }

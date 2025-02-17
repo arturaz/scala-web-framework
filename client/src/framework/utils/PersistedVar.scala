@@ -95,7 +95,7 @@ object PersistedVar {
       case Some(serialized) =>
         decodeJsonAccumulating[A](serialized).fold(
           errors => {
-            logError(
+            log.error(
               s"""Failed to read persisted value for key "$persistenceKey" from session storage.
               |Using default value instead.
               |

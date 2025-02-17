@@ -57,13 +57,14 @@ extension [AuthError, Output, Requirements >: Effect[IO]](
   def io(using DefinedAt): EitherT[IO, NetworkOrAuthError[AuthError], Response[Output]] = {
     val id = RequestDebugCounter.counter
     RequestDebugCounter.counter += 1
+    val reqLog = log.scoped(show"req #$id")
 
     EitherT(
-      IO(log(s"#$id: Sending request: $req")) *>
+      IO(reqLog(s"Sending request: $req")) *>
         sttpBackend
           .send(req)
           .map { response =>
-            logAt(if (response.body.isLeft) LogLevel.Error else LogLevel.Info, s"#$id: Received response: $response")
+            reqLog.at(if (response.body.isLeft) LogLevel.Error else LogLevel.Info, s"Received response: $response")
             response.body match {
               case Left(error) =>
                 Left(error)
@@ -72,7 +73,7 @@ extension [AuthError, Output, Requirements >: Effect[IO]](
             }
           }
           .recover { case e: JavaScriptException =>
-            logError(s"#$id: Error while sending request: $e")
+            reqLog.error(s"Error while sending request: $e")
             Left(NetworkOrAuthError.NetworkError(NetworkError.JsError(e)))
           }
     )

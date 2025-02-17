@@ -13,7 +13,7 @@ extension (signal: Signal[JWT.Expiring]) {
     signal.flatMapSwitch { jwt =>
       jwt.expiresAt match {
         case None =>
-          logDebug(s"$logPrefix token never expires.")
+          log.debug(s"$logPrefix token never expires.")
           Signal.fromValue(Some(jwt.unsafe))
 
         case Some(expiresAt) =>
@@ -24,15 +24,15 @@ extension (signal: Signal[JWT.Expiring]) {
               s"$logPrefix token expires at $expiresAt, in ${untilExpiration.prettyFractional}, now is $now"
             EventStream.delay(untilExpiration.toMillis.toInt).mapToSignal {
               case None =>
-                logDebug(s"$debugStr, current state: valid")
+                log.debug(s"$debugStr, current state: valid")
                 Some(jwt.unsafe) // token is still valid
               case Some(()) =>
-                logDebug(s"$debugStr, current state: expired")
+                log.debug(s"$debugStr, current state: expired")
                 None // token expired
             }
           } else {
             // Token has already expired
-            logDebug(s"$logPrefix token has already expired at $expiresAt, now is $now")
+            log.debug(s"$logPrefix token has already expired at $expiresAt, now is $now")
             Signal.fromValue(None)
           }
       }

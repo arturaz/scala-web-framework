@@ -11,17 +11,21 @@ import framework.utils.NewtypeBoolean
 import scala.collection.immutable.Queue
 import scala.concurrent.Future
 import scala.concurrent.Promise
+import framework.utils.JSLogger
 
 object AppMainModal {
   trait Data {
     def definedAt: DefinedAt
   }
+
+  protected val log: JSLogger = framework.prelude.log.scoped("AppMainModal")
 }
 @implicitNotFound(
   "Cannot find an implicit instance of `AppMainModal`, if you have `AppPageInit` in scope you want to " +
     "`import appPageInit.appMainModal`."
 )
 abstract class AppMainModal[Data <: AppMainModal.Data] {
+  import AppMainModal.log
   case class DataBox(data: Data, closed: Promise[Unit])
 
   protected val dataVar: Var[Queue[DataBox]] = Var(Queue.empty[DataBox]).setDisplayName("AppMainModal")
@@ -96,22 +100,22 @@ abstract class AppMainModal[Data <: AppMainModal.Data] {
       ),
       currentDataSignal.changedValues --> { case (previousDataOpt, dataOpt) =>
         previousDataOpt.flatten.foreach { box =>
-          logDebug(s"AppMainModal: modal for data closed: ${box.data}")(using box.data.definedAt)
+          log.debug(s"modal for data closed: ${box.data}")(using box.data.definedAt)
           box.closed.success(())
         }
 
         dataOpt match {
           case None =>
-            logDebug("AppMainModal: closing modal.")
+            log.debug("closing modal.")
             tag.ref.close()
 
           case Some(DataBox(data, _)) =>
-            logDebug(s"AppMainModal: opening modal with data: $data.")(using data.definedAt)
+            log.debug(s"opening modal with data: $data.")(using data.definedAt)
             tag.ref.showModal()
         }
       },
       eventProp("close") --> { _ =>
-        logDebug("AppMainModal: modal closed.")
+        log.debug("modal closed.")
         close()
       },
     )
