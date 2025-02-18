@@ -10,6 +10,12 @@ extension [A](a: A) {
 
   def pprintWithoutColors: String = _root_.pprint.apply(a).plainText
 
+  /** Runs the function on the value and returns the original. */
+  inline def tap[B](f: A => B): A = { f(a); a }
+
+  /** Pipes the value into the function and returns the result. */
+  inline def pipe[B](f: A => B): B = f(a)
+
   /** Gets the first element in the collection. */
   def headOption[Element](using typeclass: MaybeGetHead[A, Element]): Option[Element] =
     typeclass.headOption(a)
