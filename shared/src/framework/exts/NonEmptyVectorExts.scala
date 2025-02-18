@@ -19,8 +19,7 @@ extension [A](self: NonEmptyVector[A]) {
     *   [[None]] if last element is removed, [[Some]] if not.
     */
   def removeAt(idx: Int): Option[NonEmptyVector[A]] = {
-    val (before, after) = self.toVector.splitAt(idx)
-    NonEmptyVector.fromVector(before ++ after.drop(1))
+    NonEmptyVector.fromVector(self.toVector.removeAt(idx))
   }
 
   /** Removes the element at the given index.
