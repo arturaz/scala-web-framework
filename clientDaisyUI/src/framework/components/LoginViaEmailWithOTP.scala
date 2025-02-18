@@ -92,6 +92,7 @@ def LoginViaEmailWithOTP[SendOTPResult](
 
   def otpNotSent = {
     div(
+      cls := "space-y-2",
       child.maybe <-- cannotProgressToNextStepRx.signal.mapSome(err => div(err.userFriendlyMessage)),
       FormInput
         .stringWithLabel(
@@ -141,6 +142,7 @@ def LoginViaEmailWithOTP[SendOTPResult](
         .splitBoolean(
           whenFalse = _ =>
             div(
+              cls := "space-y-2",
               beforeOtpInputLabel(email, result),
               FormInput
                 .stringWithLabel(
