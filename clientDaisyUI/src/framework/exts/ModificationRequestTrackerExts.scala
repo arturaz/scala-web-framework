@@ -16,6 +16,9 @@ trait SendButtonContents {
   /** E.g. "Form contains invalid fields." */
   def formHasInvalidFields: Signal[String]
 
+  /** Whether to show the tooltip or not. */
+  def showTooltip: Signal[Boolean] = Signal.fromValue(true)
+
   /** Button contents for a the send button. */
   def buttonContents: ButtonContents
 }
@@ -148,12 +151,17 @@ case class SendButtonBuilder[AuthError, Response](
     )
 
     SendButtonResult(
-      btn =>
-        Tooltip(
-          sendSignal.canSendSignal.combineWithFn(contents.formHasInvalidFields)((canSend, formHasInvalidFields) =>
-            Option.unless(canSend)(formHasInvalidFields)
+      btn => {
+        val showTooltip =
+          contents.showTooltip.combineWithFn(sendSignal.canSendSignal)((showTooltip, canSend) =>
+            showTooltip && !canSend
           )
-        )(btn),
+        Tooltip(
+          showTooltip.combineWithFn(contents.formHasInvalidFields)((showTooltip, formHasInvalidFields) =>
+            Option.when(showTooltip)(formHasInvalidFields)
+          )
+        )(btn)
+      },
       btn,
     )
   }
