@@ -139,6 +139,18 @@ object FrameworkDateTime {
       def asString: String = unwrap(value).asString(DefaultFormatter)
 
       def asString(formatter: DateTimeFormatter): String = unwrap(value).asString(formatter)
+
+      /** Can't name this `+` because this is an extension method and `def +(_: String): String`` already exists on
+        * every value of the type.
+        */
+      def ++(duration: FiniteDuration)(using obj: Newtype.WithTypeUnvalidated[Type]): Type =
+        obj(value.unwrap + duration)
+
+      def -(duration: FiniteDuration)(using obj: Newtype.WithTypeUnvalidated[Type]): Type =
+        obj(value.unwrap - duration)
+
+      def -(other: Type): FiniteDuration =
+        value.unwrap - other.unwrap
     }
   }
   object Newtype {
@@ -146,6 +158,9 @@ object FrameworkDateTime {
       def now(): A = obj.apply(FrameworkDateTime.now())
       def nowIO: SyncIO[A] = SyncIO(now())
     }
+
+    type WithType[A] = yantl.Newtype.WithType[FrameworkDateTime, A]
+    type WithTypeUnvalidated[A] = WithType[A] & yantl.Newtype.WithoutValidation
   }
 
   given asInstant: Conversion[FrameworkDateTime, Instant] = _.toInstant
