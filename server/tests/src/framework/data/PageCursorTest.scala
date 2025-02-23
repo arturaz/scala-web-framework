@@ -1,13 +1,13 @@
 package framework.data
 
-import framework.utils.{DBFixture, FrameworkTestSuite}
+import framework.utils.{FrameworkTestSuite, InMemoryDBFixture}
 import framework.exts.*
 import framework.prelude.{*, given}
 import cats.syntax.all.*
 import doobie.TableDefinition.RowHelpers
 import java.util.Random
 
-trait PageCursorTest(rngSeed: Long) extends FrameworkTestSuite with DBFixture {
+trait PageCursorTest(rngSeed: Long) extends FrameworkTestSuite with InMemoryDBFixture {
   object Docs extends TableDefinition("docs") {
     val id: Column[Long] = Column("id")
     val timestamp: Column[Int] = Column("ts")

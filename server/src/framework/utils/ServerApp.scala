@@ -112,17 +112,17 @@ trait ServerApp extends IOApp {
 
   // Helpers
 
-  def flywayResource(cfg: PostgresqlConfig): Resource[IO, Fly4s[IO]] = cfg.flywayResource(
-    config = Fly4sConfig(ignoreMigrationPatterns = List(ValidatePattern.ignorePendingMigrations))
-  )
-
   def runMigrations(cfg: ServerAppConfig)(using transactor: Transactor[IO], tracer: Tracer[IO]): IO[ExitCode] = {
     val isProduction = this.isProduction(cfg)
     tracer
       .span("database-migration", isProduction.toOtelAttribute)
       .surround(
         framework.db
-          .runDbMigrations(flywayResource(postgresqlConfig(cfg)), recreateSchemaAndRetryOnFailure = !isProduction, log)
+          .runDbMigrationsUsingResource(
+            postgresqlConfig(cfg).flywayResource(),
+            recreateSchemaAndRetryOnFailure = !isProduction,
+            log,
+          )
           .flatMap {
             case true  => IO.pure(ExitCode.Success)
             case false => IO.pure(ExitCode.Error)

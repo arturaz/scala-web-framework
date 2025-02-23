@@ -6,7 +6,7 @@ import cats.syntax.show.*
 import cats.Show
 
 /** A prefixed Redis key. */
-final case class RedisKey[+Key: Semigroup](prefix: RedisAppKeyPrefix[Key], key: Key) {
+final case class RedisKey[+Key: Semigroup](prefix: RedisKeyPrefix[Key], key: Key) {
   val fullKey: Key = prefix.prefix |+| key
 
   override def toString: String = s"RedisKey($fullKey)"

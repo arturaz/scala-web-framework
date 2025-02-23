@@ -7,7 +7,9 @@ import dev.profunktor.redis4cats.data.RedisChannel
 import dev.profunktor.redis4cats.data.RedisPattern
 import dev.profunktor.redis4cats.pubsub.data.Subscription
 
-given Show[RedisURI] = _.underlying.toString()
+given showRedisUri: Show[RedisURI] = _.underlying.toString()
+given showRedisChannel[K: Show]: Show[RedisChannel[K]] = v => show"RedisChannel(${v.underlying})"
+given showRedisPattern[K: Show]: Show[RedisPattern[K]] = v => show"RedisPattern(${v.underlying})"
 
 given [K: CirceKeyDecoder]: CirceKeyDecoder[RedisChannel[K]] = CirceKeyDecoder[K].map(RedisChannel(_))
 given [K: CirceKeyEncoder]: CirceKeyEncoder[RedisChannel[K]] = CirceKeyEncoder[K].contramap(_.underlying)

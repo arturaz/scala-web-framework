@@ -1,11 +1,10 @@
 package framework.exts
 
-import cats.effect.kernel.Resource
-import cats.ApplicativeError
 import cats.data.ValidatedNec
-import cats.syntax.either.*
-import cats.syntax.show.*
-import cats.Show
+import cats.effect.kernel.Resource
+import cats.effect.syntax.all.*
+import cats.syntax.all.*
+import cats.{ApplicativeError, Show}
 
 extension [F[_], A](resource: Resource[F, A]) {
 

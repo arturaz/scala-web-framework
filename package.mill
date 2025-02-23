@@ -398,6 +398,10 @@ object serverRedis extends FrameworkScalaModule {
     // https://mvnrepository.com/artifact/io.github.arturaz/otel4s-redis4cats-streams
     ivy"io.github.arturaz::otel4s-redis4cats-streams:${Versions.Otel4sRedis4Cats}",
   )
+
+  object testInfra extends FrameworkTestModule {
+    override def moduleDeps: Seq[JavaModule] = Seq(serverRedis, build.framework.testInfra.jvm)
+  }
 }
 
 object serverSquants extends FrameworkScalaModule {

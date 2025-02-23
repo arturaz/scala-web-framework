@@ -167,49 +167,60 @@ object db
   /** @return
     *   `true` if migrations were applied, `false` otherwise
     */
-  def runDbMigrations(
+  def runDbMigrationsUsingResource(
     flywayResource: Resource[IO, Fly4s[IO]],
     recreateSchemaAndRetryOnFailure: Boolean,
     log: Scribe[IO],
     logLevel: Level = Level.Info,
   )(using transactor: Transactor[IO], tracer: Tracer[IO], mdc: MDC): IO[Boolean] =
-    log.log(logLevel, mdc, "Migrating SQL database...") *>
-      flywayResource.use { fly4s =>
-        def tryMigration(recreateSchemaAndRetryOnFailure: Boolean): IO[Boolean] = {
-          fly4s.validateAndMigrate.flatMap {
-            case Validated.Valid(result) =>
-              log
-                .log(
-                  logLevel,
-                  mdc,
-                  show"${result.migrationsExecuted} SQL migration(s) applied in ${result.getTotalMigrationTime}ms",
-                )
-                .as(true)
+    flywayResource
+      .logged("Migrating SQL database", log, logLevel)
+      .use(runDbMigrations(_, recreateSchemaAndRetryOnFailure = recreateSchemaAndRetryOnFailure, log, logLevel))
 
-            case Validated.Invalid(errors) =>
-              val errorStrings = errors.iterator.map { err =>
-                show"""|${err.version} @ ${err.filepath}
+  /** @return
+    *   `true` if migrations were applied, `false` otherwise
+    */
+  def runDbMigrations(
+    fly4s: Fly4s[IO],
+    recreateSchemaAndRetryOnFailure: Boolean,
+    log: Scribe[IO],
+    logLevel: Level = Level.Info,
+  )(using transactor: Transactor[IO], tracer: Tracer[IO], mdc: MDC): IO[Boolean] = {
+    def tryMigration(recreateSchemaAndRetryOnFailure: Boolean): IO[Boolean] = {
+      fly4s.validateAndMigrate.flatMap {
+        case Validated.Valid(result) =>
+          log
+            .log(
+              logLevel,
+              mdc,
+              show"${result.migrationsExecuted} SQL migration(s) applied in ${result.getTotalMigrationTime}ms",
+            )
+            .as(true)
+
+        case Validated.Invalid(errors) =>
+          val errorStrings = errors.iterator.map { err =>
+            show"""|${err.version} @ ${err.filepath}
                        |  Migration description: ${err.description}
                        |  Error code: ${err.errorDetails.errorCode.toString()}
                        |  Error message: ${err.errorDetails.errorMessage}
                        |""".stripMargin
-              }
-
-              log.error(s"SQL migration(s) failed:\n${errorStrings.mkString("\n")}") *>
-                (if (recreateSchemaAndRetryOnFailure)
-                   log.log(
-                     logLevel,
-                     mdc,
-                     "Recreating SQL schema and retrying migrations...",
-                   ) *> db.recreateCurrentSchema.perform *>
-                     log.log(logLevel, mdc, "SQL schema recreated, retrying migration.") *>
-                     tryMigration(recreateSchemaAndRetryOnFailure = false)
-                 else log.log(logLevel, mdc, "SQL migrations failed.").as(false))
           }
-        }
 
-        tryMigration(recreateSchemaAndRetryOnFailure)
+          log.error(s"SQL migration(s) failed:\n${errorStrings.mkString("\n")}") *>
+            (if (recreateSchemaAndRetryOnFailure)
+               log.log(
+                 logLevel,
+                 mdc,
+                 "Recreating SQL schema and retrying migrations...",
+               ) *> db.recreateCurrentSchema.perform *>
+                 log.log(logLevel, mdc, "SQL schema recreated, retrying migration.") *>
+                 tryMigration(recreateSchemaAndRetryOnFailure = false)
+             else log.log(logLevel, mdc, "SQL migrations failed.").as(false))
       }
+    }
+
+    tryMigration(recreateSchemaAndRetryOnFailure)
+  }
 
   /** Export from this to get [[Get]] and [[Put]] instances for [[LatLng]] which uses [[PGpoint]] internally. */
   object WithLatLngBackedByPoint {

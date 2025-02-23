@@ -14,6 +14,7 @@ import doobie.util.transactor.Transactor
 import fly4s.Fly4s
 import fly4s.data.Fly4sConfig
 import org.typelevel.otel4s.trace.{Tracer, TracerProvider}
+import fly4s.data.ValidatePattern
 
 case class PostgresqlConfig(
   username: String = "postgres",
@@ -27,7 +28,13 @@ case class PostgresqlConfig(
 
   /** Returns the [[Resource]] that creates a Fly4s client. */
   def flywayResource(
-    config: Fly4sConfig = Fly4sConfig.default,
+    config: Fly4sConfig = Fly4sConfig(ignoreMigrationPatterns =
+      List(
+        // Ignore pending migrations when validating the migrations, as that does not make sense. We will apply
+        // pending migrations later.
+        ValidatePattern.ignorePendingMigrations
+      )
+    ),
     classLoader: ClassLoader = Thread.currentThread.getContextClassLoader,
   ): Resource[IO, Fly4s[IO]] = Fly4s.make[IO](
     url = jdbcUrl,
