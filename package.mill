@@ -318,10 +318,10 @@ object server extends FrameworkScalaModule {
     // Flyway database migrations wrapped in cats-effect
     // https://github.com/geirolz/fly4s
     // https://mvnrepository.com/artifact/com.github.geirolz/fly4s
-    ivy"com.github.geirolz::fly4s:1.0.5",
-    // https://documentation.red-gate.com/flyway/flyway-cli-and-api/supported-databases/postgresql-database
+    ivy"com.github.geirolz::fly4s:1.1.0",
+    // https://documentation.red-gate.com/flyway/reference/database-driver-reference/postgresql-database
     // https://mvnrepository.com/artifact/org.flywaydb/flyway-database-postgresql
-    ivy"org.flywaydb:flyway-database-postgresql:10.15.2",
+    ivy"org.flywaydb:flyway-database-postgresql:11.3.3",
 
     // PostgreSQL driver
     // https://jdbc.postgresql.org/
