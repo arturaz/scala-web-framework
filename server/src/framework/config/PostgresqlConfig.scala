@@ -26,15 +26,17 @@ case class PostgresqlConfig(
   def jdbcUrl: String =
     s"jdbc:postgresql://${host.show}:${port.show}/${database.show}"
 
+  def defaultFly4sConfig: Fly4sConfig = Fly4sConfig(ignoreMigrationPatterns =
+    List(
+      // Ignore pending migrations when validating the migrations, as that does not make sense. We will apply
+      // pending migrations later.
+      ValidatePattern.ignorePendingMigrations
+    )
+  )
+
   /** Returns the [[Resource]] that creates a Fly4s client. */
   def flywayResource(
-    config: Fly4sConfig = Fly4sConfig(ignoreMigrationPatterns =
-      List(
-        // Ignore pending migrations when validating the migrations, as that does not make sense. We will apply
-        // pending migrations later.
-        ValidatePattern.ignorePendingMigrations
-      )
-    ),
+    config: Fly4sConfig = defaultFly4sConfig,
     classLoader: ClassLoader = Thread.currentThread.getContextClassLoader,
   ): Resource[IO, Fly4s[IO]] = Fly4s.make[IO](
     url = jdbcUrl,
