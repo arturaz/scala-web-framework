@@ -1,8 +1,8 @@
 package framework.exts
 
 import sttp.model.Uri
-import sttp.model.Uri.QuerySegment
-import sttp.model.Uri.QuerySegmentEncoding
+import sttp.model.Uri.{QuerySegment, QuerySegmentEncoding}
+
 import scala.annotation.targetName
 
 extension (uri: Uri) {
