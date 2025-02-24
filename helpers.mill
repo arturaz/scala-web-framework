@@ -194,7 +194,7 @@ def makePreludeImportsCompilerOption(imports: Vector[String]): String =
   s"-Yimports:${imports.mkString(",")}"
 
 trait FrameworkTestModule extends FrameworkScalaModule with TestModule.Munit {
-  override def ivyDeps = Agg(
+  override def ivyDeps = super.ivyDeps() ++ Agg(
     // Testing framework
     // https://scalameta.org/munit/
     // https://mvnrepository.com/artifact/org.scalameta/munit
@@ -209,6 +209,11 @@ trait FrameworkTestModule extends FrameworkScalaModule with TestModule.Munit {
     // https://scalameta.org/munit/docs/integrations/scalacheck.html
     // https://mvnrepository.com/artifact/org.scalameta/munit-scalacheck
     ivy"org.scalameta::munit-scalacheck::${Versions.MUnit}",
+
+    // Used for sharing test resources between test suites.
+    // https://arturaz.github.io/cats-effect-resource-shared-memoized/
+    // https://mvnrepository.com/artifact/io.github.arturaz/cats-effect-resource-shared-memoized
+    ivy"io.github.arturaz::cats-effect-resource-shared-memoized::0.1.1",
   )
 }
 

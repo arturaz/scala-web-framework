@@ -104,8 +104,8 @@ object RedisInit {
     codec: RedisCodec[String, String] = RedisCodec.Utf8,
     logCommandsAt: Option[(Scribe[F], scribe.Level)] = Some((framework.prelude.log, scribe.Level.Debug)),
   )(using
-    redis4cats.effect.Log[F],
-    TracerProvider[F],
+    log: redis4cats.effect.Log[F],
+    tracerProvider: TracerProvider[F],
   ): Resource[F, RedisResourceResult[F, String, String]] =
     redisResource(redisUri, codec, tracingConfig, logCommandsAt)
 }
