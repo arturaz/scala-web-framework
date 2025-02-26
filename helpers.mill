@@ -57,6 +57,8 @@ object Versions {
   final val Otel4s = "0.12.0-RC2"
   final val Otel4sHttp4s = "0.11.0-rc.1"
   final val Otel4sRedis4Cats = "0.1-77d3f6f-SNAPSHOT"
+
+  final val BouncyCastle = "1.80"
 }
 
 object Libraries {

@@ -116,7 +116,7 @@ object PushNotifications {
       signal.map(_.flatMap(_.subscription)).distinct
   }
 
-  def getState(options: PushSubscriptionOptions): StrictSignal[Option[State]] = {
+  def getState(options: PushSubscriptionOptions, log: JSLogger = log): StrictSignal[Option[State]] = {
     val rx = Var(Option.empty[State])
     val sink = rx.someWriter
 

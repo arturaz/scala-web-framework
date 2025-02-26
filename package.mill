@@ -355,6 +355,28 @@ object server extends FrameworkScalaModule {
     // https://github.com/jatcwang/difflicious
     // https://mvnrepository.com/artifact/com.github.jatcwang/difflicious-cats
     ivy"com.github.jatcwang::difflicious-cats:0.4.3",
+
+    // WebPush notifications
+    // https://github.com/web-push-libs/webpush-java
+    // https://mvnrepository.com/artifact/nl.martijndwars/web-push
+    ivy"nl.martijndwars:web-push:5.1.2",
+    // ### WebPush runtime dependencies ###
+    // HTTP client for WebPush. Why is there two of them? No idea.
+    // https://mvnrepository.com/artifact/org.apache.httpcomponents/httpasyncclient
+    ivy"org.apache.httpcomponents:httpasyncclient:4.1.5",
+    // https://mvnrepository.com/artifact/org.asynchttpclient/async-http-client
+    ivy"org.asynchttpclient:async-http-client:3.0.1",
+    // https://mvnrepository.com/artifact/org.bitbucket.b_c/jose4j
+    ivy"org.bitbucket.b_c:jose4j:0.9.6",
+    // ###
+
+    // BouncyCastle - cryptography library (for WebPush)
+    // Core provider
+    // https://mvnrepository.com/artifact/org.bouncycastle/bcprov-jdk18on
+    ivy"org.bouncycastle:bcprov-jdk18on:${Versions.BouncyCastle}",
+    // Bouncy Castle PKIX, CMS, EAC, TSP, PKCS, OCSP, CMP, and CRMF APIs
+    // https://mvnrepository.com/artifact/org.bouncycastle/bcpkix-jdk18on
+    ivy"org.bouncycastle:bcpkix-jdk18on:${Versions.BouncyCastle}",
   )
 
   override def runIvyDeps = Agg(
