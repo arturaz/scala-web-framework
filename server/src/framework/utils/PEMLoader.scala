@@ -17,6 +17,7 @@ object PEMLoader {
   def load(pem: String): Try[KeyPair] = Try {
     val parser = PEMParser(StringReader(pem))
     val keyPair = parser.readObject().asInstanceOf[PEMKeyPair]
+    if (keyPair == null) throw new IllegalArgumentException(s"Invalid PEM key pair: $pem")
     JcaPEMKeyConverter().getKeyPair(keyPair)
   }
 }
