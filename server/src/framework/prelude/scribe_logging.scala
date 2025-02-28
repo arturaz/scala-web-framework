@@ -17,6 +17,13 @@ def appLogger: Logger = Logger("app")
 // Must be a `def` to make it get the latest applied logger each time.
 def log: Scribe[IO] = appLogger.f[IO]
 
+trait WithLogger {
+  lazy private val classNameForLogging = getClass().getCanonicalName()
+
+  // Must be a `def` to make it get the latest applied logger each time.
+  def log: Scribe[IO] = Logger(classNameForLogging).f[IO]
+}
+
 def applyLoggingDefaults(isProduction: IsProductionMode): SyncIO[Unit] = SyncIO {
   if (!isProduction) {
     appLogger.info("Applying development logging defaults.")
