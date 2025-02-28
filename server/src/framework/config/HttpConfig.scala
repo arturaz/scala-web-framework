@@ -63,7 +63,9 @@ case class HttpServerLoggingConfig(logHeaders: Boolean, logBody: Boolean, logLev
     * router.pipe(cfg.logging.logger()(_))
     * }}}
     */
-  def logger(redactHeadersWhen: CIString => Boolean = Logger.defaultRedactHeadersWhen) =
+  def logger(
+    redactHeadersWhen: CIString => Boolean = Logger.defaultRedactHeadersWhen
+  )(using pkg: sourcecode.Pkg, fileName: sourcecode.FileName, name: sourcecode.Name, line: sourcecode.Line) =
     Logger.httpRoutes[IO](
       logHeaders = logHeaders,
       logBody = logBody,
