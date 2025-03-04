@@ -6,7 +6,7 @@ import framework.api.FrameworkHeaders
 import framework.data.FrameworkDateTime
 import framework.prelude.sttpBackend
 import framework.sourcecode.DefinedAt
-import framework.utils.{NetworkError, NetworkOrAuthError}
+import framework.utils.{LogLevel, NetworkError, NetworkOrAuthError}
 import sttp.capabilities.fs2.Fs2Streams
 import sttp.capabilities.{Effect, Streams}
 import sttp.client3.{Request, Response}

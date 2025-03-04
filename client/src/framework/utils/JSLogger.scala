@@ -82,3 +82,8 @@ object JSLogger {
     }
   }
 }
+
+/** Mix me in to a class to get a logger. */
+trait WithLogger {
+  val log = framework.prelude.log.scoped(getClass().getCanonicalName())
+}
