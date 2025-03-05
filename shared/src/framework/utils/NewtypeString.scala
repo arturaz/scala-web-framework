@@ -19,4 +19,9 @@ trait NewtypeString extends Newtype.Of[String] {
     TapirCodec.string.mapEither(make.asString)(unwrap)
 
   given Transformer[Type, String] = unwrap
+
+  extension (value: Type) {
+    def isEmpty: Boolean = value.unwrap.isEmpty
+    def nonEmpty: Boolean = value.unwrap.nonEmpty
+  }
 }
