@@ -85,5 +85,11 @@ object JSLogger {
 
 /** Mix me in to a class to get a logger. */
 trait WithLogger {
-  val log = framework.prelude.log.scoped(getClass().getCanonicalName())
+  given enclosingForLogger: sourcecode.Enclosing = compiletime.deferred
+
+  lazy val log = framework.prelude.log.scoped {
+    // `enclosingForLogger` will be in format of "foo.bar.Baz.enclosingForLogger", so we want to get "Baz"
+    val parts = enclosingForLogger.value.split("\\.")
+    if (parts.length < 2) "<unknown>" else parts(parts.length - 2)
+  }
 }
