@@ -422,7 +422,9 @@ object serverRedis extends FrameworkScalaModule {
   )
 
   object testInfra extends FrameworkTestModule {
-    override def moduleDeps: Seq[JavaModule] = Seq(serverRedis, build.framework.testInfra.jvm)
+    override def moduleDeps: Seq[JavaModule] = Seq(
+      serverRedis, build.framework.testInfra.jvm, build.framework.server.testInfra
+    )
   }
 }
 

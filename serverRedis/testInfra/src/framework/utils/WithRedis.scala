@@ -1,13 +1,18 @@
 package framework.utils
 
 import cats.effect.resource_shared_memoized.*
+import cats.effect.std.Supervisor
 import cats.effect.{IO, Resource, SyncIO}
 import cats.syntax.all.*
+import dev.profunktor.redis4cats.pubsub.PubSubCommands
 import framework.exts.*
 import framework.prelude.*
-import framework.redis.RedisKeyPrefix
+import framework.redis.{RedisChannelTyped, RedisKeyPrefix}
 import framework.utils.RedisInit.RedisResourceResult
+import io.scalaland.chimney.PartialTransformer
 import munit.*
+
+import scala.concurrent.duration.*
 
 /** Mix this into an object to get access to Redis.
   *
