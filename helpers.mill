@@ -38,7 +38,7 @@ object Versions {
   final val Tapir = "1.10.12"
   final val Http4s = "0.23.27"
   final val Scribe = "3.15.0"
-  final val Doobie = "1.0.0-RC5"
+  final val Doobie = "1.0.0-RC8"
   final val Chimney = "1.2.0"
   final val Circe = "0.14.9"
   final val Monocle = "3.2.0"

@@ -54,6 +54,7 @@ object db
     Query0,
     Read,
     SQLDefinition,
+    SQLDefinitionRead,
     TableDefinition,
     TableName,
     Transactor,
