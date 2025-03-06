@@ -3,6 +3,7 @@ package framework.data
 import framework.utils.NetworkOrAuthError
 import scala.annotation.targetName
 import cats.Functor
+import cats.syntax.all.*
 
 /** A type alias for the network request that can fail with a network or authentication error. */
 type SendRequestIO[AuthError, Response] = EitherT[IO, NetworkOrAuthError[AuthError], Response]
@@ -61,13 +62,19 @@ object SendSignal {
     apply(signal.mapSome(send => SyncIO { if (window.confirm(question)) Some(send) else None }))
 
   /** Signal which is always available and asks for confirmation. */
+  @targetName("withConfirmationSignal")
+  def withConfirmation[AuthError, Response](
+    question: String,
+    sendSignal: Signal[SendRequestIO[AuthError, Response]],
+  ): SendSignal[AuthError, Response] =
+    withConfirmation(question, sendSignal.map(_.some))
+
+  /** Signal which is always available and asks for confirmation. */
   def withConfirmation[AuthError, Response](
     question: String,
     send: SendRequestIO[AuthError, Response],
   ): SendSignal[AuthError, Response] =
-    apply(Signal.fromValue(Some(SyncIO {
-      if (window.confirm(question)) Some(send) else None
-    })))
+    withConfirmation(question, Signal.fromValue(send))
 
   given functor[AuthError]: Functor[[Response] =>> SendSignal[AuthError, Response]] with {
     override def map[A, B](fa: SendSignal[AuthError, A])(f: A => B): SendSignal[AuthError, B] =
