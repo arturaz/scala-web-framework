@@ -14,6 +14,9 @@ object RequestSuccessfulOf {
 
   val failed: RequestSuccessfulOf[Nothing] = apply(None)
 
+  def fromBoolean[A](succesfull: Boolean, successValue: A): RequestSuccessfulOf[A] =
+    if (succesfull) successful(successValue) else failed
+
   def fromExpected[SuccessValue, ComparisonValue: CanEqual1](value: SuccessValue, expected: ComparisonValue)(
     actual: ComparisonValue
   ): RequestSuccessfulOf[SuccessValue] =
