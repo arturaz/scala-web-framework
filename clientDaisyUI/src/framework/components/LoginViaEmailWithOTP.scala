@@ -5,6 +5,7 @@ import framework.utils.ModificationRequestTracker
 import L.*
 import framework.data.LocalLoadingStatus
 import framework.data.Email
+import framework.localization.LocalizedAppliedValidate
 
 /** @param title
   *   the title of the section
@@ -63,6 +64,7 @@ def LoginViaEmailWithOTP[SendOTPResult](
   isLoggedInSignal: Signal[LocalLoadingStatus[Option[Email]]],
   emailInputLabel: String,
   emailInputPlaceholder: Option[String],
+  emailValidation: Option[LocalizedAppliedValidate[String]],
   loginButtonContent: Seq[Modifier[Button]],
   beforeOtpInputLabel: (Email, SendOTPResult) => Seq[Modifier[Div]],
   otpInputLabel: String,
@@ -98,7 +100,7 @@ def LoginViaEmailWithOTP[SendOTPResult](
         .stringWithLabel(
           emailInputLabel,
           emailStrRx,
-          validation = None, // Maybe add validation here?
+          validation = emailValidation,
           placeholder = emailInputPlaceholder,
           inputModifiers = Seq(disabled <-- tracker.submitting),
         ),
