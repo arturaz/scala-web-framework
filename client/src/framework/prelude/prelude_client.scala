@@ -65,4 +65,6 @@ object js {
 
   inline def native: Nothing = scalajs.js.native
   inline def undefined: UndefOr[Nothing] = scalajs.js.undefined
+
+  inline def isUndefined(a: Any): Boolean = scalajs.js.isUndefined(a)
 }
