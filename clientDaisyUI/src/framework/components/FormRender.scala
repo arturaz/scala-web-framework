@@ -20,7 +20,7 @@ object FormRender {
     actions: Seq[Modifier[Div]] = Seq.empty,
   )(content: Modifier[Div]*): Div = {
     div(
-      cls := "card card-compact card-bordered bg-base-100 shadow-inner mb-3",
+      cls := "card card-compact card-border bg-base-100 shadow-inner mb-3",
       cardModifiers,
       div(
         cls := "card-body",

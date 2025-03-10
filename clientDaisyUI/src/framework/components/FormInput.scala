@@ -538,7 +538,7 @@ object FormInput {
     div(
       input(
         `type` := "file",
-        cls := "file-input file-input-bordered file-input-md w-full max-w-xs",
+        cls := "file-input file-input-md w-full max-w-xs",
         accept <-- holder.signal.map(_.acceptAttributeValue),
         onChange.mapToFiles.map(_.headOption) --> { file => holder.update(_.withFile(file)) },
         inputModifiers,
