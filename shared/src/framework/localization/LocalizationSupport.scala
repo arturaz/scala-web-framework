@@ -14,7 +14,7 @@ import java.util.Locale
   * {{{
   * package object localization extends framework.localization.LocalizationSupport {
   *   // This line is necessary for a lot of the extension methods to work.
-  *   given this.type = this
+  *   given l18n: this.type = this
   *
   *   type LocaleEnum = AppLocale
   * }
@@ -114,12 +114,13 @@ trait LocalizationSupport {
   trait LocalizedTextOfValue[-A] {
 
     /** The localized text. */
-    def text(value: A): LocaleEnum ?=> String
+    def localizedText(value: A): LocalizedText
   }
   object LocalizedTextOfValue extends LocalizedTextOfValueLowPriorityImplicits {
 
     /** These have to be extension methods due to limitations of `union-derivation`. */
     extension [A](lto: LocalizedTextOfValue[A]) {
+      def text(value: A)(using LocaleEnum): String = lto.localizedText(value).text
 
       /** The localized text, lowercased. */
       def textLO(value: A)(using locale: LocaleEnum): String = lto.text(value).toLowerCase()
@@ -130,11 +131,15 @@ trait LocalizationSupport {
 
     /** Creates a new instance. */
     def of[A](localize: (A, LocaleEnum) => String): LocalizedTextOfValue[A] = new {
-      override def text(value: A): LocaleEnum ?=> String = (locale: LocaleEnum) ?=> localize(value, locale)
+      override def localizedText(value: A): LocalizedText = LocalizedText(locale => localize(value, locale))
     }
 
     /** Summons an instance for the type of given value. */
     def summonFor[A](value: A)(using lto: LocalizedTextOfValue[A]): LocalizedTextOfValue[A] = lto
+
+    /** Summons the [[LocalizedText]] for the type of given value. */
+    def summonLocalizedTextFor[A](value: A)(using lto: LocalizedTextOfValue[A]): LocalizedText =
+      lto.localizedText(value)
 
     // override def join[T](caseClass: magnolia1.CaseClass[LocalizedTextOfValue, T]): LocalizedTextOfValue[T] =
     //   of { (value, locale) =>
@@ -208,4 +213,16 @@ object LocalizationSupport {
     /** The localized text, uppercased. */
     def textUP: String = text.toUpperCase()
   }
+
+  type LocalizedText[LocaleEnum_] =
+    (LocalizationSupport { type LocaleEnum = LocaleEnum_ })#LocalizedText
+
+  type LocalizedTextOf[A, LocaleEnum_] =
+    (LocalizationSupport { type LocaleEnum = LocaleEnum_ })#LocalizedTextOf[A]
+
+  type LocalizedTextOfValue[-A, LocaleEnum_] =
+    (LocalizationSupport { type LocaleEnum = LocaleEnum_ })#LocalizedTextOfValue[A]
+
+  type LocalizedValidator[-A, Error, LocaleEnum_] =
+    (LocalizationSupport { type LocaleEnum = LocaleEnum_ })#LocalizedValidator[A, Error]
 }
