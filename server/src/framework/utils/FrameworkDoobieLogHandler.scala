@@ -11,7 +11,7 @@ class FrameworkDoobieLogHandler[F[_]](scribe: Scribe[F]) extends LogHandler[F] {
     def argsToString(args: List[Any], prefix: String) =
       args.iterator.zipWithIndex
         .map { case (arg, idx) =>
-          s"  $prefix[$idx]: ${arg.toString.indentLinesNFL(4)}"
+          s"  $prefix[${idx + 1}]: ${arg.toString.indentLinesNFL(4)}"
         }
         .mkString("\n")
 
@@ -41,7 +41,7 @@ class FrameworkDoobieLogHandler[F[_]](scribe: Scribe[F]) extends LogHandler[F] {
     var questionMarkAt = str.indexOf('?')
     var argumentIndex = 0
     while (questionMarkAt >= 0) {
-      str = str.patch(questionMarkAt, s"[$argumentIndex]", 1)
+      str = str.patch(questionMarkAt, s"[${argumentIndex + 1}]", 1)
       questionMarkAt = str.indexOf('?')
       argumentIndex += 1
     }

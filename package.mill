@@ -5,8 +5,13 @@ import $file.framework.helpers._
 
 /** Helpers for tests. Applications can use them if they need to. */
 object testInfra extends Module {
-  object jvm extends FrameworkPlatformModule with FrameworkTestModule
-  object js extends FrameworkPlatformModule with FrameworkScalaJSModule with FrameworkTestModule
+  object jvm extends FrameworkPlatformModule with FrameworkTestModule {
+    override def moduleDeps = Seq(shared.jvm)
+  }
+  
+  object js extends FrameworkPlatformModule with FrameworkScalaJSModule with FrameworkTestModule {
+    override def moduleDeps = Seq(shared.js)
+  }
 }
 
 /** Code common for all projects that use this stack and shared between JVM and JS. */
@@ -113,10 +118,7 @@ object shared extends Module {
       // https://mvnrepository.com/artifact/com.lihaoyi/pprint
       ivy"com.lihaoyi::pprint::0.9.0",
 
-      // Derivation of case classes and sealed traits/enums
-      // https://github.com/softwaremill/magnolia
-      // https://mvnrepository.com/artifact/com.softwaremill.magnolia1_3/magnolia
-      ivy"com.softwaremill.magnolia1_3::magnolia::1.3.8",
+      Libraries.magnolia,
 
       // // Derivation of case classes and sealed traits/enums
       // // https://github.com/propensive/wisteria
@@ -140,11 +142,11 @@ object shared extends Module {
   /** Tests for the framework code. */
   object tests extends Module {
     object jvm extends FrameworkPlatformModule with FrameworkTestModule {
-      override def moduleDeps = Seq(shared.jvm, testInfra.jvm)
+      override def moduleDeps = Seq(testInfra.jvm)
     }
 
     object js extends FrameworkPlatformModule with FrameworkTestModule with FrameworkScalaJSTestModule {
-      override def moduleDeps = Seq(shared.js, testInfra.js)
+      override def moduleDeps = Seq(testInfra.js)
     }
   }
 }
@@ -388,6 +390,12 @@ object server extends FrameworkScalaModule {
 
   object testInfra extends FrameworkTestModule {
     override def moduleDeps: Seq[JavaModule] = Seq(server, build.framework.testInfra.jvm)
+
+    override def ivyDeps = super.ivyDeps() ++ Agg(
+      // https://typelevel.org/doobie/docs/13-Unit-Testing.html#the-munit-package
+      // https://mvnrepository.com/artifact/org.tpolecat/doobie-munit
+      ivy"org.tpolecat::doobie-munit:${Versions.Doobie}",
+    )
   }
 
   object tests extends FrameworkTestModule {

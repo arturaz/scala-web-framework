@@ -57,12 +57,15 @@ trait FrameworkTestSuiteHelpers { self: CatsEffectSuite =>
   }
 
   extension [T](fixture: SyncIO[FunFixture[T]]) {
+
+    /** Runs the test providing the [[T]] as the given value. */
     def testGiven(name: String)(
       body: T ?=> Any
     )(using Location): Unit = {
       fixture.unsafeRunSync().test(TestOptions(name))(body(using _))
     }
 
+    /** Runs the test providing the [[T]] as the given value. */
     def testGiven(options: TestOptions)(
       body: T ?=> Any
     )(using Location): Unit = {
