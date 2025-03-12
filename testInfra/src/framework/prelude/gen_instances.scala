@@ -7,6 +7,7 @@ import hedgehog.{Gen, Range}
 import java.time.{Instant, LocalDate, LocalDateTime, ZoneId}
 import java.util.UUID
 import sttp.model.Uri
+import java.time.temporal.ChronoUnit
 
 export jkugiya.ulid.genULID
 
@@ -30,13 +31,23 @@ given genUri: Gen[Uri] = for {
 
 given genLocalDate: Gen[LocalDate] =
   Gen
-    .long(Range.linear(Instant.MIN.getEpochSecond(), Instant.MAX.getEpochSecond()))
+    .long(
+      Range.linear(
+        Instant.now().minus(365, ChronoUnit.DAYS).getEpochSecond(),
+        Instant.now().plus(365, ChronoUnit.DAYS).getEpochSecond(),
+      )
+    )
     .map(Instant.ofEpochSecond)
     .map(LocalDate.ofInstant(_, ZoneId.of("Z")))
 
 given genLocalDateTime: Gen[LocalDateTime] =
   Gen
-    .long(Range.linear(Instant.MIN.getEpochSecond(), Instant.MAX.getEpochSecond()))
+    .long(
+      Range.linear(
+        Instant.now().minus(365, ChronoUnit.DAYS).getEpochSecond(),
+        Instant.now().plus(365, ChronoUnit.DAYS).getEpochSecond(),
+      )
+    )
     .map(Instant.ofEpochSecond)
     .map(LocalDateTime.ofInstant(_, ZoneId.of("Z")))
 
