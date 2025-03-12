@@ -4,6 +4,7 @@ import cats.effect.{IO, Resource}
 import cats.effect.resource_shared_memoized.ResourceSharedMemoized
 
 import java.sql.Connection
+import scala.concurrent.duration.*
 
 trait WithDatabase {
   export framework.db.*
@@ -28,9 +29,12 @@ object WithDatabase {
     * the same connection to that database.
     */
   trait External extends WithDatabase {
+    def dbResourceDelayedRelease: FiniteDuration = 150.millis
 
     /** The cached version of [[dbResource]]. */
     lazy val dbResourceCached: Resource[IO, Transactor[IO]] =
-      ResourceSharedMemoized.memoize(dbResource).unsafeRunSync()(using cats.effect.unsafe.implicits.global)
+      ResourceSharedMemoized
+        .memoizeWithDelayedRelease(dbResource, dbResourceDelayedRelease)
+        .unsafeRunSync()(using cats.effect.unsafe.implicits.global)
   }
 }

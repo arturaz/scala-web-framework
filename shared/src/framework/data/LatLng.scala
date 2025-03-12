@@ -5,33 +5,40 @@ import cats.syntax.validated.*
 import framework.exts.*
 import framework.prelude.{*, given}
 import framework.utils.{NewtypeDouble, NewtypeString}
-import io.scalaland.chimney.PartialTransformer
+import io.scalaland.chimney.{PartialTransformer, Transformer}
 import sttp.model.Uri
 import sttp.tapir.{Schema, SchemaType}
 import yantl.*
-import io.scalaland.chimney.Transformer
 
 object Latitude extends NewtypeDouble {
+  final val MinValue: Double = -90
+  final val MaxValue: Double = 90
+
   type TError = ValidatorRule.SmallerThan[Double] | ValidatorRule.LargerThan[Double]
 
   override val validator = Validator.of(
-    ValidatorRule.between[Double](-90, 90)
+    ValidatorRule.between[Double](MinValue, MaxValue)
   )
 
   val zero = make.orThrow(0)
-  given Schema[Type] = Schema(SchemaType.SNumber()).description("Latitude in degrees, between -90 and 90 inclusive.")
+  given Schema[Type] =
+    Schema(SchemaType.SNumber()).description(show"Latitude in degrees, between $MinValue and $MaxValue inclusive.")
 }
 type Latitude = Latitude.Type
 
 object Longitude extends NewtypeDouble {
+  final val MinValue: Double = -180
+  final val MaxValue: Double = 180
+
   type TError = ValidatorRule.SmallerThan[Double] | ValidatorRule.LargerThan[Double]
 
   override val validator = Validator.of(
-    ValidatorRule.between[Double](-180, 180)
+    ValidatorRule.between[Double](MinValue, MaxValue)
   )
 
   val zero = make.orThrow(0)
-  given Schema[Type] = Schema(SchemaType.SNumber()).description("Longitude in degrees, between -180 and 180 inclusive.")
+  given Schema[Type] =
+    Schema(SchemaType.SNumber()).description(show"Longitude in degrees, between $MinValue and $MaxValue inclusive.")
 }
 type Longitude = Longitude.Type
 

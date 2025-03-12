@@ -26,10 +26,12 @@ trait WithRedis[K, V](
   val redisPrefix: RedisKeyPrefix[K],
 ) {
 
+  def redisResourceDelayedRelease: FiniteDuration = 150.millis
+
   /** The cached version of [[redisResource]] shared between all tests. */
   lazy val redisResourceCached: Resource[IO, RedisResourceResult[IO, K, V]] =
     ResourceSharedMemoized
-      .memoize(
+      .memoizeWithDelayedRelease(
         for {
           r <- redisResource
           // Cache commands and pubsub as they would be shared in real applicaiton, where as streaming would not.
@@ -41,7 +43,8 @@ trait WithRedis[K, V](
           mkCommands,
           mkPubSub,
           r.mkStreaming,
-        )
+        ),
+        redisResourceDelayedRelease,
       )
       .unsafeRunSync()(using cats.effect.unsafe.implicits.global)
 

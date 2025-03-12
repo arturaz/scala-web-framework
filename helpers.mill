@@ -225,7 +225,7 @@ trait FrameworkTestModule extends FrameworkScalaModule with TestModule.Munit {
     // Used for sharing test resources between test suites.
     // https://arturaz.github.io/cats-effect-resource-shared-memoized/
     // https://mvnrepository.com/artifact/io.github.arturaz/cats-effect-resource-shared-memoized
-    ivy"io.github.arturaz::cats-effect-resource-shared-memoized::0.1.1",
+    ivy"io.github.arturaz::cats-effect-resource-shared-memoized::0.1.2",
 
     Libraries.magnolia,
   )

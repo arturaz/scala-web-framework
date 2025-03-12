@@ -166,6 +166,15 @@ object sharedSquants extends Module {
   object js extends SharedModule with FrameworkScalaJSModule {
     override def moduleDeps = Seq(shared.js)
   }
+
+  object testInfra extends Module {
+    object jvm extends FrameworkTestModule with FrameworkPlatformModule {
+      override def moduleDeps: Seq[JavaModule] = Seq(sharedSquants.jvm, build.framework.testInfra.jvm)
+    }
+    object js extends FrameworkTestModule with FrameworkPlatformModule {
+      override def moduleDeps: Seq[JavaModule] = Seq(sharedSquants.js, build.framework.testInfra.js)
+    }
+  }
 }
 
 /** Redis related things shared between JVM and JS. */
