@@ -22,17 +22,22 @@ trait FrameworkServerTestSuiteDoobieHelpers extends GenDerivation with HedgehogH
     *
     * Example:
     * {{{
-    * myTransactorFixture.testGiven("GeneralPractices.queryLocation")(checkSql()(GeneralPractices.queryLocation.tupled))
+    * myTransactorFixture.testGiven("GeneralPractices.queryLocation")(
+    *   checkSqlMake()(GeneralPractices.queryLocation.tupled)
+    * )
     * }}}
     */
-  def checkSql[T <: Tuple, A: AnalyzableRunnable](withConfig: PropertyConfig => PropertyConfig = identity)(
+  def checkSqlMake[T <: Tuple, A: AnalyzableRunnable](
+    withConfig: PropertyConfig => PropertyConfig = identity,
+    testExecution: Boolean = true,
+  )(
     make: T => A
   )(using loc: Location, gen: Gen[T], xa: Transactor[IO]): IO[Unit] =
     Dispatcher.parallel[IO](await = true).use { dispatcher =>
       IO {
         check("SQL validity", withConfig)(gen.forAll.map { input =>
           val query = make(input)
-          val result = dispatcher.unsafeRunSync(checkSqlResult(query))
+          val result = dispatcher.unsafeRunSync(checkSqlResult(query, testExecution))
           // println(s"$input -> $query: ${result.args} -> ${result.report}")
           result.asHedgehogResult
         })
@@ -48,12 +53,16 @@ trait FrameworkServerTestSuiteDoobieHelpers extends GenDerivation with HedgehogH
     * }
     * }}}
     */
-  def checkSql[A: AnalyzableRunnable](a: A)(using xa: Transactor[IO], loc: Location): IO[Unit] =
-    checkSqlResult(a).flatMap(_.asIO)
+  def checkSql[A: AnalyzableRunnable](a: A, testExecution: Boolean = true)(using
+    xa: Transactor[IO],
+    loc: Location,
+  ): IO[Unit] =
+    checkSqlResult(a, testExecution).flatMap(_.asIO)
 
   /** Checks an SQL query producing a result. */
   def checkSqlResult[A](
-    a: A
+    a: A,
+    checkExecution: Boolean = true,
   )(using xa: Transactor[IO], loc: Location, ar: AnalyzableRunnable[A]): IO[CheckSqlResult] = {
     val args = Analyzable.unpack(a)
 
@@ -62,6 +71,7 @@ trait FrameworkServerTestSuiteDoobieHelpers extends GenDerivation with HedgehogH
       // If this is runnable, try to actually run it.
       maybeExecutionError <- ar
         .run(a)
+        .filter(_ => checkExecution)
         .fold(ConnectionIO.pure(None))(query => query.to[List].attemptSql.map(_.left.toOption))
     } yield CheckSqlResult(args, report, maybeExecutionError)
 
