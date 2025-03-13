@@ -157,14 +157,6 @@ object db
   ): Put[VersionedData[Version, Data]] =
     Put[Json].contramap(_.asJson)
 
-  /** Generates a [[Fragment]] that sets all columns of the [[SQLDefinition]] to their excluded values.
-    *
-    * TODO: move to `doobie-typesafe`
-    */
-  def setAllToExcluded(sqlDef: SQLDefinition[?]): Fragment = {
-    sqlDef.columns.map(column => sql"$column = ${column.excluded}").intercalate(fr",")
-  }
-
   /** @return
     *   `true` if migrations were applied, `false` otherwise
     */
