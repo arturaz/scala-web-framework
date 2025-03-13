@@ -59,6 +59,8 @@ object Versions {
   final val Otel4sRedis4Cats = "0.1-77d3f6f-SNAPSHOT"
 
   final val BouncyCastle = "1.80"
+  // final val DottyCpsAsync = "1.0.0"
+  // final val DottyCpsAsyncConnect = "1.0.1"
 }
 
 object Libraries {
@@ -195,6 +197,8 @@ val ScalaDefaultImports: Vector[String] = Vector(
 val FrameworkPreludeImports: Vector[String] = Vector(
   "framework.exts",
   "framework.prelude",
+  // "cps",
+  // "cps.monads.catsEffect",
 )
 
 def makePreludeImportsCompilerOption(imports: Vector[String]): String =

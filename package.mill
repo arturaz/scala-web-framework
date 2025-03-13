@@ -48,6 +48,16 @@ object shared extends Module {
       // https://mvnrepository.com/artifact/org.typelevel/cats-effect
       ivy"org.typelevel::cats-effect::3.5.4",
 
+      // It doesn't work that great right now.
+      // // async/await syntax
+      // // https://github.com/dotty-cps-async/dotty-cps-async
+      // // https://mvnrepository.com/artifact/io.github.dotty-cps-async/dotty-cps-async
+      // ivy"io.github.dotty-cps-async::dotty-cps-async-next::${Versions.DottyCpsAsync}",
+      // // https://mvnrepository.com/artifact/io.github.dotty-cps-async/cps-async-connect-cats-effect
+      // ivy"io.github.dotty-cps-async::cps-async-connect-cats-effect::${Versions.DottyCpsAsyncConnect}",
+      // // https://mvnrepository.com/artifact/io.github.dotty-cps-async/cps-async-connect-fs2
+      // ivy"io.github.dotty-cps-async::cps-async-connect-fs2::${Versions.DottyCpsAsyncConnect}",
+
       // Quickly modify deeply nested case class fields
       // https://www.optics.dev/Monocle/
       // https://mvnrepository.com/artifact/dev.optics/monocle-core
