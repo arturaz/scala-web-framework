@@ -93,6 +93,11 @@ def LoginViaEmailWithOTP[SendOTPResult](
   val tracker = ModificationRequestTracker()
 
   def otpNotSent = {
+    val inputInvalid = emailValidation.fold2(
+      emailRx.map(_.isEmpty),
+      validation => emailStrRx.signal.mapLazy(str => str.isBlank() || !validation.validate.isValid(str)),
+    )
+
     div(
       cls := "space-y-2",
       child.maybe <-- cannotProgressToNextStepRx.signal.mapSome(err => div(err.userFriendlyMessage)),
@@ -107,7 +112,7 @@ def LoginViaEmailWithOTP[SendOTPResult](
       button(
         `type` := "submit",
         cls := "btn btn-primary",
-        cls("btn-disabled") <-- tracker.submitting.combineWithFn(emailRx.map(_.isEmpty))(_ || _),
+        disabled <-- tracker.submitting.combineWithFn(inputInvalid)(_ || _),
         child.maybe <-- tracker.submitting.splitBooleanAsOption(_ => Spinner),
         loginButtonContent,
         onClick(_.sample(emailRx).collectOpt(identity)) ---> { email =>
