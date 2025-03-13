@@ -31,6 +31,10 @@ class ModificationRequestTracker(status: Var[ModificationRequestTracker.Status])
   val canCancelBool: Signal[Boolean] = canCancel.map(_.isDefined)
 
   /** Launches a request. */
+  def launch[A, Err](request: IO[Either[Err, A]]): IO[ModificationRequestTracker.Result[Err, A]] =
+    launch(EitherT(request))
+
+  /** Launches a request. */
   def launch[A, Err](request: EitherT[IO, Err, A]): IO[ModificationRequestTracker.Result[Err, A]] = {
     for {
       fiber <- (for {
