@@ -1,6 +1,12 @@
 package framework.data
 
-/** Typeclass that indicates the last version number for a data type. */
+/** Typeclass that indicates the last version number for a data type.
+  *
+  * Example:
+  * {{{
+  * given lastVersionFor: LastVersionFor.Aux[GeneralPracticeUserSettings, Version] = LastVersionFor.`for`.is(Version.V0)
+  * }}}
+  */
 trait LastVersionFor[TData] {
   type TVersion
 
