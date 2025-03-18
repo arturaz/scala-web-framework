@@ -22,7 +22,7 @@ def TextLikeFieldInput[A: Empty: CanEqual1](
 ) = {
   FormInput.textLike(
     signal,
-    validation = PerformValidations.summon,
+    validation = PerformValidations.whenEnabledSummonValue,
     inputModifiers = inputModifiers ++ Vector(disabled <-- submitting),
   )
 }
@@ -43,7 +43,7 @@ def TextLikeFieldInputWithLabel[A: Empty: CanEqual1](
 ) = {
   FormInput.textLikeWithLabelLocalized(
     signal,
-    validation = PerformValidations.summon,
+    validation = PerformValidations.whenEnabledSummonValue,
     inputModifiers = inputModifiers ++ Vector(disabled <-- submitting),
   )
 }
@@ -64,7 +64,7 @@ def TextLikeOptionalFieldInput[A: Empty: CanEqual1](
 )(using optSignal: UpdatableSignal[Option[A]])(using FormInput.RemoveOptionalFieldButtonContent) = {
   FormInput.textLikeWithLabelLocalized(
     signal,
-    validation = PerformValidations.summon,
+    validation = PerformValidations.whenEnabledSummonValue,
     inputModifiers = inputModifiers ++ Vector(disabled <-- submitting),
     altLabel = Seq(FormInput.removeOptionalFieldButton(optSignal)),
   )
@@ -83,7 +83,7 @@ def DateLikeOptionalFieldInput[A: Empty: CanEqual1](
 )(using optSignal: UpdatableSignal[Option[A]])(using FormInput.RemoveOptionalFieldButtonContent) = {
   FormInput.dateWithLabelLocalized(
     signal,
-    validation = PerformValidations.summon,
+    validation = PerformValidations.whenEnabledSummonValue,
     modInput = _.amend(disabled <-- submitting),
     renderPosition = RenderPosition.Sideways,
     altLabel = Seq(FormInput.removeOptionalFieldButton(optSignal)),

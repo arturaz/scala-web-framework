@@ -141,6 +141,10 @@ trait LocalizationSupport {
     def summonLocalizedTextFor[A](value: A)(using lto: LocalizedTextOfValue[A]): LocalizedText =
       lto.localizedText(value)
 
+    /** Converts a [[LocalizedText]] to a [[LocalizedTextOfValue]]. */
+    given forLocalizedText: LocalizedTextOfValue[LocalizedText] =
+      of((localizedText, locale) => localizedText.text(using locale))
+
     // override def join[T](caseClass: magnolia1.CaseClass[LocalizedTextOfValue, T]): LocalizedTextOfValue[T] =
     //   of { (value, locale) =>
     //     caseClass.parameters.iterator

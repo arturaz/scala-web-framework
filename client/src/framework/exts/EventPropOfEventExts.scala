@@ -23,4 +23,32 @@ extension (eventProp: EventProp[Event]) {
       case "" => None
       case v  => v.toDoubleOption
     }
+
+  /** Tries to parse the value of the event as a [[Int]], returns [[None]] if it fails. */
+  def mapToValueInt: EventProcessor[Event, Option[Int]] =
+    eventProp.mapToValue.map {
+      case "" => None
+      case v  => v.toIntOption
+    }
+
+  /** Tries to parse the value of the event as a [[Long]], returns [[None]] if it fails. */
+  def mapToValueLong: EventProcessor[Event, Option[Long]] =
+    eventProp.mapToValue.map {
+      case "" => None
+      case v  => v.toLongOption
+    }
+
+  /** Tries to parse the value of the event as a [[Short]], returns [[None]] if it fails. */
+  def mapToValueShort: EventProcessor[Event, Option[Short]] =
+    eventProp.mapToValue.map {
+      case "" => None
+      case v  => v.toShortOption
+    }
+
+  /** Tries to parse the value of the event as a [[Byte]], returns [[None]] if it fails. */
+  def mapToValueByte: EventProcessor[Event, Option[Byte]] =
+    eventProp.mapToValue.map {
+      case "" => None
+      case v  => v.toByteOption
+    }
 }

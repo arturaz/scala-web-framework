@@ -213,7 +213,7 @@ object EditForm {
     * @param persistedVar
     *   The return type you get from [[PersistedVar]] constructors.
     */
-  def apply[A](
+  def persisted[A](
     persistedVar: (PersistedVar[A], PersistedVar.Persister)
   ): (Persisted[A], PersistedVar.AppliedPersister) = {
     val (pVar, persister) = persistedVar
@@ -229,6 +229,6 @@ object EditForm {
   }
 
   /** @see [[NotPersisted]] */
-  def apply[A](rxVar: Var[A], additionalSubmitting: Signal[Boolean]): NotPersisted[A] =
+  def notPersisted[A](rxVar: Var[A], additionalSubmitting: Signal[Boolean]): NotPersisted[A] =
     new NotPersisted(rxVar, additionalSubmitting)
 }

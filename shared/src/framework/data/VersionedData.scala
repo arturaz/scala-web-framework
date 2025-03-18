@@ -38,6 +38,8 @@ case class VersionedData[+TVersion, +TData](
   data: TData,
 )
 object VersionedData {
+
+  /** Wraps the [[TData]] with [[VersionedData]] marking it as using the last version. */
   def of[TData](data: TData)(implicit lastVersion: LastVersionFor[TData]): VersionedData[lastVersion.TVersion, TData] =
     apply(lastVersion.last, data)
 

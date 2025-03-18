@@ -25,7 +25,7 @@ def MoneyLikeOptionalFieldInput[A: Empty: CanEqual1](
   FormInputSquants.moneyWithLabelLocalized(
     currency,
     signal,
-    validation = PerformValidations.summon,
+    validation = PerformValidations.whenEnabledSummonValue,
     inputModifiers = Vector(L.disabled <-- submitting),
     altLabel = Seq(FormInput.removeOptionalFieldButton(optSignal)),
   )

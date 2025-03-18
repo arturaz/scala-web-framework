@@ -516,6 +516,50 @@ object FormInput {
     )
   }
 
+  def integer[A](
+    signal: ZoomedOwnerlessSignal[A],
+    modifiers: Modifier[Input]*
+  )(using fromA: Transformer[A, Int], toA: Transformer[Int, A]): ReactiveHtmlElement[HTMLInputElement] = {
+    input(
+      `type` := "number",
+      modifiers,
+      controlled(
+        value <-- signal.signal.map(fromA.transform(_).show),
+        onInput.mapToValueInt.orElseEmpty.map(toA.transform) --> signal.setTo,
+      ),
+    )
+  }
+
+  def integerWithLabel[A](
+    label: String,
+    signal: ZoomedOwnerlessSignal[A],
+    validation: Option[LocalizedAppliedValidate[A]],
+    altLabel: Seq[Modifier[Span]] = Seq.empty,
+    beforeLabel: Seq[Modifier[Div]] = Seq.empty,
+    beforeInput: Seq[Modifier[Div]] = Seq.empty,
+    afterInput: Seq[Modifier[Div]] = Seq.empty,
+    inputModifiers: Seq[Modifier[Input]] = Seq.empty,
+    placeholder: Option[String] = None,
+  )(using Transformer[A, Int], Transformer[Int, A]): Label = {
+    L.label(
+      when(label.nonEmpty || altLabel.nonEmpty)(
+        div(
+          cls := "label",
+          beforeLabel,
+          when(label.nonEmpty)(span(cls := "label-text", label)),
+          when(altLabel.nonEmpty)(span(cls := "label-text-alt", altLabel)),
+        )
+      ),
+      div(
+        cls := "input input-bordered flex items-center gap-2",
+        beforeInput,
+        integer(signal, cls := "w-full", placeholder.map(L.placeholder := _), inputModifiers),
+        afterInput,
+      ),
+      validationMessages(signal.signal, validation),
+    )
+  }
+
   @targetName("bigDecimalOption")
   def bigDecimal[A](
     signal: ZoomedOwnerlessSignal[Option[A]],

@@ -95,7 +95,8 @@ def LoginViaEmailWithOTP[SendOTPResult](
   def otpNotSent = {
     val inputInvalid = emailValidation.fold2(
       emailRx.map(_.isEmpty),
-      validation => emailStrRx.signal.mapLazy(str => str.isBlank() || !validation.validate.isValid(str)),
+      validation =>
+        emailStrRx.signal.combineWithFn(validation.validate)((str, validate) => str.isBlank() || !validate.isValid(str)),
     )
 
     div(
