@@ -1,6 +1,7 @@
 package framework.data
 
 import framework.prelude.*
+import cats.Functor
 
 /** Indicates whether the previous/next page are available. */
 case class HasSurroundingPages[Data](data: Data, pages: HasSurroundingPages.Pages) derives CanEqual {
@@ -30,6 +31,9 @@ case class HasSurroundingPages[Data](data: Data, pages: HasSurroundingPages.Page
         currentPageCursor.next(id, timestamp)
       }
   }
+
+  def map[Data2](f: Data => Data2): HasSurroundingPages[Data2] =
+    copy(data = f(data), pages)
 }
 object HasSurroundingPages {
   case class Pages(hasPrevious: Boolean, hasNext: Boolean) derives CanEqual, CirceCodec {
@@ -43,4 +47,9 @@ object HasSurroundingPages {
     apply(data, Pages(hasPrevious = hasPrevious, hasNext = hasNext))
 
   given circeCodec[Data: CirceEncoder: CirceDecoder]: CirceCodec[HasSurroundingPages[Data]] = CirceCodec.derived
+
+  given functor: Functor[HasSurroundingPages] with {
+    override def map[A, B](fa: HasSurroundingPages[A])(f: A => B): HasSurroundingPages[B] =
+      fa.map(f)
+  }
 }
