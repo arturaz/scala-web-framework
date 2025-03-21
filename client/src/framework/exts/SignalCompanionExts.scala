@@ -10,6 +10,7 @@ import framework.utils.NetworkError
 
 import scala.concurrent.Future
 import framework.utils.NetworkOrAuthError
+import scala.concurrent.duration.*
 
 extension (obj: Signal.type) {
 
@@ -67,4 +68,12 @@ extension (obj: Signal.type) {
     io: EitherT[IO, NetworkOrAuthError[AuthError], Option[A]]
   ): Signal[AuthLoadingStatus[A]] =
     fromAuthRequestFutureReturningOption(io.mapK(ioToFutureFunctionK))
+
+  /** Creates a [[Signal]] that emits the value of `f` every `period` milliseconds.
+    *
+    * @note
+    *   You usually want to run `.distinct` on top of it.
+    */
+  def fromPolling[A](period: FiniteDuration)(f: => A): Signal[A] =
+    EventStream.periodic(period.toMillis.toInt).mapToSignal(f)
 }
