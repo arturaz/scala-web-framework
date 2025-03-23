@@ -81,6 +81,16 @@ object JSLogger {
       }
     }
   }
+
+  /** Does not perform any logging. */
+  val noOp: JSLogger = new {
+    override def atScope(level: LogLevel, scope: Option[String], msg: Any*)(using
+      definedAt: DefinedAt,
+      appName: JSAppName,
+    ): Unit = ()
+
+    override def scope: Option[String] = None
+  }
 }
 
 /** Mix me in to a class to get a logger. */
