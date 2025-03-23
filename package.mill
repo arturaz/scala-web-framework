@@ -48,6 +48,11 @@ object shared extends Module {
       // https://mvnrepository.com/artifact/org.typelevel/cats-effect
       ivy"org.typelevel::cats-effect::3.5.4",
 
+      // Retries for cats-effect
+      // https://cb372.github.io/cats-retry
+      // https://mvnrepository.com/artifact/com.github.cb372/cats-retry
+      ivy"com.github.cb372::cats-retry::4.0.0",
+
       // It doesn't work that great right now.
       // // async/await syntax
       // // https://github.com/dotty-cps-async/dotty-cps-async
