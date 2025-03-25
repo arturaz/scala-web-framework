@@ -76,4 +76,16 @@ extension (obj: Signal.type) {
     */
   def fromPolling[A](period: FiniteDuration)(f: => A): Signal[A] =
     EventStream.periodic(period.toMillis.toInt).mapToSignal(f)
+
+  /** Creates a [[Signal]] that starts with the `initial` value and then runs Future `f` every `period` milliseconds to
+    * update the value in the signal.
+    *
+    * While the future is resolving old value is kept in the signal.
+    *
+    * @note
+    *   You usually want to run `.distinct` on top of it.
+    */
+  def fromPollingFuture[A](period: FiniteDuration, initial: => A)(f: => Future[A]): Signal[A] =
+    EventStream.periodic(period.toMillis.toInt).flatMapSwitch(_ => EventStream.fromFuture(f)).toSignal(initial)
+
 }
