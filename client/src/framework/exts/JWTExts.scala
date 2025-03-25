@@ -1,6 +1,7 @@
 package framework.exts
 
 import framework.data.{FrameworkDateTime, JWT}
+import framework.utils.PrettyPrintDuration
 
 extension (signal: Signal[JWT.Expiring]) {
 
@@ -10,6 +11,8 @@ extension (signal: Signal[JWT.Expiring]) {
     getNow: () => FrameworkDateTime = FrameworkDateTime.now,
     logPrefix: String = "JWT auth:",
   ): Signal[Option[JWT]] = {
+    given PrettyPrintDuration.Strings = PrettyPrintDuration.Strings.EnglishShortNoSpaces
+
     signal.flatMapSwitch { jwt =>
       jwt.expiresAt match {
         case None =>
@@ -21,7 +24,7 @@ extension (signal: Signal[JWT.Expiring]) {
           if (now < expiresAt) {
             val untilExpiration = expiresAt - now
             inline def debugStr =
-              s"$logPrefix token expires at $expiresAt, in ${untilExpiration.prettyFractional}, now is $now"
+              s"$logPrefix token expires at $expiresAt, in ${untilExpiration.prettyUnbounded}, now is $now"
             EventStream.delay(untilExpiration.toMillis.toInt).mapToSignal {
               case None =>
                 log.debug(s"$debugStr, current state: valid")

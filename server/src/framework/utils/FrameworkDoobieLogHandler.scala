@@ -6,6 +6,7 @@ import scribe.Scribe
 
 /** A log handler that renders SQL statements and their arguments in a human-readable format. */
 class FrameworkDoobieLogHandler[F[_]](scribe: Scribe[F]) extends LogHandler[F] {
+  given PrettyPrintDuration.Strings = PrettyPrintDuration.Strings.EnglishShortNoSpaces
 
   def renderArgs(params: Parameters): String = {
     def argsToString(args: List[Any], prefix: String) =
@@ -57,7 +58,7 @@ class FrameworkDoobieLogHandler[F[_]](scribe: Scribe[F]) extends LogHandler[F] {
           |
           |  ${renderSql(sql)}
           |  label = $label
-          |  elapsed = ${executionTime.prettyFractional} exec + ${processingTime.prettyFractional} processing (${(executionTime + processingTime).prettyFractional} total)
+          |  elapsed = ${executionTime.prettyUnbounded} exec + ${processingTime.prettyUnbounded} processing (${(executionTime + processingTime).prettyUnbounded} total)
           |
           |${renderArgs(args)}
           |""".stripMargin
@@ -72,7 +73,7 @@ class FrameworkDoobieLogHandler[F[_]](scribe: Scribe[F]) extends LogHandler[F] {
          |
          |  ${renderSql(sql)}
          |
-         |   elapsed = ${executionTime.prettyFractional} exec + ${processingTime.prettyFractional} processing (failed) (${(executionTime + processingTime).prettyFractional} total)
+         |   elapsed = ${executionTime.prettyUnbounded} exec + ${processingTime.prettyUnbounded} processing (failed) (${(executionTime + processingTime).prettyUnbounded} total)
          |   label = $label
          |   failure = ${throwable.getMessage}
          |
@@ -88,7 +89,7 @@ class FrameworkDoobieLogHandler[F[_]](scribe: Scribe[F]) extends LogHandler[F] {
       s"""Failed Statement Execution:
          |
          |  ${renderSql(sql)}
-         |  elapsed = ${elapsed.prettyFractional} exec (failed)
+         |  elapsed = ${elapsed.prettyUnbounded} exec (failed)
          |  label = $label
          |  failure = ${throwable.getMessage}
          |

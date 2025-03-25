@@ -16,6 +16,7 @@ import scala.concurrent.duration.*
 import scala.scalajs.js.JSON
 import framework.data.FrameworkDateTime
 import framework.api.FrameworkHeaders
+import framework.utils.PrettyPrintDuration
 
 extension [Input, Error, Output, Requirements](e: PublicEndpoint[Input, Error, Output, Requirements]) {
   def toReq(params: Input, now: FrameworkDateTime)(using
@@ -178,10 +179,11 @@ object OnSSEStreamError {
     securityInput: SecurityInput,
     input: Input,
   )(using definedAt: DefinedAt): (SecurityInput, Input, FiniteDuration) = {
+    given PrettyPrintDuration.Strings = PrettyPrintDuration.Strings.EnglishShortNoSpaces
     val waitingFor = defaultWaitFor(connectionIndex)
 
     log.error(
-      s"Error in SSE stream (url=$uri, index=$connectionIndex), waiting for ${waitingFor.prettyFractional} " +
+      s"Error in SSE stream (url=$uri, index=$connectionIndex), waiting for ${waitingFor.prettyUnbounded} " +
         s"before reconnecting.",
       s"[securityInput=$securityInput]",
       s"[input=$input]",
