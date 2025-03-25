@@ -12,3 +12,14 @@ extension [A](future: Future[A]) {
     case util.Failure(cause) => Future.successful(Left(cause))
   }(ExecutionContext.parasitic)
 }
+
+extension [A](future: Future[Option[A]]) {
+
+  /** Returns a [[Future]] that never completes if the original future completes with `None`, or completes with the
+    * value inside the `Some`.
+    */
+  def orNever: Future[A] = future.flatMap {
+    case None        => Future.never
+    case Some(value) => Future.successful(value)
+  }(ExecutionContext.parasitic)
+}
