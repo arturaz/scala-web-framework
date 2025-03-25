@@ -120,24 +120,22 @@ object PushNotifications {
     val rx = Var(Option.empty[State])
     val sink = rx.someWriter
 
-    if (!js.isUndefined(window.navigator.serviceWorker)) {
-      val future = for {
-        serviceWorkerRegistration <- window.navigator.serviceWorker.ready.toFuture
-        pushManager = serviceWorkerRegistration.pushManager
-        jsState <- pushManager.permissionState(options).toFuture
-        state <- jsState match {
-          case PushPermissionState.granted =>
-            pushManager.getSubscription().toFuture.map(Option(_)).map(State.Granted(pushManager, options, _, sink))
-          case PushPermissionState.denied => Future.successful(State.Denied)
-          case PushPermissionState.prompt => Future.successful(State.Prompt(pushManager, options, sink))
-          case _ =>
-            log.error("Unknown push permission state", jsState)
-            Future.successful(State.Denied)
-        }
-      } yield state
+    val future = for {
+      serviceWorkerRegistration <- ServiceWorkerRegistration.get.orNever
+      pushManager = serviceWorkerRegistration.pushManager
+      jsState <- pushManager.permissionState(options).toFuture
+      state <- jsState match {
+        case PushPermissionState.granted =>
+          pushManager.getSubscription().toFuture.map(Option(_)).map(State.Granted(pushManager, options, _, sink))
+        case PushPermissionState.denied => Future.successful(State.Denied)
+        case PushPermissionState.prompt => Future.successful(State.Prompt(pushManager, options, sink))
+        case _ =>
+          log.error("Unknown push permission state", jsState)
+          Future.successful(State.Denied)
+      }
+    } yield state
 
-      future.foreach(sink.onNext)
-    }
+    future.foreach(sink.onNext)
 
     rx.signal
   }
