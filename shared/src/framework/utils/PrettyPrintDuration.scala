@@ -52,13 +52,22 @@ object PrettyPrintDuration {
     *   the duration to format
     * @param maxParts
     *   the maximum number of parts (a part is a unit with a value, for example "5 seconds") to include in the output
+    * @param maxGranularity
+    *   the maximum granularity to include in the output. For example, `TimeUnit.SECONDS` will only include seconds and
+    *   larger units, so "9d 3h 4m 1s 20ms 40μs 100ns" will be formatted as "9d 3h 4m 1s".
     * @param strs
     *   the [[Strings]] to use for formatting
     * @return
     *   the formatted duration
     */
-  def prettyPrint(duration: Duration, maxParts: Int = Int.MaxValue)(using strs: Strings): String = {
+  def prettyPrint(duration: Duration, maxParts: Int = Int.MaxValue, maxGranularity: TimeUnit = TimeUnit.NANOSECONDS)(
+    using strs: Strings
+  ): String = {
     def maxPartsAsOption = if (maxParts == Int.MaxValue) None else Some(maxParts)
+
+    val timeUnitList =
+      if (maxGranularity == TimeUnit.NANOSECONDS) this.timeUnitList
+      else this.timeUnitList.takeWhile(_ != maxGranularity) ::: List(maxGranularity)
 
     duration match {
       case Duration.Zero => strs.zero
