@@ -24,7 +24,7 @@ extension (signal: Signal[JWT.Expiring]) {
           if (now < expiresAt) {
             val untilExpiration = expiresAt - now
             inline def debugStr =
-              s"$logPrefix token expires at $expiresAt, in ${untilExpiration.prettyUnbounded}, now is $now"
+              s"$logPrefix token expires at $expiresAt, in ${untilExpiration.prettyForDebug}, now is $now"
             EventStream.delay(untilExpiration.toMillis.toInt).mapToSignal {
               case None =>
                 log.debug(s"$debugStr, current state: valid")

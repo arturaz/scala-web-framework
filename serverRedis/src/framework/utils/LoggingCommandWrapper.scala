@@ -28,7 +28,7 @@ def LoggingCommandWrapper[F[_]: MonadCancelThrow: Clock](log: Scribe[F], level: 
           for {
             endAt <- Clock[F].monotonic
             duration = endAt - startAt
-            durationStr = duration.prettyUnbounded
+            durationStr = duration.prettyForDebug
             _ <- outcome match {
               case Outcome.Succeeded(fa) => log.log(level, summon, show"$commandStr succeeded in $durationStr")
               case Outcome.Errored(e) =>

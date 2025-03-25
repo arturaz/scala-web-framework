@@ -183,7 +183,7 @@ object OnSSEStreamError {
     val waitingFor = defaultWaitFor(connectionIndex)
 
     log.error(
-      s"Error in SSE stream (url=$uri, index=$connectionIndex), waiting for ${waitingFor.prettyUnbounded} " +
+      s"Error in SSE stream (url=$uri, index=$connectionIndex), waiting for ${waitingFor.prettyForDebug} " +
         s"before reconnecting.",
       s"[securityInput=$securityInput]",
       s"[input=$input]",
