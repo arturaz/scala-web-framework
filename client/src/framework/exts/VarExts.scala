@@ -11,15 +11,15 @@ extension [A](rxVar: Var[A]) {
   /** Does the zooming with a macro, generating the lens from the function `f`.
     *
     * Example:
-    * {{{
-    *   lineItem.zoomLazyGenLens(_(_.name))
-    * }}}
+    * ```scala
+    * lineItem.zoomLazyGenLens(_(_.name))
+    * ```
     *
     * or
     *
-    * {{{
-    *   lineItem.zoomLazyGenLens(mk => mk(_.name))
-    * }}}
+    * ```scala
+    * lineItem.zoomLazyGenLens(mk => mk(_.name))
+    * ```
     */
   def zoomLazyGenLens[PartOfA](f: MkFocus[A] => Lens[A, PartOfA]): Var[PartOfA] = {
     val lens = f(GenLens[A])
