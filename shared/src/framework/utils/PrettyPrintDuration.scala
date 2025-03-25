@@ -6,7 +6,12 @@ import java.util.concurrent.TimeUnit
 import scala.annotation.tailrec
 import scala.concurrent.duration.*
 
-/** Original version from https://gist.github.com/tg44/a8257da5831a43465beda4c613647375 */
+/** Pretty-prints durations.
+  *
+  * Original version from https://gist.github.com/tg44/a8257da5831a43465beda4c613647375
+  *
+  * License: MIT (https://opensource.org/license/mit)
+  */
 object PrettyPrintDuration {
 
   private val timeUnitList: List[TimeUnit] =
