@@ -5,15 +5,28 @@ import com.raquo.laminar.api.L
 import framework.exts.*
 import framework.data.MaybeSignal
 
-/** Helper to dynamically compose the content of a page and the page title. */
+/** Helper to dynamically compose the content of a page and the page title.
+  *
+  * @param content
+  *   the content of the page
+  * @param pageTitle
+  *   the page title
+  * @param externalModifiers
+  *   modifiers to apply to the `content`s parent. These useful when we want to bind some event streams to something
+  *   that is not the `content` itself, because that event stream then generates the `content`.
+  */
 case class PageRenderResult(
   content: MaybeSignal[L.Element],
   pageTitle: MaybeSignal[PageTitleResult] = PageTitleResult.default,
+  externalModifiers: MaybeSignal[Seq[L.Modifier.Base]] = Seq.empty,
 ) {
 
   /** @see [[PageTitleResult.pageTitleSignal]] */
   def pageTitleSignal(defaultPageTitleSignal: Signal[String]): Signal[PageTitleResult.Result] =
     pageTitle.deunionizeSignal.pageTitleSignal(defaultPageTitleSignal)
+
+  def withExternalModifiers(f: Seq[L.Modifier.Base] => Seq[L.Modifier.Base]): PageRenderResult =
+    copy(externalModifiers = externalModifiers.deunionizeSignal.map(f))
 }
 object PageRenderResult {
   given Conversion[L.Element, PageRenderResult] = fromElement(_)
@@ -29,8 +42,9 @@ object PageRenderResult {
     def extract: PageRenderResult = {
       val content = signal.flatMapSwitch(_.content.deunionizeSignal)
       val pageTitle = signal.flatMapSwitch(_.pageTitle.deunionizeSignal)
+      val externalModifiers = signal.flatMapSwitch(_.externalModifiers.deunionizeSignal)
 
-      PageRenderResult(content, pageTitle)
+      PageRenderResult(content, pageTitle, externalModifiers)
     }
   }
 }
