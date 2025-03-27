@@ -47,6 +47,7 @@ sealed trait LocalLoadingStatus[+A] extends LoadingStatus[A] derives CanEqual {
 }
 object LocalLoadingStatus {
   case object Loading extends LocalLoadingStatus[Nothing]
+  def loading[A]: LocalLoadingStatus[A] = Loading
 
   case class Loaded[A](value: A) extends LocalLoadingStatus[A]
 
