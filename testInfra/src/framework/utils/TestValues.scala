@@ -5,6 +5,7 @@ import cats.effect.{Ref, SyncIO}
 /** Generates values for use in tests. */
 class TestValues {
   private val strings: Ref[SyncIO, Map[String, Long]] = Ref.unsafe(Map.empty)
+  private val longs: Ref[SyncIO, Map[String, Long]] = Ref.unsafe(Map.empty)
 
   private def bumped[K](ref: Ref[SyncIO, Map[K, Long]], k: K): Long =
     ref
@@ -18,4 +19,7 @@ class TestValues {
 
   /** Generates a unique string for use in tests. */
   def string(prefix: String): String = s"$prefix ${bumped(strings, prefix)}"
+
+  /** Generates a unique (within the given `key`) long for use in tests. */
+  def long(key: String): Long = bumped(longs, key)
 }
