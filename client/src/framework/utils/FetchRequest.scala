@@ -47,10 +47,14 @@ object FetchRequest {
     def isStartedLoading: Signal[Option[Boolean]]
 
     /** True if the request is currently not available (not started or loading). */
-    def isLoading: Signal[Boolean]
+    lazy val isLoading: Signal[Boolean] = isStartedLoading.map {
+      case None        => true
+      case Some(true)  => true
+      case Some(false) => false
+    }
 
     /** Re-requests the data. Logs an error if it was never started. */
-    def restart()(implicit definedAt: DefinedAt): Unit
+    def restart()(using definedAt: DefinedAt): Unit
 
     /** Clears out fetched data. */
     def clear(): Unit
@@ -214,8 +218,6 @@ object FetchRequest {
       signal.map(status => status)
 
     override val isStartedLoading: Signal[Option[Boolean]] = startedSignal.map(_.map(_.isLoading))
-
-    override val isLoading: Signal[Boolean] = signal.map(_.isLoading)
 
     override def startWith(input: Input): Signal[TLoadingStatus[FetchRequest.WithInput[Input, Result]]] = {
       val io = createIO(input)
