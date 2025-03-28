@@ -64,7 +64,7 @@ def AdminPanelList[
   Element,
   UpdateRequestInput,
 ](
-  loader: PageDataLoader#BuilderWithRequest[Input, Response],
+  loader: PageDataLoader.BuilderWithRequest[Input, Response],
   extractSurroundingPages: Response => HasSurroundingPages[Collection[Element]],
   cursorLens: Input => AppliedLens[Input, PageCursor[CursorPrimaryColumn, CursorSecondaryColumn, PageSize]],
   getPrimary: Element => CursorPrimaryColumn,

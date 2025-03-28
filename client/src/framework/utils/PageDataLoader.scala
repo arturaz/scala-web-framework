@@ -3,16 +3,22 @@ package framework.utils
 import cats.data.EitherT
 import cats.syntax.option.*
 import com.raquo.airstream.core.Signal
+import com.raquo.airstream.state.StrictSignal
 import com.raquo.laminar.api.L
+import framework.data.{LocalLoadingStatus, StreamWithInitializerData}
+import framework.sourcecode.DefinedAt
 import framework.utils.FetchRequest.WithInput
 import framework.utils.{FetchRequest, NetworkError, PageRenderResult}
+import monocle.syntax.all.*
 import sttp.capabilities.Effect
 import sttp.client3.Request
 import sttp.tapir.{Endpoint, PublicEndpoint}
+
 import scala.annotation.targetName
 
 /** Helper for loading page data from an URL. */
 trait PageDataLoader {
+  import PageDataLoader.*
 
   /** Loads public data which will always be found. */
   def public[Output](
@@ -28,6 +34,15 @@ trait PageDataLoader {
     createRequest: => EitherT[IO, NetworkOrAuthError[AuthError], Output]
   )(whenLoaded: Output => PageRenderResult): PageRenderResult = {
     of(Signal.fromValue(())).authenticated(createRequest = _ => createRequest.map(_.some))(withInput =>
+      whenLoaded(withInput.fetchedData)
+    )
+  }
+
+  /** @see [[Builder.authenticatedSSE]] */
+  def authenticatedSSE[AuthError, InitData, Event](
+    createRequest: => EventStream[StreamWithInitializerData[InitData, Event]]
+  )(whenLoaded: SSEResult[InitData, Event] => PageRenderResult): PageRenderResult = {
+    of(Signal.fromValue(())).authenticatedSSE(createRequest = _ => createRequest)(withInput =>
       whenLoaded(withInput.fetchedData)
     )
   }
@@ -52,6 +67,12 @@ trait PageDataLoader {
   /** Partial type application so that other type parameters could be infered. */
   class Builder[Input](private val inputSignal: Signal[Input]) {
 
+    /** Loads public data which is always found. */
+    def public[Output](
+      createRequest: Input => EitherT[IO, NetworkError, Output]
+    ): BuilderWithRequest[Input, Output] =
+      public(createRequest.andThen(_.map(_.some)))
+
     /** Loads public data which can be not found. */
     @targetName("publicPossiblyNotFound")
     def public[Output](
@@ -61,11 +82,12 @@ trait PageDataLoader {
         createRequest.andThen(_.leftMap(_.asNetworkOrAuthError))
       )
 
-    /** Loads public data which is always found. */
-    def public[Output](
-      createRequest: Input => EitherT[IO, NetworkError, Output]
-    ): BuilderWithRequest[Input, Output] =
-      public(createRequest.andThen(_.map(_.some)))
+    /** Loads private data which is always found. */
+    def authenticated[AuthError, Output](
+      createRequest: Input => EitherT[IO, NetworkOrAuthError[AuthError], Output]
+    ): BuilderWithRequest[Input, Output] = {
+      authenticated(createRequest.andThen(_.map(_.some)))
+    }
 
     /** Loads private data which can be not found. */
     @targetName("authenticatedPossiblyNotFound")
@@ -98,18 +120,96 @@ trait PageDataLoader {
       renderResult
     }
 
-    /** Loads private data which is always found. */
-    def authenticated[AuthError, Output](
-      createRequest: Input => EitherT[IO, NetworkOrAuthError[AuthError], Output]
-    ): BuilderWithRequest[Input, Output] = {
-      authenticated(createRequest.andThen(_.map(_.some)))
+    /** Loads private data from an SSE stream which emits [[InitData]] once when it starts and then emits [[Event]]s
+      * from now on.
+      *
+      * @note
+      *   **Important**: Requires for you to use [[PageRenderResult.externalModifiers]] in your layout for this to
+      *   actually do anything!
+      */
+    def authenticatedSSE[AuthError, InitData, Event](
+      createRequest: Input => EventStream[StreamWithInitializerData[InitData, Event]]
+    ): SSEBuilderWithRequest[Input, InitData, Event] = SSEBuilderWithRequest { whenLoaded =>
+      val stateRx = Var(LocalLoadingStatus.loading[(Input, InitData)].some)
+      val initDataSignal = stateRx.signal.mapLazy {
+        case None | Some(LocalLoadingStatus.Loading) =>
+          throw new Exception("Tried to access `initData` before request was started, this is a bug in framework.")
+        case Some(LocalLoadingStatus.Loaded((_, initData))) =>
+          initData
+      }
+
+      val sseStream = inputSignal.distinct.flatMapSwitch { input =>
+        createRequest(input).collectOpt {
+          case StreamWithInitializerData.Initialize(initData) =>
+            // When initialization data arrives, override the state with the new data
+            stateRx.set(Some(LocalLoadingStatus.Loaded((input, initData))))
+            None
+          case StreamWithInitializerData.Event(event) => Some(event)
+        }
+      }
+
+      val fetchRequest = new FetchRequest.WithoutParams {
+        override val isStartedLoading: Signal[Option[Boolean]] = stateRx.signal.mapSome(_.isLoading)
+
+        override def restart()(using definedAt: DefinedAt): Unit = stateRx.set(Some(LocalLoadingStatus.loading))
+
+        override def clear(): Unit = stateRx.set(None)
+      }
+
+      val renderResult = stateRx.signal.map {
+        case None | Some(LocalLoadingStatus.Loading) =>
+          renderWhenLoading(fetchRequest)
+
+        case Some(LocalLoadingStatus.Loaded((input, _))) =>
+          val sseResult = SSEResult(
+            initDataSignal,
+            // Passing the same stream here is OK, it won't be started multiple times because we are already binding to
+            // it to start the whole process.
+            sseStream,
+          )
+          val withInput = FetchRequest.WithInput(input, sseResult)
+
+          onPageLoaded(fetchRequest)
+          whenLoaded(withInput)
+      }.extract
+
+      renderResult.withExternalModifiers { current =>
+        import L.*
+        /* do nothing, we bind so that stream would be started for the side effects */
+        current :+ (sseStream --> { _ => })
+      }
     }
   }
+}
+object PageDataLoader {
 
   class BuilderWithRequest[Input, Output](
     private val build: (WithInput[Input, Output] => PageRenderResult) => PageRenderResult
   ) {
     def apply(whenLoaded: WithInput[Input, Output] => PageRenderResult): PageRenderResult =
+      build(whenLoaded)
+  }
+
+  /** Result of a SSE request.
+    *
+    * @param initialInitData
+    *   Initial initialization data. This is the data that is sent when the stream is first established.
+    * @param initDataSignal
+    *   Initialization data signal. The signal will emit if the underlying SSE stream is reestablished and new
+    *   initialization data is available.
+    * @param events
+    *   Stream of events.
+    */
+  case class SSEResult[+InitData, +Event](
+    // initialInitData: InitData,
+    initDataSignal: StrictSignal[InitData],
+    events: EventStream[Event],
+  )
+
+  class SSEBuilderWithRequest[Input, InitData, Event](
+    private val build: (WithInput[Input, SSEResult[InitData, Event]] => PageRenderResult) => PageRenderResult
+  ) {
+    def apply(whenLoaded: WithInput[Input, SSEResult[InitData, Event]] => PageRenderResult): PageRenderResult =
       build(whenLoaded)
   }
 }
