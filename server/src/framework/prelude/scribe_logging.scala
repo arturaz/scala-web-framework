@@ -17,6 +17,9 @@ def appLogger: Logger = Logger("app")
 // Must be a `def` to make it get the latest applied logger each time.
 def log: Scribe[IO] = appLogger.f[IO]
 
+// Must be a `def` to make it get the latest applied logger each time.
+def logSync: Scribe[SyncIO] = appLogger.f[SyncIO]
+
 trait WithLogger {
   lazy private val classNameForLogging = getClass().getCanonicalName()
 
