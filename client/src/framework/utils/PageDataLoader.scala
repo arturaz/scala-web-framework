@@ -192,8 +192,6 @@ object PageDataLoader {
 
   /** Result of a SSE request.
     *
-    * @param initialInitData
-    *   Initial initialization data. This is the data that is sent when the stream is first established.
     * @param initDataSignal
     *   Initialization data signal. The signal will emit if the underlying SSE stream is reestablished and new
     *   initialization data is available.
@@ -201,10 +199,14 @@ object PageDataLoader {
     *   Stream of events.
     */
   case class SSEResult[+InitData, +Event](
-    // initialInitData: InitData,
     initDataSignal: StrictSignal[InitData],
     events: EventStream[Event],
-  )
+  ) {
+
+    /** Rerenders all elements when initialization data changes. */
+    def rerenderOnNewInitData(f: InitData => PageRenderResult): PageRenderResult =
+      initDataSignal.map(f).extract
+  }
 
   class SSEBuilderWithRequest[Input, InitData, Event](
     private val build: (WithInput[Input, SSEResult[InitData, Event]] => PageRenderResult) => PageRenderResult
