@@ -1,7 +1,10 @@
 package framework.utils
 
+import cats.effect.kernel.Temporal
 import cats.effect.std.Supervisor
 import cats.effect.{IO, Ref, Resource}
+import cats.syntax.all.*
+import framework.data.StreamWithInitializerData
 import fs2.Stream
 
 import scala.concurrent.duration.*
@@ -21,14 +24,19 @@ trait FrameworkServerTestSuiteHelpers {
     * @param supervisor
     *   a supervisor to run the subscription in. Normally this is provided by the test case.
     */
-  def subscribeTo[V](stream: Stream[IO, V], waitForSubscription: FiniteDuration = 200.millis)(using
-    supervisor: Supervisor[IO]
-  ): IO[IO[Vector[V]]] = {
+  def subscribeTo[F[_]: Temporal, V](stream: Stream[F, V], waitForSubscription: FiniteDuration = 200.millis)(using
+    supervisor: Supervisor[F]
+  ): F[F[Vector[V]]] = {
     for {
-      events <- Ref[IO].of(Vector.empty[V])
+      events <- Ref[F].of(Vector.empty[V])
       readEvents = stream.evalTap(evt => events.update(_ :+ evt)).compile.drain
       _ <- supervisor.supervise(readEvents)
-      _ <- IO.sleep(waitForSubscription)
+      _ <- Temporal[F].sleep(waitForSubscription)
     } yield events.get
+  }
+
+  extension [InitData, Event](stream: Stream[IO, StreamWithInitializerData[InitData, Event]]) {
+    def waitForInitializerData: IO[InitData] =
+      stream.collectFirst { case StreamWithInitializerData.Initialize(data) => data }.compile.lastOrError
   }
 }
