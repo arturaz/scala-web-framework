@@ -23,3 +23,4 @@ class TestValues {
   /** Generates a unique (within the given `key`) long for use in tests. */
   def long(key: String): Long = bumped(longs, key)
 }
+object TestValues extends TestValues
