@@ -61,6 +61,7 @@ object Versions {
   final val BouncyCastle = "1.80"
   // final val DottyCpsAsync = "1.0.0"
   // final val DottyCpsAsyncConnect = "1.0.1"
+  final val Decline = "2.5.0"
 }
 
 object Libraries {

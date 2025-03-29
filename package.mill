@@ -417,6 +417,13 @@ object server extends FrameworkScalaModule {
     // Bouncy Castle PKIX, CMS, EAC, TSP, PKCS, OCSP, CMP, and CRMF APIs
     // https://mvnrepository.com/artifact/org.bouncycastle/bcpkix-jdk18on
     ivy"org.bouncycastle:bcpkix-jdk18on:${Versions.BouncyCastle}",
+
+    // Command line argument parsing
+    // https://github.com/bkirwi/decline
+    // https://mvnrepository.com/artifact/com.monovore/decline
+    ivy"com.monovore::decline:${Versions.Decline}",
+    // https://mvnrepository.com/artifact/com.monovore/decline-effect
+    ivy"com.monovore::decline-effect:${Versions.Decline}",
   )
 
   override def runIvyDeps = Agg(
