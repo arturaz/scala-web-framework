@@ -5,6 +5,7 @@ import monocle.macros.GenLens
 import monocle.Lens
 import monocle.Focus.KeywordContext
 import monocle.Focus.MkFocus
+import scala.annotation.targetName
 
 /** Like [[Var.zoom]] but is not required to have an [[com.raquo.airstream.ownership.Owner]].
   *
@@ -113,7 +114,7 @@ object UpdatableSignal {
   given fromVar[A]: Conversion[Var[A], UpdatableSignal[A]] = rxVar => apply(rxVar.signal, rxVar.now, rxVar.set)
   given fromPersistedVar[A]: Conversion[PersistedVar[A], UpdatableSignal[A]] = rxVar => fromVar(rxVar.underlying)
 
-  extension [A](s: UpdatableSignal[NonEmptyVector[A]]) {
+  extension [Collection[_], A](s: UpdatableSignal[Collection[A]]) {
 
     /** Example:
       * {{{
@@ -131,14 +132,18 @@ object UpdatableSignal {
       * @param idx
       *   the index in the vector of that element obtained via `splitByIndex`.
       */
-    def zoomAfterSplitByIndex(signal: Signal[A], idx: Int): UpdatableSignal[A] = UpdatableSignal[A](
-      signal,
-      () => s.now().getUnsafe(idx),
-      a => {
-        val vector = s.now()
-        val newVector = vector.updatedUnsafe(idx, a)
-        s.setTo(newVector)
-      },
-    )
+    def zoomAfterSplitByIndex(signal: Signal[A], idx: Int)(using
+      GetByIndex.Of[Collection, A],
+      SetByIndex.Of[Collection, A],
+    ): UpdatableSignal[A] =
+      UpdatableSignal[A](
+        signal,
+        () => s.now().getByIndex(idx),
+        a => {
+          val vector = s.now()
+          val newVector = vector.setByIndex(idx, a)
+          s.setTo(newVector)
+        },
+      )
   }
 }
