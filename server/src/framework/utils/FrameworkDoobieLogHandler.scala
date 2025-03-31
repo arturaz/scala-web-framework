@@ -12,25 +12,26 @@ class FrameworkDoobieLogHandler[F[_]](scribe: Scribe[F]) extends LogHandler[F] {
     def argsToString(args: List[Any], prefix: String) =
       args.iterator.zipWithIndex
         .map { case (arg, idx) =>
-          s"  $prefix[${idx + 1}]: ${arg.toString.indentLinesNFL(4)}"
+          s"$prefix[${idx + 1}]: ${arg.toString.indentLinesNFL(2)}"
         }
         .mkString("\n")
 
     def argsListToString(argsList: List[List[Any]]) =
       argsList.iterator.zipWithIndex
         .map { case (args, idx) =>
-          s"""|  [entry #$idx]:
-              |     ${argsToString(args, prefix = "arg ").indentLinesNFL(4)}""".stripMargin
+          s"""|[entry #$idx]:
+              |  ${argsToString(args, prefix = "arg ").indentLinesNFL(2)}""".stripMargin
         }
         .mkString("\n")
 
     params match {
       case Parameters.NonBatch(args) =>
-        if (args.isEmpty) "(no arguments)" else show"arguments:\n${argsToString(args, prefix = "")}"
+        if (args.isEmpty) "(no arguments)" else show"arguments:\n${argsToString(args, prefix = "").indentLines(2)}"
 
       case Parameters.Batch(argsListFn) =>
         val argsList = argsListFn()
-        if (argsList.isEmpty) "(no arguments)" else show"batch arguments:\n${argsListToString(argsList)}"
+        if (argsList.isEmpty) "(no arguments)"
+        else show"batch arguments:\n${argsListToString(argsList).indentLines(2)}"
     }
   }
 
