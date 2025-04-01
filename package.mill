@@ -217,12 +217,12 @@ object client extends FrameworkScalaJSModule {
     // Reactive UI library for Scala.js
     // https://laminar.dev
     // https://mvnrepository.com/artifact/com.raquo/laminar
-    ivy"com.raquo::laminar::17.2.0",
+    ivy"com.raquo::laminar::17.2.1",
 
     // FRP library for Scala.js
     // https://github.com/raquo/Airstream/
     // https://mvnrepository.com/artifact/com.raquo/airstream
-    ivy"com.raquo::airstream::17.2.0",
+    ivy"com.raquo::airstream::17.2.1",
 
     // An implementation of ExecutionContext in terms of JavaScript's `setImmediate`.
     // https://github.com/scala-js/scala-js-macrotask-executor
