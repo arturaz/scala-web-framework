@@ -4,14 +4,12 @@ import framework.data.MaybeSignal
 import framework.localization.LocalizationSupport.LocalizedTextOfValue
 import yantl.Validate
 
-import scala.reflect.TypeTest
-
 /** Bundles everything together to get localized error messages.
   *
   * This trait is not transformable due to use of path-dependent types, you should use
-  * [[LocalizedAppliedValidate.create]] instead with a composed [[Validate]].
+  * [[LocalizedAppliedValidate.create]] instead with a composed [[Validate]] or use [[LocalizedErrorMessages]] instead.
   */
-trait LocalizedAppliedValidate[-A] { self =>
+trait LocalizedAppliedValidate[-A] extends LocalizedErrorMessages[A] { self =>
   type TError
   type LocaleEnum
 
@@ -21,8 +19,7 @@ trait LocalizedAppliedValidate[-A] { self =>
 
   def localizer: LocalizationSupport.LocalizedTextOfValue[TError, LocaleEnum]
 
-  /** The localized error messages. */
-  def errorMessages(value: A): Signal[Vector[String]] =
+  override def errorMessages(value: A): Signal[Vector[String]] =
     localeSignal.combineWithFn(validate)((locale, validate) =>
       validate.validate(value).map(localizer.localizedText(_).text(using locale))
     )

@@ -35,7 +35,7 @@ import framework.data.AutocompleteData
 import framework.utils.FetchRequest
 import io.scalaland.chimney.PartialTransformer
 import yantl.Validator
-import framework.localization.LocalizedAppliedValidate
+import framework.localization.LocalizedErrorMessages
 
 /** Various helpers for form inputs. */
 object FormInput {
@@ -45,7 +45,7 @@ object FormInput {
 
   def validationMessages[A, TError](
     signal: Signal[A],
-    validation: Option[LocalizedAppliedValidate[A]],
+    validation: Option[LocalizedErrorMessages[A]],
   ): Modifier[ReactiveElement[Element]] = {
     validation match {
       case None             => emptyNode
@@ -55,7 +55,7 @@ object FormInput {
 
   def validationMessages[A, TError](
     signal: Signal[A]
-  )(using validator: LocalizedAppliedValidate[A]): DynamicInserter = {
+  )(using validator: LocalizedErrorMessages[A]): DynamicInserter = {
     val errorMsgs = signal.flatMapSwitch(validator.errorMessages).map { errors =>
       if (errors.isEmpty) None
       else
@@ -87,7 +87,7 @@ object FormInput {
   def stringWithLabel[A](
     label: String,
     signal: ZoomedOwnerlessSignal[A],
-    validation: Option[LocalizedAppliedValidate[A]],
+    validation: Option[LocalizedErrorMessages[A]],
     altLabel: Seq[Modifier[Span]] = Seq.empty,
     beforeLabel: Seq[Modifier[Div]] = Seq.empty,
     beforeInput: Seq[Modifier[Div]] = Seq.empty,
@@ -116,7 +116,7 @@ object FormInput {
 
   def stringWithLabelLocalized[A](
     signal: ZoomedOwnerlessSignal[A],
-    validation: Option[LocalizedAppliedValidate[A]],
+    validation: Option[LocalizedErrorMessages[A]],
     altLabel: Seq[Modifier[Span]] = Seq.empty,
     beforeLabel: Seq[Modifier[Div]] = Seq.empty,
     beforeInput: Seq[Modifier[Div]] = Seq.empty,
@@ -173,7 +173,7 @@ object FormInput {
   def textAreaWithLabel[A](
     label: Seq[Modifier[Span]],
     signal: ZoomedOwnerlessSignal[A],
-    validation: Option[LocalizedAppliedValidate[A]],
+    validation: Option[LocalizedErrorMessages[A]],
     beforeLabel: Seq[Modifier[Div]] = Seq.empty,
     altLabel: Seq[Modifier[Span]] = Seq.empty,
     beforeBottomLabel: Seq[Modifier[Div]] = Seq.empty,
@@ -206,7 +206,7 @@ object FormInput {
 
   def textAreaWithLabelLocalized[A](
     signal: ZoomedOwnerlessSignal[A],
-    validation: Option[LocalizedAppliedValidate[A]],
+    validation: Option[LocalizedErrorMessages[A]],
     beforeLabel: Seq[Modifier[Div]] = Seq.empty,
     altLabel: Seq[Modifier[Span]] = Seq.empty,
     textAreaModifiers: Seq[Modifier[ReactiveHtmlElement[HTMLTextAreaElement]]] = Seq.empty,
@@ -251,7 +251,7 @@ object FormInput {
 
   def textLike[A](
     signal: ZoomedOwnerlessSignal[A],
-    validation: Option[LocalizedAppliedValidate[A]],
+    validation: Option[LocalizedErrorMessages[A]],
     inputModifiers: Seq[HtmlMod] = Seq.empty,
   )(using Transformer[A, String], Transformer[String, A])(using
     textKind: TextKindFor[A]
@@ -275,7 +275,7 @@ object FormInput {
 
   def textLikeWithLabelLocalized[A](
     signal: ZoomedOwnerlessSignal[A],
-    validation: Option[LocalizedAppliedValidate[A]],
+    validation: Option[LocalizedErrorMessages[A]],
     beforeLabel: Seq[Modifier[ReactiveHtmlElement[html.Element]]] = Seq.empty,
     altLabel: Seq[Modifier[Span]] = Seq.empty,
     inputModifiers: Seq[HtmlMod] = Seq.empty,
@@ -304,7 +304,7 @@ object FormInput {
 
   def date[A](
     signal: ZoomedOwnerlessSignal[A],
-    validation: Option[LocalizedAppliedValidate[A]],
+    validation: Option[LocalizedErrorMessages[A]],
     modInput: L.Input => L.Modifier[L.Label] = input => input,
   )(using
     toDate: Transformer[A, FrameworkDate],
@@ -329,7 +329,7 @@ object FormInput {
   def dateWithLabel[A](
     label: String,
     signal: ZoomedOwnerlessSignal[A],
-    validation: Option[LocalizedAppliedValidate[A]],
+    validation: Option[LocalizedErrorMessages[A]],
     beforeLabel: Seq[Modifier[Div]] = Seq.empty,
     altLabel: Seq[Modifier[Span]] = Seq.empty,
     modInput: L.Input => L.Modifier[L.Element] = input => input,
@@ -383,7 +383,7 @@ object FormInput {
 
   def dateWithLabelLocalized[A](
     signal: ZoomedOwnerlessSignal[A],
-    validation: Option[LocalizedAppliedValidate[A]],
+    validation: Option[LocalizedErrorMessages[A]],
     beforeLabel: Seq[Modifier[Div]] = Seq.empty,
     altLabel: Seq[Modifier[Span]] = Seq.empty,
     modInput: L.Input => L.Modifier[L.Element] = input => input,
@@ -533,7 +533,7 @@ object FormInput {
   def integerWithLabel[A](
     label: String,
     signal: ZoomedOwnerlessSignal[A],
-    validation: Option[LocalizedAppliedValidate[A]],
+    validation: Option[LocalizedErrorMessages[A]],
     altLabel: Seq[Modifier[Span]] = Seq.empty,
     beforeLabel: Seq[Modifier[Div]] = Seq.empty,
     beforeInput: Seq[Modifier[Div]] = Seq.empty,
@@ -578,7 +578,7 @@ object FormInput {
   def file[TError](
     holder: UpdatableSignal[FormFileHolder[TError]],
     inputModifiers: Seq[Modifier[Input]] = Seq.empty,
-  )(using LocalizedAppliedValidate[FormFileHolder[TError]]) = {
+  )(using LocalizedErrorMessages[FormFileHolder[TError]]) = {
     div(
       input(
         `type` := "file",
@@ -596,7 +596,7 @@ object FormInput {
     holder: UpdatableSignal[FormFileHolder[TError]],
     altLabel: String = "",
     inputModifiers: Seq[Modifier[Input]] = Seq.empty,
-  )(using LocalizedAppliedValidate[FormFileHolder[TError]]) = {
+  )(using LocalizedErrorMessages[FormFileHolder[TError]]) = {
     div(
       div(
         cls := "label",
@@ -965,6 +965,9 @@ object FormInput {
     *   The function that converts an item to a key to group items by.
     * @param buildItem
     *   The function that builds the item to show in the dropdown.
+    * @param validation
+    *   The validation for the field. It will be [[String]] when no value is selected and [[None]] when a value is
+    *   selected. Use [[AutocompleteValidateValueRequiredWith]] to create this validation.
     * @param debounceDurationMs
     *   The debounce duration in milliseconds.
     */
@@ -976,6 +979,7 @@ object FormInput {
     composeRequest: EventStream[String] => EventStream[RequestData],
     itemToKey: ResponseItem => SplitKey,
     buildItem: (SplitKey, ResponseItem, Signal[ResponseItem]) => Seq[Modifier[LI]],
+    validation: Option[LocalizedErrorMessages[Option[String]]],
     debounceDurationMs: Int = 300,
     altLabel: Seq[Modifier[Span]] = Seq.empty,
     beforeLabel: Seq[Modifier[Div]] = Seq.empty,
@@ -1004,7 +1008,14 @@ object FormInput {
           FormInput.stringWithLabel(
             label,
             searchTermStr,
-            validation = None,
+            validation = validation.map(validation =>
+              LocalizedErrorMessages.of { _ =>
+                backing.signal.flatMapSwitch {
+                  case AutocompleteData.RawInput(str)   => validation.errorMessages(Some(str))
+                  case AutocompleteData.SelectedItem(_) => validation.errorMessages(None)
+                }
+              }
+            ),
             altLabel = altLabel,
             beforeLabel = beforeLabel,
             beforeInput = beforeInput,
