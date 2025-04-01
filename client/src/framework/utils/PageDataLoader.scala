@@ -131,6 +131,8 @@ trait PageDataLoader {
       createRequest: Input => EventStream[StreamWithInitializerData[InitData, Event]]
     ): SSEBuilderWithRequest[Input, InitData, Event] = SSEBuilderWithRequest { whenLoaded =>
       val stateRx = Var(LocalLoadingStatus.loading[(Input, InitData)].some)
+      val restartRequestRx = Var(())
+
       val initDataSignal = stateRx.signal.mapLazy {
         case None | Some(LocalLoadingStatus.Loading) =>
           throw new Exception("Tried to access `initData` before request was started, this is a bug in framework.")
@@ -138,27 +140,30 @@ trait PageDataLoader {
           initData
       }
 
-      val sseStream = inputSignal.distinct.flatMapSwitch { input =>
-        createRequest(input).collectOpt {
-          case StreamWithInitializerData.Initialize(initData) =>
-            // When initialization data arrives, override the state with the new data
-            stateRx.set(Some(LocalLoadingStatus.Loaded((input, initData))))
-            None
-          case StreamWithInitializerData.Event(event) => Some(event)
+      val sseStream =
+        inputSignal.distinct.combineWithFn(restartRequestRx.signal)((input, _) => input).flatMapSwitch { input =>
+          createRequest(input).collectOpt {
+            case StreamWithInitializerData.Initialize(initData) =>
+              // When initialization data arrives, override the state with the new data
+              stateRx.set(Some(LocalLoadingStatus.Loaded((input, initData))))
+              None
+            case StreamWithInitializerData.Event(event) => Some(event)
+          }
         }
-      }
 
       val fetchRequest = new FetchRequest.WithoutParams {
         override val isStartedLoading: Signal[Option[Boolean]] = stateRx.signal.mapSome(_.isLoading)
 
-        override def restart()(using definedAt: DefinedAt): Unit = stateRx.set(Some(LocalLoadingStatus.loading))
+        override def restart()(using definedAt: DefinedAt): Unit = {
+          stateRx.set(Some(LocalLoadingStatus.loading))
+          restartRequestRx.set(())
+        }
 
         override def clear(): Unit = stateRx.set(None)
       }
 
-      val renderResult = stateRx.signal.map {
-        case None | Some(LocalLoadingStatus.Loading) =>
-          renderWhenLoading(fetchRequest)
+      val sseResultSignal = stateRx.signal.map {
+        case None | Some(LocalLoadingStatus.Loading) => None
 
         case Some(LocalLoadingStatus.Loaded((input, _))) =>
           val sseResult = SSEResult(
@@ -169,14 +174,24 @@ trait PageDataLoader {
           )
           val withInput = FetchRequest.WithInput(input, sseResult)
 
+          Some(withInput)
+      }
+
+      val renderResult = sseResultSignal.map {
+        case None =>
+          renderWhenLoading(fetchRequest)
+
+        case Some(withInput) =>
           onPageLoaded(fetchRequest)
           whenLoaded(withInput)
       }.extract
 
       renderResult.withExternalModifiers { current =>
         import L.*
-        /* do nothing, we bind so that stream would be started for the side effects */
-        current :+ (sseStream --> { _ => })
+        current ++ Seq(
+          /* do nothing, we bind so that stream would be started for the side effects */
+          sseStream --> { _ => }
+        )
       }
     }
   }
@@ -196,16 +211,20 @@ object PageDataLoader {
     *   Initialization data signal. The signal will emit if the underlying SSE stream is reestablished and new
     *   initialization data is available.
     * @param events
-    *   Stream of events.
+    *   Stream of events. **You must bind the events, otherwise the SSE stream will restart!**
     */
   case class SSEResult[+InitData, +Event](
     initDataSignal: StrictSignal[InitData],
     events: EventStream[Event],
   ) {
 
-    /** Rerenders all elements when initialization data changes. */
-    def rerenderOnNewInitData(f: InitData => PageRenderResult): PageRenderResult =
-      initDataSignal.map(f).extract
+    /** Rerenders all elements when initialization data changes.
+      *
+      * @note
+      *   **You must bind the events, otherwise the SSE stream will restart!**
+      */
+    def rerenderOnNewInitData(f: (InitData, EventStream[Event]) => PageRenderResult): PageRenderResult =
+      initDataSignal.map(f(_, events)).extract
   }
 
   class SSEBuilderWithRequest[Input, InitData, Event](
