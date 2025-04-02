@@ -353,7 +353,7 @@ object server extends FrameworkScalaModule {
     // Otel4s and Doobie integration
     // https://github.com/arturaz/otel4s-doobie
     // https://mvnrepository.com/artifact/io.github.arturaz/otel4s-doobie
-    ivy"io.github.arturaz::otel4s-doobie:0.2.0-1-28bfac1-SNAPSHOT",
+    ivy"io.github.arturaz::otel4s-doobie:0.3.0",
 
     // Flyway database migrations wrapped in cats-effect
     // https://github.com/geirolz/fly4s
@@ -382,7 +382,7 @@ object server extends FrameworkScalaModule {
     // Typesafe doobie (for SQL queries)
     // https://arturaz.github.io/doobie-typesafe
     // https://mvnrepository.com/artifact/io.github.arturaz/doobie-typesafe
-    ivy"io.github.arturaz::doobie-typesafe:0.4.0-1-2b915d4-20250313T114615Z-SNAPSHOT",
+    ivy"io.github.arturaz::doobie-typesafe:0.4.1",
 
     // Functional Configurations for Scala
     // https://cir.is/
