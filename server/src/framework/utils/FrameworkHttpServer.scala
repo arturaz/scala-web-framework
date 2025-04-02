@@ -12,8 +12,9 @@ import org.http4s.circe.*
 import org.http4s.dsl.io.*
 import org.http4s.ember.server.EmberServerBuilder
 import org.http4s.otel4s.middleware.metrics.OtelMetrics
-import org.http4s.otel4s.middleware.redact.{PathRedactor, QueryRedactor}
-import org.http4s.otel4s.middleware.trace.server.{PathAndQueryRedactor, RouteClassifier, ServerMiddlewareBuilder}
+import org.http4s.otel4s.middleware.server.RouteClassifier
+import org.http4s.otel4s.middleware.trace.redact.{HeaderRedactor, PathRedactor, QueryRedactor}
+import org.http4s.otel4s.middleware.trace.server.{PathAndQueryRedactor, ServerMiddleware, ServerSpanDataProvider}
 import org.http4s.server.middleware.Metrics
 import org.http4s.server.{ContextMiddleware, HttpMiddleware, Router, Server}
 import org.typelevel.otel4s.metrics.MeterProvider
@@ -57,10 +58,15 @@ object FrameworkHttpServer {
     show"${req.httpVersion} ${req.uri}"
 
   /** The default OpenTelemetry middleware builder that does not redact anything. */
-  def otelMiddleware(using TracerProvider[IO]): ServerMiddlewareBuilder[IO] =
-    ServerMiddlewareBuilder
-      .default[IO](neverRedactor)
-      .withRouteClassifier(RouteClassifier.of { case req => defaultSpanNameForServer(req) })
+  def otelMiddleware(using TracerProvider[IO]): ServerMiddleware.Builder[IO] =
+    ServerMiddleware.builder[IO](
+      ServerSpanDataProvider
+        .openTelemetry(neverRedactor)
+        .withRouteClassifier(RouteClassifier.of { case req => defaultSpanNameForServer(req) })
+        .optIntoClientPort
+        .optIntoHttpRequestHeaders(HeaderRedactor.default)
+        .optIntoHttpResponseHeaders(HeaderRedactor.default)
+    )
 
   /** Creates a HTTP server with CORS, logging, metrics and tracing.
     *
@@ -72,7 +78,7 @@ object FrameworkHttpServer {
     cfg: HttpConfig,
     contextMiddleware: ContextMiddleware[IO, Context],
     createRoutes: GetCurrentRequest[IO] ?=> Http4sServerInterpreter[IO] => ContextRoutes[Context, IO],
-    otelMiddleware: ServerMiddlewareBuilder[IO],
+    otelMiddleware: ServerMiddleware.Builder[IO],
     extraRoutes: HttpRoutes[IO],
     clientSpanName: Request[IO] => String = defaultSpanNameForClient,
   )(using TracerProvider[IO], MeterProvider[IO]): Resource[IO, Server] = {
@@ -93,7 +99,7 @@ object FrameworkHttpServer {
         .pipe(metricsMiddleware.apply)
 
       for {
-        service <- otelMiddleware.buildHttpRoutes(service)
+        service <- otelMiddleware.build.map(middleware => middleware.wrapHttpRoutes(service))
         // Order matters here, the client tracing middleware needs to be applied first.
         service <-
           if (withClientTracing)

@@ -33,16 +33,17 @@ object Versions {
   /** [[https://scala-js.org]] */
   final val ScalaJS = "1.18.2"
 
-  final val Cats = "2.12.0"
-  final val MUnit = "1.0.0"
-  final val Tapir = "1.10.12"
-  final val Http4s = "0.23.27"
-  final val Scribe = "3.15.0"
+  final val Cats = "2.13.0"
+  final val Fs2 = "3.12.0"
+  final val MUnit = "1.1.0"
+  final val Tapir = "1.11.21"
+  final val Http4s = "0.23.30"
+  final val Scribe = "3.16.0"
   final val Doobie = "1.0.0-RC8"
-  final val Chimney = "1.2.0"
-  final val Circe = "0.14.9"
-  final val Monocle = "3.2.0"
-  final val Ciris = "3.7.0"
+  final val Chimney = "1.7.3"
+  final val Circe = "0.14.12"
+  final val Monocle = "3.3.0"
+  final val Ciris = "3.8.0"
   // Build with fixes for:
   // https://github.com/profunktor/redis4cats/pull/952 - bugfix: reading from a silent stream should not fail with 
   //                                                     RedisCommandTimeoutException
@@ -52,10 +53,10 @@ object Versions {
 
   final val Squants = "1.8.3"
 
-  final val OpenTelemetryJava = "1.46.0"
+  final val OpenTelemetryJava = "1.48.0"
   final val OpenTelemetryJavaIncubator = OpenTelemetryJava + "-alpha"
-  final val Otel4s = "0.12.0-RC2"
-  final val Otel4sHttp4s = "0.11.0-rc.1"
+  final val Otel4s = "0.12.0"
+  final val Otel4sHttp4s = "0.12.0-beta.3"
   final val Otel4sRedis4Cats = "0.1-77d3f6f-SNAPSHOT"
 
   final val BouncyCastle = "1.80"
@@ -215,7 +216,7 @@ trait FrameworkTestModule extends FrameworkScalaModule with TestModule.Munit {
     // MUnit support for Cats Effect
     // https://github.com/typelevel/munit-cats-effect
     // https://mvnrepository.com/artifact/org.typelevel/munit-cats-effect
-    ivy"org.typelevel::munit-cats-effect::2.0.0",
+    ivy"org.typelevel::munit-cats-effect::2.1.0",
 
     // MUnit support for ScalaCheck
     // https://scalameta.org/munit/docs/integrations/scalacheck.html
