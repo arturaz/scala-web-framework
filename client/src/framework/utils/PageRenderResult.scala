@@ -39,7 +39,7 @@ object PageRenderResult {
   extension (signal: Signal[PageRenderResult]) {
 
     /** Turns a [[Signal]] of [[PageRenderResult]] into a [[PageRenderResult]]. */
-    def extract: PageRenderResult = {
+    def unsignal: PageRenderResult = {
       val content = signal.flatMapSwitch(_.content.deunionizeSignal)
       val pageTitle = signal.flatMapSwitch(_.pageTitle.deunionizeSignal)
       val externalModifiers = signal.flatMapSwitch(_.externalModifiers.deunionizeSignal)

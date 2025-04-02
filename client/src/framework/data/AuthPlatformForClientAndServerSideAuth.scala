@@ -312,7 +312,7 @@ trait AuthPlatformForClientAndServerSideAuth {
         whenNotAuthenticated = (initial, signal) => renderForNotAuthenticated(initial, signal, dataSignal),
         whenAuthenticated = (initialAuth, authSignal) => renderForAuthenticated(initialAuth, authSignal, dataSignal),
       )
-      .extract
+      .unsignal
   }
 
   /** A page which is only available to users that has finished authenticating on the server side.

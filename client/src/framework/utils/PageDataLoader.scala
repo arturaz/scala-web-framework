@@ -111,10 +111,10 @@ trait PageDataLoader {
               onPageLoaded(request)
               // Rerender everything when the signal changes as that would only happen on page reload and we would
               // go to the loading state before that anyway. This simplifies the API.
-              signal.map(whenLoaded).extract
+              signal.map(whenLoaded).unsignal
             },
           )
-          .extract
+          .unsignal
       }
 
       renderResult
@@ -184,7 +184,7 @@ trait PageDataLoader {
         case Some(withInput) =>
           onPageLoaded(fetchRequest)
           whenLoaded(withInput)
-      }.extract
+      }.unsignal
 
       renderResult.withExternalModifiers { current =>
         import L.*
@@ -224,7 +224,7 @@ object PageDataLoader {
       *   **You must bind the events, otherwise the SSE stream will restart!**
       */
     def rerenderOnNewInitData(f: (InitData, EventStream[Event]) => PageRenderResult): PageRenderResult =
-      initDataSignal.map(f(_, events)).extract
+      initDataSignal.map(f(_, events)).unsignal
   }
 
   class SSEBuilderWithRequest[Input, InitData, Event](
