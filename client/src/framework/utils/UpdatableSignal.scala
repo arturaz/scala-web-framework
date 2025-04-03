@@ -147,31 +147,4 @@ object UpdatableSignal {
         },
       )
   }
-
-  extension [A](self: UpdatableSignal[Option[A]]) {
-
-    /** Returns a new [[UpdatableSignal]] for the [[B]] after you invoke `splitOption`.
-      *
-      * Example:
-      * ```scala
-      * def doThings(maybeFormDataRx: UpdatableSignal[Option[FormData]]) = {
-      *   maybeFormDataRx.signal.splitOption { (_, formData) =>
-      *     val formDataRx: UpdatableSignal[FormData] = maybeFormDataRx.zoomAfterSplitOption(formData)
-      *     ...
-      *   }
-      * }
-      * ```
-      */
-    def zoomAfterSplitOption(signal: Signal[A]): UpdatableSignal[A] = {
-      UpdatableSignal(
-        signal,
-        () =>
-          self.now() match {
-            case None        => throw new NoSuchElementException("Option is empty, this should never happen")
-            case Some(value) => value
-          },
-        a => self.setTo(a.some),
-      )
-    }
-  }
 }
