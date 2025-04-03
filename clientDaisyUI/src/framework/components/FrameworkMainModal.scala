@@ -2,30 +2,20 @@ package framework.components
 
 import com.raquo.laminar.nodes.ReactiveHtmlElement
 import framework.sourcecode.DefinedAt
+import framework.utils.{NewtypeBoolean, WithLogger}
 import org.scalajs.dom.{HTMLButtonElement, HTMLDialogElement}
 
-import scala.annotation.implicitNotFound
+import scala.collection.immutable.Queue
+import scala.concurrent.{Future, Promise}
 
 import L.*
-import framework.utils.NewtypeBoolean
-import scala.collection.immutable.Queue
-import scala.concurrent.Future
-import scala.concurrent.Promise
-import framework.utils.JSLogger
 
-object AppMainModal {
+object FrameworkMainModal {
   trait Data {
     def definedAt: DefinedAt
   }
-
-  protected val log: JSLogger = framework.prelude.log.scoped("AppMainModal")
 }
-@implicitNotFound(
-  "Cannot find an implicit instance of `AppMainModal`, if you have `AppPageInit` in scope you want to " +
-    "`import appPageInit.appMainModal`."
-)
-abstract class AppMainModal[Data <: AppMainModal.Data] {
-  import AppMainModal.log
+abstract class FrameworkMainModal[Data <: FrameworkMainModal.Data] extends WithLogger {
   case class DataBox(data: Data, closed: Promise[Unit])
 
   protected val dataVar: Var[Queue[DataBox]] = Var(Queue.empty[DataBox]).setDisplayName("AppMainModal")
