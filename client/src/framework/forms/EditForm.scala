@@ -59,10 +59,10 @@ sealed abstract class EditForm[TVar[_], A](
   /** If the form is validated returns a signal that returns [[Some]] with input and auth data when the form data is
     * valid.
     */
-  def validatedInputAndAuthSignal[AuthData, ValidatedInput](authDataIO: IO[AuthData])(using
+  def validatedInputAndAuthSignal[AuthData](authDataIO: IO[AuthData])[ValidatedInput](using
     PartialTransformer[A, ValidatedInput]
   ): Signal[Option[IO[(AuthData, ValidatedInput)]]] =
-    EditForm.validatedInputAndAuthSignal(authDataIO, rxVar.signal)
+    EditForm.validatedInputAndAuthSignal(rxVar.signal, authDataIO)
 
   /** Validates the form data and if that is valid sends it to the given endpoint.
     *
@@ -242,8 +242,8 @@ object EditForm {
     * valid.
     */
   def validatedInputAndAuthSignal[AuthData, UnvalidatedInput](
-    authDataIO: IO[AuthData],
     inputSignal: Signal[UnvalidatedInput],
+    authDataIO: IO[AuthData],
   )[ValidatedInput](using
     PartialTransformer[UnvalidatedInput, ValidatedInput]
   ): Signal[Option[IO[(AuthData, ValidatedInput)]]] =
@@ -278,7 +278,7 @@ object EditForm {
   )(using
     PartialTransformer[UnvalidatedInput, ValidatedInput]
   ): Signal[Option[EitherT[IO, NetworkOrAuthError[AuthError], Response[WithInput[ValidatedInput, Output]]]]] = {
-    validatedInputAndAuthSignal(authDataIO, inputSignal).combineWithFn(extraData) {
+    validatedInputAndAuthSignal(inputSignal, authDataIO).combineWithFn(extraData) {
       case (None, _) => None
       case (Some(io), extraData) =>
         Some(io.flatMapT { (authData, validatedInput) =>
