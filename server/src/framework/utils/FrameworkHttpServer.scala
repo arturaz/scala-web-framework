@@ -19,11 +19,17 @@ import org.http4s.server.middleware.Metrics
 import org.http4s.server.{ContextMiddleware, HttpMiddleware, Router, Server}
 import org.typelevel.otel4s.metrics.MeterProvider
 import org.typelevel.otel4s.trace.TracerProvider
+import retry.syntax.*
+import retry.{ErrorHandler, ResultHandler, RetryPolicies, RetryPolicy}
 import sttp.tapir.server.http4s.Http4sServerInterpreter
 
 import scala.util.chaining.*
 
+import concurrent.duration.*
+
 object FrameworkHttpServer {
+  given PrettyPrintDuration.Strings = PrettyPrintDuration.Strings.EnglishShortNoSpaces
+
   object Routes {
 
     /** All routes defined in this object. */
@@ -145,6 +151,24 @@ object FrameworkHttpServer {
           .pipe(b => if (cfg.server.useHttp2) b.withHttp2 else b.withoutHttp2)
           .pipe(b => maybeTls.fold(b)(b.withTLS(_)))
           .build
+          .retryingOnErrors(serverStartRetryPolicy, serverStartRetryResultHandler)
     } yield server
   }
+
+  /** The policy for retrying starting the server.
+    *
+    * Defaults to 30 retries with 1 second delay between retries, for a total of 30 seconds.
+    */
+  def serverStartRetryPolicy: RetryPolicy[[X] =>> Resource[IO, X], Throwable] =
+    RetryPolicies.constantDelay(1.second).join(RetryPolicies.limitRetries[[X] =>> Resource[IO, X]](30))
+
+  /** The error handler for retrying starting the server.
+    *
+    * Defaults to retrying on all errors and logging them at INFO log level.
+    */
+  def serverStartRetryResultHandler: ErrorHandler[[X] =>> Resource[IO, X], Server] =
+    ResultHandler.retryOnAllErrors { (err, details) =>
+      val totalDelay = details.cumulativeDelay.pretty(maxGranularity = MILLISECONDS)
+      log.info(s"[retry #${details.retriesSoFar}, $totalDelay] Failed to start server, retrying: $err").toResource
+    }
 }
