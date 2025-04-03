@@ -3,9 +3,9 @@ package framework.utils
 import com.raquo.airstream.split.SplittableSignal
 import monocle.macros.GenLens
 import monocle.Lens
-import monocle.Focus.KeywordContext
-import monocle.Focus.MkFocus
+import monocle.Focus.{KeywordContext, MkFocus}
 import scala.annotation.targetName
+import cats.syntax.all.*
 
 /** Like [[Var.zoom]] but is not required to have an [[com.raquo.airstream.ownership.Owner]].
   *
@@ -27,9 +27,9 @@ trait UpdatableSignal[A] extends ZoomedOwnerlessSignal[A] { self =>
   /** Returns a new [[UpdatableSignal]] which is mapped.
     *
     * Example:
-    * {{{
-    *   lineItem.bimap(_.name)((item, value) => item.copy(name = value))
-    * }}}
+    * ```scala
+    * lineItem.bimap(_.name)((item, value) => item.copy(name = value))
+    * ```
     */
   def bimap[PartOfA](
     get: A => PartOfA
@@ -51,15 +51,15 @@ trait UpdatableSignal[A] extends ZoomedOwnerlessSignal[A] { self =>
   /** Does the mapping with a macro, generating the lens from the function `f`.
     *
     * Example:
-    * {{{
-    *   lineItem.bimapGenLens(_(_.name))
-    * }}}
+    * ```scala
+    * lineItem.bimapGenLens(_(_.name))
+    * ```
     *
     * or
     *
-    * {{{
-    *   lineItem.bimapGenLens(mk => mk(_.name))
-    * }}}
+    * ```scala
+    * lineItem.bimapGenLens(mk => mk(_.name))
+    * ```
     */
   def bimapGenLens[PartOfA](f: MkFocus[A] => Lens[A, PartOfA]): UpdatableSignal[PartOfA] = {
     val lens = f(GenLens[A])
@@ -69,7 +69,7 @@ trait UpdatableSignal[A] extends ZoomedOwnerlessSignal[A] { self =>
   /** Returns a new [[UpdatableSignal]] for the [[PartOfA]] after you invoke `splitMatchOne`.
     *
     * Example:
-    * {{{
+    * ```scala
     *  updatableSignal.signal.splitMatchOne
     *    .handle { (_, partSignal) => // handle enum case A
     *      val partUpdatableSignal = updatableSignal.zoomAfterSplitMatchOne(partSignal)
@@ -79,14 +79,15 @@ trait UpdatableSignal[A] extends ZoomedOwnerlessSignal[A] { self =>
     *      ...
     *    }
     *    .close
-    * }}}
+    * ```
     */
-  def zoomAfterSplitMatchOne[PartOfA <: A](signal: Signal[PartOfA]): UpdatableSignal[PartOfA] =
+  def zoomAfterSplitMatchOne[SubtypeOfA <: A](signal: Signal[SubtypeOfA]): UpdatableSignal[SubtypeOfA] =
     UpdatableSignal(
       signal,
-      () => self.now().asInstanceOf[PartOfA],
+      () => self.now().asInstanceOf[SubtypeOfA],
       self.setTo,
     )
+
 }
 object UpdatableSignal {
 
@@ -117,7 +118,7 @@ object UpdatableSignal {
   extension [Collection[_], A](s: UpdatableSignal[Collection[A]]) {
 
     /** Example:
-      * {{{
+      * ```scala
       * def render(goodsEntries: UpdatableSignal[NonEmptyVector[GoodsEntry]]) = {
       *   val tableRows = goodsEntries.signal
       *     .map(_.toVector)
@@ -125,7 +126,7 @@ object UpdatableSignal {
       *       val updatableSignal = goodsEntries.zoomAfterSplitByIndex(signal, idx)
       *     }
       * }
-      * }}}
+      * ```
       *
       * @param signal
       *   the [[Signal]] for a particular index in the vector obtained via `splitByIndex`.
@@ -145,5 +146,32 @@ object UpdatableSignal {
           s.setTo(newVector)
         },
       )
+  }
+
+  extension [A](self: UpdatableSignal[Option[A]]) {
+
+    /** Returns a new [[UpdatableSignal]] for the [[B]] after you invoke `splitOption`.
+      *
+      * Example:
+      * ```scala
+      * def doThings(maybeFormDataRx: UpdatableSignal[Option[FormData]]) = {
+      *   maybeFormDataRx.signal.splitOption { (_, formData) =>
+      *     val formDataRx: UpdatableSignal[FormData] = maybeFormDataRx.zoomAfterSplitOption(formData)
+      *     ...
+      *   }
+      * }
+      * ```
+      */
+    def zoomAfterSplitOption(signal: Signal[A]): UpdatableSignal[A] = {
+      UpdatableSignal(
+        signal,
+        () =>
+          self.now() match {
+            case None        => throw new NoSuchElementException("Option is empty, this should never happen")
+            case Some(value) => value
+          },
+        a => self.setTo(a.some),
+      )
+    }
   }
 }
