@@ -249,6 +249,10 @@ object client extends FrameworkScalaJSModule {
     // https://mvnrepository.com/artifact/com.armanbilge/fs2-dom
     ivy"com.armanbilge::fs2-dom::0.3.0-M1",
   )
+
+  object tests extends FrameworkTestModule with FrameworkScalaJSTestModule {
+    override def moduleDeps: Seq[JavaModule] = Seq(client, testInfra.js)
+  }
 }
 
 /** Code for UI components using tailwindcss and [[https://daisyui.com/ daisyui]]. */
@@ -446,7 +450,7 @@ object server extends FrameworkScalaModule {
   }
 
   object tests extends FrameworkTestModule {
-    override def moduleDeps: Seq[JavaModule] = Seq(testInfra)
+    override def moduleDeps: Seq[JavaModule] = Seq(server.testInfra)
 
     override def ivyDeps = super.ivyDeps() ++ Agg(
       // In-memory database.
