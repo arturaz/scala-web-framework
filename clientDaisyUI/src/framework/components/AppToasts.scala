@@ -2,6 +2,7 @@ package framework.components
 
 import com.raquo.airstream.split.Splittable
 import com.raquo.laminar.api.L.*
+import framework.data.MaybeSignal
 import framework.prelude.{*, given}
 import framework.sourcecode.DefinedAt
 import framework.utils.NewtypeInt
@@ -19,7 +20,7 @@ enum ToastType derives CanEqual {
 }
 
 case class ToastData(
-  message: String,
+  message: MaybeSignal[String],
   toastType: ToastType = ToastType.Info,
   showCloseButton: Boolean = true,
   duration: FiniteDuration = 5.seconds,
@@ -54,7 +55,7 @@ class AppToasts(
   private val toastsVar = Var(SortedMap.empty[ToastId, ToastData])
 
   def show(
-    message: String,
+    message: MaybeSignal[String],
     toastType: ToastType = ToastType.Info,
     duration: FiniteDuration = 5.seconds,
     showCloseButton: Boolean = true,
@@ -109,7 +110,12 @@ class AppToasts(
       .map(_.iterator.map { case (id, ref) => id -> (id, ref) }.toVector)
       .split(_._1) { case (id, _, signal) =>
         val data = signal.map(_._2._2)
-        renderToast(id, data.map(_.message), data.map(_.toastType), data.map(_.showCloseButton))
+        renderToast(
+          id,
+          data.flatMapSwitch(_.message.deunionizeSignal),
+          data.map(_.toastType),
+          data.map(_.showCloseButton),
+        )
       },
   )
 }
