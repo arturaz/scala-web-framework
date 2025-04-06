@@ -1,27 +1,30 @@
 package framework.exts
 
+import cats.Functor
 import com.raquo.laminar.modifiers.Binder
+import com.raquo.laminar.nodes.ReactiveHtmlElement
 import framework.components.*
-import framework.data.SendSignal
+import framework.data.{MaybeSignal, SendSignal}
 import framework.sourcecode.DefinedAt
 import framework.utils.{ModificationRequestTracker, NetworkOrAuthError}
-import com.raquo.laminar.nodes.ReactiveHtmlElement
 import org.scalajs.dom.HTMLButtonElement
-import cats.Functor
 
 trait ButtonErrorHandler[-AuthError] extends (NetworkOrAuthError[AuthError] => Unit)
 
-trait SendButtonContents {
-
-  /** E.g. "Form contains invalid fields." */
-  def formHasInvalidFields: Signal[String]
-
-  /** Whether to show the tooltip or not. */
-  def showTooltip: Signal[Boolean] = Signal.fromValue(true)
-
-  /** Button contents for a the send button. */
-  def buttonContents: ButtonContents
-}
+/** Contains the contents of the send button.
+  *
+  * @param formHasInvalidFields
+  *   E.g. "Form contains invalid fields."
+  * @param buttonContents
+  *   Button contents for a the send button.
+  * @param showTooltip
+  *   Whether to show the tooltip or not.
+  */
+case class SendButtonContents(
+  formHasInvalidFields: Signal[String],
+  buttonContents: ButtonContents,
+  showTooltip: MaybeSignal[Boolean] = true,
+)
 
 extension (tracker: ModificationRequestTracker) {
 
@@ -152,10 +155,11 @@ case class SendButtonBuilder[AuthError, Response](
 
     SendButtonResult(
       btn => {
-        val showTooltip =
-          contents.showTooltip.combineWithFn(sendSignal.canSendSignal)((showTooltip, canSend) =>
-            showTooltip && !canSend
-          )
+        val canNotSendSignal = sendSignal.canSendSignal.invert
+        val showTooltip = contents.showTooltip.fold(
+          _.combineWithFn(canNotSendSignal)(_ && _),
+          showTooltip => canNotSendSignal.map(showTooltip && _),
+        )
         Tooltip(
           showTooltip.combineWithFn(contents.formHasInvalidFields)((showTooltip, formHasInvalidFields) =>
             Option.when(showTooltip)(formHasInvalidFields)
