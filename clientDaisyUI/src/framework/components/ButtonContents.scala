@@ -22,7 +22,7 @@ object ButtonContents {
     sendText: MaybeSignal[String],
     sendingText: MaybeSignal[String],
     cancelText: MaybeSignal[String],
-    icon: Node,
+    icon: MaybeSignal[Node],
   ): ButtonContents = apply(
     whenSubmitting = Vector(
       Spinner,
@@ -31,6 +31,6 @@ object ButtonContents {
         p(cls := "text-xs", child.text <-- cancelText.deunionizeSignal),
       ),
     ),
-    whenNotSubmitting = Vector(icon, span(child.text <-- sendText.deunionizeSignal)),
+    whenNotSubmitting = Vector(div(child <-- icon.deunionizeSignal), span(child.text <-- sendText.deunionizeSignal)),
   )
 }
