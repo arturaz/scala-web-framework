@@ -14,17 +14,39 @@ trait ButtonErrorHandler[-AuthError] extends (NetworkOrAuthError[AuthError] => U
 /** Contains the contents of the send button.
   *
   * @param formHasInvalidFields
-  *   E.g. "Form contains invalid fields."
+  *   When [[Some]] a tooltip is shown if the send button is disabled. E.g. "Form contains invalid fields."
   * @param buttonContents
   *   Button contents for a the send button.
-  * @param showTooltip
-  *   Whether to show the tooltip or not.
   */
 case class SendButtonContents(
-  formHasInvalidFields: Signal[String],
+  formHasInvalidFields: MaybeSignal[Option[String]],
+  buttonContents: ButtonContents,
+)
+object SendButtonContents {
+  def apply(
+    formHasInvalidFields: MaybeSignal[String],
   buttonContents: ButtonContents,
   showTooltip: MaybeSignal[Boolean] = true,
-)
+  ): SendButtonContents = {
+    def noneSignal = Signal.fromValue(Option.empty[String])
+    def invalidFieldsSignal = formHasInvalidFields.deunionizeSignal.map(Some(_))
+
+    apply(
+      formHasInvalidFields = showTooltip.fold(
+        ifValue = {
+          case false => noneSignal
+          case true  => invalidFieldsSignal
+        },
+        ifSignal = _.flatMapSwitch {
+          case false => noneSignal
+          case true  => invalidFieldsSignal
+        },
+      ),
+      buttonContents,
+    )
+  }
+
+}
 
 extension (tracker: ModificationRequestTracker) {
 
@@ -156,15 +178,11 @@ case class SendButtonBuilder[AuthError, Response](
     SendButtonResult(
       btn => {
         val canNotSendSignal = sendSignal.canSendSignal.invert
-        val showTooltip = contents.showTooltip.fold(
-          _.combineWithFn(canNotSendSignal)(_ && _),
-          showTooltip => canNotSendSignal.map(showTooltip && _),
+        val showTooltip = contents.formHasInvalidFields.fold(
+          _.combineWithFn(canNotSendSignal)((opt, canNotSend) => opt.filter(_ => canNotSend)),
+          maybeMsg => canNotSendSignal.map(canNotSend => maybeMsg.filter(_ => canNotSend)),
         )
-        Tooltip(
-          showTooltip.combineWithFn(contents.formHasInvalidFields)((showTooltip, formHasInvalidFields) =>
-            Option.when(showTooltip)(formHasInvalidFields)
-          )
-        )(btn)
+        Tooltip(showTooltip)(btn)
       },
       btn,
     )
