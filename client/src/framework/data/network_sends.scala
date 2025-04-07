@@ -56,22 +56,24 @@ object SendSignal {
 
   /** Signal which asks for confirmation. */
   def withConfirmation[AuthError, Response](
-    question: String,
+    question: MaybeSignal[String],
     signal: Signal[Option[SendRequestIO[AuthError, Response]]],
   ): SendSignal[AuthError, Response] =
-    apply(signal.mapSome(send => SyncIO { if (window.confirm(question)) Some(send) else None }))
+    apply(signal.combineWithFn(question.deunionizeSignal)((opt, question) => opt.map((_, question))).mapSome {
+      case (send, question) => SyncIO { if (window.confirm(question)) Some(send) else None }
+    })
 
   /** Signal which is always available and asks for confirmation. */
   @targetName("withConfirmationSignal")
   def withConfirmation[AuthError, Response](
-    question: String,
+    question: MaybeSignal[String],
     sendSignal: Signal[SendRequestIO[AuthError, Response]],
   ): SendSignal[AuthError, Response] =
     withConfirmation(question, sendSignal.map(_.some))
 
   /** Signal which is always available and asks for confirmation. */
   def withConfirmation[AuthError, Response](
-    question: String,
+    question: MaybeSignal[String],
     send: SendRequestIO[AuthError, Response],
   ): SendSignal[AuthError, Response] =
     withConfirmation(question, Signal.fromValue(send))
