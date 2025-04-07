@@ -25,8 +25,8 @@ case class SendButtonContents(
 object SendButtonContents {
   def apply(
     formHasInvalidFields: MaybeSignal[String],
-  buttonContents: ButtonContents,
-  showTooltip: MaybeSignal[Boolean] = true,
+    buttonContents: ButtonContents,
+    showTooltip: MaybeSignal[Boolean] = true,
   ): SendButtonContents = {
     def noneSignal = Signal.fromValue(Option.empty[String])
     def invalidFieldsSignal = formHasInvalidFields.deunionizeSignal.map(Some(_))
@@ -74,7 +74,7 @@ extension (tracker: ModificationRequestTracker) {
     sendSignal: SendSignal[AuthError, A],
     formIsSubmitting: Signal[Boolean],
     cssClasses: SendCancelButtonCssClasses = SendCancelButtonCssClasses.default,
-    wideButton: Boolean = true,
+    wideButton: MaybeSignal[Boolean] = true,
     buttonModifiers: Seq[L.Modifier[ReactiveHtmlElement[HTMLButtonElement]]] = Seq.empty,
   )(using
     errorHandler: ButtonErrorHandler[AuthError],
@@ -152,7 +152,7 @@ case class SendButtonBuilder[AuthError, Response](
   sendSignal: SendSignal[AuthError, Response],
   formIsSubmitting: Signal[Boolean],
   cssClasses: SendCancelButtonCssClasses,
-  wideButton: Boolean,
+  wideButton: MaybeSignal[Boolean],
   buttonModifiers: Seq[L.Modifier[ReactiveHtmlElement[HTMLButtonElement]]],
   errorHandler: ButtonErrorHandler[AuthError],
   definedAt: DefinedAt,
@@ -164,7 +164,7 @@ case class SendButtonBuilder[AuthError, Response](
     val btn = button(
       `type` := "button",
       cls := "btn",
-      when(wideButton)(cls := "btn-wide"),
+      wideButton.fold(cls("btn-wide") <-- _, when(_)(cls := "btn-wide")),
       cls <-- cssClasses.cssClasses(sendSignal.canSendSignal, tracker),
       disabled <-- tracker.disabledSignal(sendSignal, formIsSubmitting),
       children <-- tracker.submitting.flatMapSwitch {
