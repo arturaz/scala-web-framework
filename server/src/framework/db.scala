@@ -74,6 +74,14 @@ object db
     def from[A](io: SyncIO[A]): ConnectionIO[A] =
       doobie.FC.delay(io.unsafeRunSync())
 
+    /** Runs the given [[ConnectionIO]] only if the condition is true. */
+    def whenA[A](condition: Boolean)(io: ConnectionIO[A]): ConnectionIO[Option[A]] =
+      if (condition) io.map(Some(_)) else unit.as(None)
+
+    /** Runs the given [[ConnectionIO]] only if the condition is false. */
+    def unlessA[A](condition: Boolean)(io: ConnectionIO[A]): ConnectionIO[Option[A]] =
+      if (condition) unit.as(None) else io.map(Some(_))
+
     /** Raises an error if the condition is true. */
     def raiseWhen(condition: Boolean)(error: => Throwable): ConnectionIO[Unit] =
       if (condition) doobie.FC.raiseError(error) else unit
