@@ -105,7 +105,7 @@ object Assembler {
     *   An iterator of results.
     */
   def fromSeparateQueries[ParentRow, ParentId, ChildRow, Result](
-    parentRows: Iterable[ParentRow],
+    parentRows: IterableOnce[ParentRow],
     parentToId: ParentRow => ParentId,
     childRows: Iterable[ChildRow],
     childToParentId: ChildRow => ParentId,
