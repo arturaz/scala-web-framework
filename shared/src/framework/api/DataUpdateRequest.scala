@@ -14,4 +14,18 @@ import sttp.tapir.Schema
   * @param toSet
   *   the values to set
   */
-case class DataUpdateRequest[Id, Data](id: Id, expected: Data, toSet: Data) derives CanEqual, Schema, CirceCodec
+case class DataUpdateRequest[Id, Data](id: Id, expected: Data, toSet: Data) derives CanEqual, Schema, CirceCodec {
+  def subset[A](f: Data => A): DataUpdateRequest.DataSubset[A] =
+    DataUpdateRequest.DataSubset(expected = f(expected), toSet = f(toSet))
+}
+object DataUpdateRequest {
+  case class DataSubset[A](expected: A, toSet: A) derives CanEqual, Schema, CirceCodec {
+
+    /** @return
+      *   - `true` if the data has transitioned from `from` to `to`
+      *   - `false` otherwise
+      */
+    def transitioned(from: A, to: A)(using CanEqual1[A]): Boolean =
+      expected == from && toSet == to
+  }
+}
