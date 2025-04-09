@@ -11,6 +11,7 @@ case class LookupVector[K, V](vector: Vector[V], toKey: V => K) {
     vector.iterator.zipWithIndex.map { case tpl @ (v, idx) => toKey(v) -> tpl }.toMap
 
   def apply(index: Index): Option[V] = vector.lift(index)
+  def contains(key: K): Boolean = lookup.contains(key)
   def get(key: K): Option[(V, Index)] = lookup.get(key)
   def getValue(key: K): Option[V] = lookup.get(key).map(_._1)
   def getIndex(key: K): Option[Index] = lookup.get(key).map(_._2)
