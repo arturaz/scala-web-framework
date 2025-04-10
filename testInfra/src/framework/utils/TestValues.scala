@@ -1,6 +1,8 @@
 package framework.utils
 
 import cats.effect.{Ref, SyncIO}
+import sttp.model.Uri
+import framework.exts.*
 
 /** Generates values for use in tests. */
 class TestValues {
@@ -22,5 +24,8 @@ class TestValues {
 
   /** Generates a unique (within the given `key`) long for use in tests. */
   def long(key: String): Long = bumped(longs, key)
+
+  /** Generates a unique (within the given `prefix`) URI for use in tests. */
+  def uri(prefix: String): Uri = Uri.parse(s"${prefix}${bumped(strings, prefix)}").getOrThrow
 }
 object TestValues extends TestValues
