@@ -57,21 +57,23 @@ extension [F[_], Key, Value](pubSub: PublishCommands[F, [X] =>> Stream[F, X], Ke
   ): F[Unit] =
     values.traverse_(pubSub.publishTyped(channel, _))
 
-  /** Publishes a message to all specified channels once. */
+  /** Publishes a message to all specified channels in parallel once. */
   def publishToAll[Collection[_]: Foldable](channels: Collection[RedisChannel[Key]], value: Value)(using
-    Concurrent[F]
+    Concurrent[F],
+    Parallel[F],
   ): F[Unit] =
-    channels.traverse_(pubSub.publish(_, value))
+    channels.parTraverse_(pubSub.publish(_, value))
 
-  /** Publishes a message to all specified channels once. */
+  /** Publishes a message to all specified channels in parallel once. */
   def publishToAllTyped[Collection[_]: Foldable, Message](
     channels: Collection[RedisChannelTyped[Key, Message]],
     value: Message,
   )(using
     Transformer[Message, Value],
     Concurrent[F],
+    Parallel[F],
   ): F[Unit] =
-    channels.traverse_(publishTyped(_, value))
+    channels.parTraverse_(publishTyped(_, value))
 
   /** Publishes messages to all specified channels. The messages are published in parallel to each channel, but
     * sequentially within channel.
