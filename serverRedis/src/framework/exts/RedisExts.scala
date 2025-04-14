@@ -2,7 +2,7 @@ package framework.exts
 
 import cats.effect.{Concurrent, MonadCancelThrow}
 import cats.syntax.all.*
-import cats.{Applicative, Foldable}
+import cats.{Applicative, Foldable, Parallel, UnorderedTraverse}
 import dev.profunktor.redis4cats.data.{RedisChannel, RedisCodec, RedisPatternEvent}
 import dev.profunktor.redis4cats.otel4s.{TracedPubSubCommands, TracedSubscribeCommands}
 import dev.profunktor.redis4cats.pubsub.{PublishCommands, SubscribeCommands}
@@ -34,35 +34,66 @@ extension [K, V](codec: RedisCodec[K, V]) {
   )
 }
 
-extension [F[_], K, V](pubSub: PublishCommands[F, [X] =>> Stream[F, X], K, V]) {
+extension [F[_], Key, Value](pubSub: PublishCommands[F, [X] =>> Stream[F, X], Key, Value]) {
 
   /** Publishes a message to the specified channel once.
     *
     * @see
     *   [[PubSubCommands.publish]]
     */
-  def publishTyped[M](channel: RedisChannelTyped[K, M], value: M)(using
-    transformer: Transformer[M, V],
+  def publishTyped[Message](channel: RedisChannelTyped[Key, Message], value: Message)(using
+    transformer: Transformer[Message, Value],
     concurrent: Concurrent[F],
   ): F[Long] =
     pubSub.publish(channel.channel, transformer.transform(value))
 
+  /** Sequentially publishes messages to the specified channel. */
+  def publishManyTyped[Collection[_]: Foldable, Message](
+    channel: RedisChannelTyped[Key, Message],
+    values: Collection[Message],
+  )(using
+    transformer: Transformer[Message, Value],
+    concurrent: Concurrent[F],
+  ): F[Unit] =
+    values.traverse_(pubSub.publishTyped(channel, _))
+
   /** Publishes a message to all specified channels once. */
-  def publishToAll[C[_]: Foldable](channels: C[RedisChannel[K]], value: V)(using Concurrent[F]): F[Unit] =
+  def publishToAll[Collection[_]: Foldable](channels: Collection[RedisChannel[Key]], value: Value)(using
+    Concurrent[F]
+  ): F[Unit] =
     channels.traverse_(pubSub.publish(_, value))
 
   /** Publishes a message to all specified channels once. */
-  def publishToAllTyped[C[_]: Foldable, M](channels: C[RedisChannelTyped[K, M]], value: M)(using
-    Transformer[M, V],
+  def publishToAllTyped[Collection[_]: Foldable, Message](
+    channels: Collection[RedisChannelTyped[Key, Message]],
+    value: Message,
+  )(using
+    Transformer[Message, Value],
     Concurrent[F],
   ): F[Unit] =
     channels.traverse_(publishTyped(_, value))
+
+  /** Publishes messages to all specified channels. The messages are published in parallel to each channel, but
+    * sequentially within channel.
+    */
+  def publishManyToAllTyped[ChannelsCollection[_]: Foldable, MessagesCollection[_]: Foldable, Message](
+    channels: ChannelsCollection[RedisChannelTyped[Key, Message]],
+    values: MessagesCollection[Message],
+  )(using
+    Transformer[Message, Value],
+    Concurrent[F],
+    Parallel[F],
+  ): F[Unit] =
+    channels.parTraverse_(publishManyTyped(_, values))
 }
 
-private inline def transformValue[F[_]: Applicative, K, V, M](channel: RedisChannelTyped[K, M], value: V)(using
-  transformer: PartialTransformer[V, M],
-  onTransformError: OnRedisMessageTransformError[F, K, V],
-): F[Either[Unit, M]] =
+private inline def transformValue[F[_]: Applicative, Key, Value, Message](
+  channel: RedisChannelTyped[Key, Message],
+  value: Value,
+)(using
+  transformer: PartialTransformer[Value, Message],
+  onTransformError: OnRedisMessageTransformError[F, Key, Value],
+): F[Either[Unit, Message]] =
   transformer.transform(value) match {
     case Result.Value(value)   => Right(value).pure
     case errors: Result.Errors => onTransformError.onTransformError(channel, value, errors).as(Left(()))
