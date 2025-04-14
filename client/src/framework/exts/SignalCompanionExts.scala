@@ -88,4 +88,6 @@ extension (obj: Signal.type) {
   def fromPollingFuture[A](period: FiniteDuration, initial: => A)(f: => Future[A]): Signal[A] =
     EventStream.periodic(period.toMillis.toInt).flatMapSwitch(_ => EventStream.fromFuture(f)).toSignal(initial)
 
+  def fromPollingFuture[A](period: FiniteDuration)(f: => Future[A]): Signal[Option[A]] =
+    fromPollingFuture[Option[A]](period, None)(f.map(Some(_)))
 }
