@@ -69,9 +69,6 @@ object FrameworkDateTime {
 
   def now(): FrameworkDateTime = apply(LocalDateTime.now(utc))
 
-  /** Returns the current date from the clients local timezone. */
-  def nowClient(): FrameworkDateTime = apply(FrameworkPlatform.localDateTimeNowClient())
-
   val nowIO: SyncIO[FrameworkDateTime] = SyncIO(now())
 
   given Ordering[FrameworkDateTime] = Ordering.by(_.ldt)
