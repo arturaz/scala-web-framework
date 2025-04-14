@@ -40,12 +40,6 @@ object PushNotifications {
 
     /** Current subscription, if any. */
     def subscription: Option[PushSubscription]
-
-    override def toString: String =
-      this match {
-        case State.Denied     => show"Denied"
-        case s: State.Askable => s.toString
-      }
   }
   object State {
     sealed trait Askable extends State {
@@ -68,21 +62,6 @@ object PushNotifications {
             case Right(subscription) => sink.onNext(State.Granted(pushManager, options, Some(subscription), sink))
             case Left(_)             => sink.onNext(State.Denied)
           })
-
-      override def toString: String = {
-        def optsStr = {
-          val opts = options
-          show"userVisibleOnly=${opts.userVisibleOnly.toOption}, " +
-            show"key=${opts.applicationServerKey.toOption.map(PublicKey.fromJs)}"
-        }
-
-        this match {
-          case State.Granted(_, _, maybeSubscription, _) =>
-            val subStr = maybeSubscription.map(sub => JSON.stringify(sub.toJSON()))
-            show"Granted($optsStr, subscription=$subStr)"
-          case State.Prompt(_, _, _) => show"Prompt($optsStr)"
-        }
-      }
     }
 
     /** The webapp has permission to use the Push API. */
@@ -91,7 +70,12 @@ object PushNotifications {
       options: PushSubscriptionOptions,
       subscription: Option[PushSubscription],
       protected val sink: Observer[State],
-    ) extends State.Askable
+    ) extends State {
+      override def toString(): String = {
+        val subStr = subscription.map(sub => JSON.stringify(sub.toJSON()))
+        show"Granted(${options.asString}, subscription=$subStr)"
+      }
+    }
 
     /** The webapp has been denied permission to use the Push API. The user must manually change the browser settings.
       */
@@ -104,8 +88,10 @@ object PushNotifications {
       pushManager: PushManager,
       options: PushSubscriptionOptions,
       protected val sink: Observer[State],
-    ) extends State.Askable {
+    ) extends Askable {
       override def subscription: Option[PushSubscription] = None
+
+      override def toString(): String = show"Prompt(${options.asString})"
     }
   }
 
