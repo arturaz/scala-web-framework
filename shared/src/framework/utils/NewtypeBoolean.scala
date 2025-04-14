@@ -3,6 +3,7 @@ package framework.utils
 import cats.Show
 import cats.syntax.show.*
 import framework.exts.*
+import framework.prelude.*
 import io.scalaland.chimney.Transformer
 import yantl.Newtype
 
@@ -19,4 +20,8 @@ trait NewtypeBoolean extends Newtype.WithoutValidationOf[Boolean] {
 
   /** Pattern match extractor for this newtype. */
   def unapply(b: Type): Option[Boolean] = Some(b)
+
+  /** Used when using this newtype as a query parameter. */
+  given stringTapirCodec: TapirCodec[String, Type, TapirCodecFormat.TextPlain] =
+    summon[TapirCodec[String, Boolean, TapirCodecFormat.TextPlain]].map(apply)(unwrap)
 }
