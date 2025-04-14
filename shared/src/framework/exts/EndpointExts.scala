@@ -1,9 +1,11 @@
 package framework.exts
 
-import sttp.tapir.*
-import io.scalaland.chimney.Transformer
 import framework.data.CookieNameFor
+import framework.prelude.*
 import framework.tapir.capabilities.ServerSentEvents
+import io.scalaland.chimney.Transformer
+import sttp.tapir.*
+
 import java.nio.charset.StandardCharsets
 
 extension [SecurityInput, Input, Output, AuthError, Requirements](
@@ -57,5 +59,14 @@ extension [SecurityInput, Input, Output, AuthError, Requirements](
     codec: Codec[String, Output2, ?]
   ): Endpoint[SecurityInput, Input, AuthError, Output2, Requirements & ServerSentEvents] = {
     e.withOutputPublic(EndpointIO.Body(RawBodyType.StringBody(StandardCharsets.UTF_8), codec, EndpointIO.Info.empty))
+  }
+}
+
+extension [A](query: EndpointInput.Query[Option[A]]) {
+
+  /** Sets a default value for the query parameter. */
+  def defaultTo(value: A)(using CanEqual1[A]): EndpointInput.Query[A] = query.map(_.getOrElse(value)) {
+    case `value` => None
+    case other   => Some(other)
   }
 }
