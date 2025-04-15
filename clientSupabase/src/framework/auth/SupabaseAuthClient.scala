@@ -58,8 +58,9 @@ class SupabaseAuthClient(private val client: JSSupabaseAuthClient, val log: JSLo
         IO.fromPromise(IO(client.signInWithOtp(SignInWithPasswordlessCredentials.EmailOptions(email.unwrap))))
           .flatTap(response => IO(log(show"OTP code-send response: ", response)))
           .map { r =>
-            if (r.asInstanceOf[js.Dynamic].error == null) Right(r.asInstanceOf[DataMessageId].data)
-            else Left(r.asInstanceOf[ErrorAuthError])
+            r.matchDynamic(_.error)
+              .on(null)((v: DataMessageId) => Right(v.data))
+              .performOrElse((v: ErrorAuthError) => Left(v))
           }
 
     doTry(0)
