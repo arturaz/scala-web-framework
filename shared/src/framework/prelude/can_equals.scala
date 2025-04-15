@@ -17,6 +17,3 @@ given CanEqual1[LocalDateTime] = CanEqual.derived
 given CanEqual1[ExitCode] = CanEqual.derived
 given CanEqual1[ExitCase] = CanEqual.derived
 given CanEqual1[RetryDetails.NextStep] = CanEqual.derived
-
-/** Allow comparing `js.Dynamic` with other types. */
-given [A]: CanEqual[scalajs.js.Dynamic, A] = CanEqual.derived

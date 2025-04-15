@@ -4,7 +4,7 @@ import retry.RetryDetails
 import framework.prelude.given
 import framework.utils.PrettyPrintDuration
 
-extension (nextStep: RetryDetails.NextStep) {
+implicit class RetryDetailsNextStepExts(private val nextStep: RetryDetails.NextStep) extends AnyVal {
   def asString: String = nextStep match {
     case RetryDetails.NextStep.GiveUp => "GiveUp"
     case RetryDetails.NextStep.DelayAndRetry(nextDelay) =>
@@ -12,7 +12,7 @@ extension (nextStep: RetryDetails.NextStep) {
   }
 }
 
-extension (details: RetryDetails) {
+implicit class RetryDetailsExts(private val details: RetryDetails) extends AnyVal {
   def asString: String = {
     val RetryDetails(retriesSoFar, cumulativeDelay, nextStepIfUnsuccessful) = details
 
