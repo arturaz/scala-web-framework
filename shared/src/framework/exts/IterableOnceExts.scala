@@ -11,4 +11,8 @@ extension [A](iter: IterableOnce[A]) {
 
   def findMap[B](f: A => Option[B]): Option[B] =
     iter.iterator.map(f).find(_.isDefined).flatten
+
+  /** Keeps only the [[Some]] values. */
+  def mapFilter[B](f: A => Option[B]): Iterator[B] =
+    iter.iterator.map(f).collect { case Some(b) => b }
 }
