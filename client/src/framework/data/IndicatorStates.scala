@@ -78,6 +78,10 @@ object IndicatorStates {
     def itemProcessed(itemId: ItemId): SingleLevelItemsState[Page, ItemId] =
       copy(unreadItems = unreadItems - itemId)
 
+    /** Invoke this when data for the page goes away (for example, someone else has processed the items). */
+    def itemsProcessed(itemIds: IterableOnce[ItemId]): SingleLevelItemsState[Page, ItemId] =
+      copy(unreadItems = unreadItems -- itemIds)
+
     /** Invoke this when you have visited the page. */
     def onPageSwitch(currentPage: Page): SingleLevelItemsState[Page, ItemId] =
       // Clear the indicator if we are looking at the page
