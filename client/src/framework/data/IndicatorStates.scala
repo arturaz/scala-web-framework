@@ -1,5 +1,8 @@
 package framework.data
 
+import monocle.syntax.all.*
+import alleycats.Empty
+
 /** Various data structures that are used for indicators that show the state of a page.
   *
   * Think of tiny little badges next to links so you would know if there's data there before following a link and
@@ -88,5 +91,56 @@ object IndicatorStates {
       if (forPages.matches(currentPage)) copy(unreadItems = Set.empty)
       else this
 
+  }
+
+  /** For pages which render a list of items, where you can enter into an item.
+    *
+    * An item is considered read when you enter it.
+    *
+    * @param unreadItems
+    *   Set of unread item ids
+    * @param currentlyIn
+    *   The id of the item you are currently looking at
+    */
+  case class ListIndicatorState[ItemId](
+    unreadItems: Set[ItemId],
+    currentlyIn: Option[ItemId],
+  ) extends State {
+    def hasUnread: Boolean = unreadItems.nonEmpty
+
+    def unreadCount: Int = unreadItems.size
+
+    /** Invoke this when you have received new data for the specified items. */
+    def newDataReceived(unreadItemIds: IterableOnce[ItemId]): ListIndicatorState[ItemId] =
+      this
+        .focus(_.unreadItems)
+        .modify { items =>
+          currentlyIn match {
+            case None         => items ++ unreadItemIds
+            case Some(itemId) => items ++ unreadItemIds - itemId
+          }
+        }
+
+    /** Invoke this when you have visited the item. */
+    def onEnterItem(id: ItemId): ListIndicatorState[ItemId] = copy(
+      unreadItems = unreadItems - id,
+      currentlyIn = Some(id),
+    )
+
+    /** Invoke this when you have left the item. */
+    def onLeaveItem: ListIndicatorState[ItemId] =
+      copy(currentlyIn = None)
+
+    /** Invoke this when you have processed the item and it does not need attention anymore. */
+    def onItemProcessed(id: ItemId): ListIndicatorState[ItemId] =
+      copy(unreadItems = unreadItems - id)
+
+    /** Invoke this when you have processed the items and it does not need attention anymore. */
+    def onItemsProcessed(itemIds: IterableOnce[ItemId]): ListIndicatorState[ItemId] =
+      copy(unreadItems = unreadItems -- itemIds)
+  }
+  object ListIndicatorState {
+    def empty[ItemId]: ListIndicatorState[ItemId] = apply(unreadItems = Set.empty, currentlyIn = None)
+    given [ItemId]: Empty[ListIndicatorState[ItemId]] = Empty(empty)
   }
 }
