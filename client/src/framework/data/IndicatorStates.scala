@@ -122,21 +122,21 @@ object IndicatorStates {
         }
 
     /** Invoke this when you have visited the item. */
-    def onEnterItem(id: ItemId): ListIndicatorState[ItemId] = copy(
+    def itemEntered(id: ItemId): ListIndicatorState[ItemId] = copy(
       unreadItems = unreadItems - id,
       currentlyIn = Some(id),
     )
 
     /** Invoke this when you have left the item. */
-    def onLeaveItem: ListIndicatorState[ItemId] =
+    def itemLeft: ListIndicatorState[ItemId] =
       copy(currentlyIn = None)
 
     /** Invoke this when you have processed the item and it does not need attention anymore. */
-    def onItemProcessed(id: ItemId): ListIndicatorState[ItemId] =
+    def itemProcessed(id: ItemId): ListIndicatorState[ItemId] =
       copy(unreadItems = unreadItems - id)
 
     /** Invoke this when you have processed the items and it does not need attention anymore. */
-    def onItemsProcessed(itemIds: IterableOnce[ItemId]): ListIndicatorState[ItemId] =
+    def itemsProcessed(itemIds: IterableOnce[ItemId]): ListIndicatorState[ItemId] =
       copy(unreadItems = unreadItems -- itemIds)
   }
   object ListIndicatorState {
