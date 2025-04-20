@@ -2,7 +2,7 @@ package framework.exts
 
 import fs2.{Chunk, Stream}
 
-extension [F[_], A](stream: Stream[F, A]) {
+implicit class StreamExts[F[_], A](private val stream: Stream[F, A]) extends AnyVal {
 
   /** Evaluates the given function on each chunk of the stream. */
   def evalTapChunks[X](f: Chunk[A] => F[X]): fs2.Stream[F, A] =
