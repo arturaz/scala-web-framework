@@ -5,6 +5,8 @@ import cats.effect.IO
 import com.raquo.airstream.core.{Observer, Signal}
 import com.raquo.airstream.misc.StreamFromSignal
 import com.raquo.airstream.ownership.ManualOwner
+import scala.collection.immutable.Queue
+import scala.concurrent.Future
 
 extension [A](signal: Signal[A]) {
 
@@ -45,6 +47,77 @@ extension [A](signal: Signal[A]) {
   /** Gives a window of the previous and the current value of the [[Signal]]. */
   def changedValues: Signal[(Option[A], A)] = {
     signal.scanLeft(a => (Option.empty[A], a)) { case ((_, previous), current) => (Some(previous), current) }
+  }
+
+  /** Ensures that the [[Future]]s are executed in the order they are received. Even if you push many events to the
+    * source signal they will be processed one by one.
+    *
+    * The value is [[None]] until the first [[Future]] completes. If [[Future]] fails the error is propagated to the
+    * output signal but the processing does not stop.
+    */
+  def sequentially[B](f: A => Future[B]): Signal[Option[B]] = {
+    val lastEvt = Var(Option.empty[B])
+
+    sealed trait State derives CanEqual
+    case object Idle extends State
+    case class Running(queue: Queue[A]) extends State {
+      def enqueue(a: A): Running = copy(queue = queue.enqueue(a))
+
+      def tryDequeue(): (Option[(A, Running)]) = {
+        if (queue.isEmpty) None
+        else Some((queue.head, copy(queue = queue.tail)))
+      }
+    }
+    var current: State = Idle
+
+    def pullNextFromQueue(): Unit = {
+      current match {
+        case v: Running =>
+          v.tryDequeue() match {
+            case None =>
+              current = Idle
+            case Some((a, next)) =>
+              current = next
+              launch(a)
+          }
+
+        case Idle =>
+        // do nothing
+      }
+    }
+
+    def launch(a: A): Unit = {
+      val future = f(a)
+      future.onComplete {
+        case util.Failure(err) =>
+          lastEvt.writer.onError(err)
+          pullNextFromQueue()
+
+        case util.Success(b) =>
+          lastEvt.set(Some(b))
+          pullNextFromQueue()
+      }
+    }
+
+    def onSourceValue(a: A): Unit = {
+      current = current match {
+        case v: Idle.type =>
+          launch(a)
+          Running(Queue.empty)
+
+        case v: Running =>
+          v.enqueue(a)
+      }
+    }
+
+    signal.flatMapSwitch { a =>
+      onSourceValue(a)
+      lastEvt.signal
+    }
+  }
+
+  def sequentially[B](f: A => Future[B], initial: => B): Signal[B] = {
+    signal.sequentially(f).map(_.getOrElse(initial))
   }
 }
 
