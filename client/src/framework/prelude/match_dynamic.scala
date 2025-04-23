@@ -55,7 +55,7 @@ case class MatchDynamicBuilder[Input, +TReturn](
   }
 
   /** Performs the pattern matching, throws [[MatchError]] if no case matches. */
-  def perform: TReturn = {
+  def performOrThrow: TReturn = {
     performOrNone match {
       case Some(value) => value
       case None        => throw new MatchError(s"No case found for property '$property' in object $obj")
