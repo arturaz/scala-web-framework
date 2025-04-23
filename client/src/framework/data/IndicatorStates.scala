@@ -36,16 +36,24 @@ object IndicatorStates {
   case class BooleanState[Page](forPages: PageMatcher[Page], hasUnread: Boolean) extends State {
     def unreadCount: Int = if (hasUnread) 1 else 0
 
-    /** Invoke this when you have received new data for the page. */
-    def newDataReceived(currentPage: Page): BooleanState[Page] =
+    /** Invoke this when you have received new data for the page.
+      *
+      * @param currentPage
+      *   [[None]] if you are in no page (that is application is out of focus).
+      */
+    def newDataReceived(currentPage: Option[Page]): BooleanState[Page] =
       // Only show the indicator if we are not looking at the page
-      if (forPages.matches(currentPage)) this
+      if (currentPage.exists(forPages.matches)) this
       else copy(hasUnread = true)
 
-    /** Invoke this when you have visited the page. */
-    def onPageSwitch(currentPage: Page): BooleanState[Page] =
+    /** Invoke this when you have visited the page.
+      *
+      * @param currentPage
+      *   [[None]] if you are in no page (that is application is out of focus).
+      */
+    def onPageSwitch(currentPage: Option[Page]): BooleanState[Page] =
       // Clear the indicator if we are looking at the page
-      if (forPages.matches(currentPage)) copy(hasUnread = false)
+      if (currentPage.exists(forPages.matches)) copy(hasUnread = false)
       else this
   }
 
@@ -65,16 +73,22 @@ object IndicatorStates {
     /** Invoke this when new unread item is received.
       *
       * Nothing happens if you are currently looking at the page.
+      *
+      * @param currentPage
+      *   [[None]] if you are in no page (that is application is out of focus).
       */
-    def newDataReceived(currentPage: Page, itemId: ItemId): SingleLevelItemsState[Page, ItemId] =
+    def newDataReceived(currentPage: Option[Page], itemId: ItemId): SingleLevelItemsState[Page, ItemId] =
       newDataReceived(currentPage, itemIds = itemId :: Nil)
 
     /** Invoke this when new unread items is received.
       *
       * Nothing happens if you are currently looking at the page.
+      *
+      * @param currentPage
+      *   [[None]] if you are in no page (that is application is out of focus).
       */
-    def newDataReceived(currentPage: Page, itemIds: IterableOnce[ItemId]): SingleLevelItemsState[Page, ItemId] =
-      if (forPages.matches(currentPage)) this
+    def newDataReceived(currentPage: Option[Page], itemIds: IterableOnce[ItemId]): SingleLevelItemsState[Page, ItemId] =
+      if (currentPage.exists(forPages.matches)) this
       else copy(unreadItems = unreadItems ++ itemIds)
 
     /** Invoke this when data for the page goes away (for example, someone else has processed the item). */
@@ -85,10 +99,14 @@ object IndicatorStates {
     def itemsProcessed(itemIds: IterableOnce[ItemId]): SingleLevelItemsState[Page, ItemId] =
       copy(unreadItems = unreadItems -- itemIds)
 
-    /** Invoke this when you have visited the page. */
-    def onPageSwitch(currentPage: Page): SingleLevelItemsState[Page, ItemId] =
+    /** Invoke this when you have visited the page.
+      *
+      * @param currentPage
+      *   [[None]] if you are in no page (that is application is out of focus).
+      */
+    def onPageSwitch(currentPage: Option[Page]): SingleLevelItemsState[Page, ItemId] =
       // Clear the indicator if we are looking at the page
-      if (forPages.matches(currentPage)) copy(unreadItems = Set.empty)
+      if (currentPage.exists(forPages.matches)) copy(unreadItems = Set.empty)
       else this
 
   }
