@@ -8,24 +8,41 @@ import java.util.concurrent.TimeUnit
 import scala.concurrent.duration.FiniteDuration
 import scala.scalajs.js.JSON
 
-extension (stream: EventStream[Boolean]) {
-  def collectTrues: EventStream[Unit] = stream.collect { case true => () }
+trait EventStreamBooleanExts {
+  extension (stream: EventStream[Boolean]) {
+    def collectTrues: EventStream[Unit] = stream.collect { case true => () }
 
-  def collectFalses: EventStream[Unit] = stream.collect { case false => () }
+    def collectFalses: EventStream[Unit] = stream.collect { case false => () }
+  }
 }
 
-extension [A](stream: EventStream[A]) {
+given frameworkEventStreamBooleanExts: EventStreamBooleanExts = new EventStreamBooleanExts {}
 
-  /** Combines `mapTo` and `toSignal`. */
-  def mapToSignal[B](compute: => B): Signal[B] =
-    stream.mapTo(compute).toSignal(compute)
+trait EventStreamExts {
+  extension [A](stream: EventStream[A]) {
 
-  /** Combines `map` and `toSignal`. `compute` is called with [[None]] initially and then with the `Some(value)` from
-    * the [[EventStream]].
-    */
-  def mapToSignal[B](compute: Option[A] => B): Signal[B] =
-    stream.map(a => compute(Some(a))).toSignal(compute(None))
+    /** Combines `mapTo` and `toSignal`. */
+    def mapToSignal[B](compute: => B): Signal[B] =
+      stream.mapTo(compute).toSignal(compute)
+
+    /** Combines `map` and `toSignal`. `compute` is called with [[None]] initially and then with the `Some(value)` from
+      * the [[EventStream]].
+      */
+    def mapToSignal[B](compute: Option[A] => B): Signal[B] =
+      stream.map(a => compute(Some(a))).toSignal(compute(None))
+
+    /** Gives a window of the previous and the current value of the [[EventStream]]. */
+    def changedValues: EventStream[(Option[A], A)] = {
+      var last = Option.empty[A]
+      stream.map { a =>
+        val result = (last, a)
+        last = Some(a)
+        result
+      }
+    }
+  }
 }
+given frameworkEventStreamExts: EventStreamExts = new EventStreamExts {}
 
 enum EventStreamInstruction[+A] {
 
@@ -103,18 +120,21 @@ extension (obj: EventStream.type) {
     create: => EventSource
   ): EventStream[Either[ErrorEvent, MessageEvent]] = {
     fromCustomSourceWithSubscription(
-      start =
-        (fireValue: CustomSource.FireValue[Either[ErrorEvent, MessageEvent]], fireError, getStartIndex, getIsStarted) =>
-          {
-            val evtSource = create
-            evtSource.onmessage = evt => fireValue(Right(evt))
-            evtSource.onerror = evt => {
-              fireValue(Left(evt))
-              // Make sure to manually close the event source to prevent reconnection.
-              evtSource.close()
-            }
-            evtSource
-          },
+      start = (
+        fireValue: CustomSource.FireValue[Either[ErrorEvent, MessageEvent]],
+        fireError,
+        getStartIndex,
+        getIsStarted,
+      ) => {
+        val evtSource = create
+        evtSource.onmessage = evt => fireValue(Right(evt))
+        evtSource.onerror = evt => {
+          fireValue(Left(evt))
+          // Make sure to manually close the event source to prevent reconnection.
+          evtSource.close()
+        }
+        evtSource
+      },
       stop = (_, evtSource) => {
         evtSource.close()
       },
