@@ -15,3 +15,7 @@ object appServerPrelude extends AppScalaModule {
   override def moduleDeps = Seq(appShared.jvm, build.framework.server)
 }
 ```
+
+## Documentation
+
+For now auto-generated documentation will have to do: https://deepwiki.com/arturaz/scala-web-framework
