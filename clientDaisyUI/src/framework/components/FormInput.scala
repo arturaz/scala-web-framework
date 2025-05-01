@@ -670,17 +670,23 @@ object FormInput {
     )
   }
 
-  /** Renders an optional field that has a checkbox to enable it. */
+  /** Renders an optional field that has a checkbox to enable it.
+    *
+    * @param someWhenChecked
+    *   whether the field should be `Some` when the checkbox is checked. If this is false, the field will be `None` when
+    *   the checkbox is checked.
+    */
   def optionalWithCheckbox[Field](
     fieldSignal: UpdatableSignal[Option[Field]],
     renderPosition: RenderPosition = RenderPosition.Below,
+    someWhenChecked: Boolean = true,
   )(render: UpdatableSignal[Option[Field]] ?=> UpdatableSignal[Field] => L.Element)(using
     l18n: LocalizationSupport,
     lto: l18n.LocalizedTextOf[Field],
-    locale: l18n.LocaleEnum,
+    locale: Signal[l18n.LocaleEnum],
     empty: Empty[Field],
   ): L.Element = {
-    val isEnabledSignal = fieldSignal.signal.map(_.isDefined)
+    val isEnabledSignal = fieldSignal.signal.map(opt => if (someWhenChecked) opt.isDefined else opt.isEmpty)
 
     div(
       cls := "form-control",
@@ -699,11 +705,12 @@ object FormInput {
           controlled(
             checked <-- isEnabledSignal,
             onClick.mapToChecked --> { checked =>
-              fieldSignal.setTo(if (checked) Some(empty.empty) else None)
+              val enabled = if (someWhenChecked) checked else !checked
+              fieldSignal.setTo(if (enabled) Some(empty.empty) else None)
             },
           ),
         ),
-        span(cls := "label-text", lto.text),
+        span(cls := "label-text", lto.textRx),
       ),
       child <-- optional(fieldSignal)(render(using fieldSignal)),
     )
