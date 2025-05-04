@@ -36,6 +36,16 @@ object SendCancelButtonCssClasses {
     otherwise = Seq.empty,
   )
 
+  /**   - The button should be in secondary color by default when we can send.
+    *   - The button should be in accent color by default when we can cancel.
+    *   - The button should be of default color by default otherwise.
+    */
+  val secondary: SendCancelButtonCssClasses = apply(
+    whenCanSend = Seq("btn-secondary"),
+    whenCanCancel = Seq("btn-accent"),
+    otherwise = Seq.empty,
+  )
+
   val dangerous: SendCancelButtonCssClasses = apply(
     whenCanSend = Seq("btn-warning"),
     whenCanCancel = Seq("btn-accent"),
