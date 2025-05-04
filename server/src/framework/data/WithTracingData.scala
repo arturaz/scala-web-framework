@@ -12,6 +12,9 @@ final case class WithTracingData[+A](value: A, trace: Map[String, String] = Map.
       Schema,
       CirceCodec {
 
+  /** Replaces the value with a new one. */
+  def withValue[B](value: B): WithTracingData[B] = copy(value = value)
+
   /** Joins the external span provided by this data. */
   def joinOrRoot[F[_], A](fa: F[A])(using tracer: Tracer[F]): F[A] = tracer.joinOrRoot(this)(fa)
 }
@@ -26,6 +29,12 @@ object WithTracingData {
         fa.trace ++ ff.trace,
       )
   }
+
+  /** Creates a [[WithTracingData]] propagated from the current tracing context but without data. Use
+    * [[WithTracingData.withValue]] to populate the data.
+    */
+  def get[F[_]](using tracer: Tracer[F]): F[WithTracingData[Unit]] =
+    of(())
 
   /** Invokes [[Tracer.propagate]] with this data as argument. */
   def of[F[_], A](value: A)(using tracer: Tracer[F]): F[WithTracingData[A]] =
