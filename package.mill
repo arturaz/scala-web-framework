@@ -188,7 +188,7 @@ object sharedSquants extends Module {
     object jvm extends FrameworkTestModule with FrameworkPlatformModule {
       override def moduleDeps: Seq[JavaModule] = Seq(sharedSquants.jvm, build.framework.testInfra.jvm)
     }
-    object js extends FrameworkTestModule with FrameworkPlatformModule {
+    object js extends FrameworkScalaJSTestModule with FrameworkPlatformModule {
       override def moduleDeps: Seq[JavaModule] = Seq(sharedSquants.js, build.framework.testInfra.js)
     }
   }
