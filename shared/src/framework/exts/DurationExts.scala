@@ -16,6 +16,8 @@ extension (duration: Duration) {
     PrettyPrintDuration.prettyPrint(duration, maxParts = maxParts, maxGranularity = maxGranularity)
 
   /** [[pretty]] with no limit on the number of parts. Used for debugging purposes. */
-  def prettyForDebug(using PrettyPrintDuration.Strings): String =
+  def prettyForDebug(using
+    strings: PrettyPrintDuration.Strings = PrettyPrintDuration.Strings.EnglishShortNoSpaces
+  ): String =
     PrettyPrintDuration.prettyPrint(duration)
 }
