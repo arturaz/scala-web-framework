@@ -84,11 +84,11 @@ object db
 
     /** Raises an error if the condition is true. */
     def raiseWhen(condition: Boolean)(error: => Throwable): ConnectionIO[Unit] =
-      if (condition) doobie.FC.raiseError(error) else unit
+      if (condition) raiseError(error) else unit
 
     /** Raises an error if the condition is false. */
     def raiseUnless(condition: Boolean)(error: => Throwable): ConnectionIO[Unit] =
-      if (condition) unit else doobie.FC.raiseError(error)
+      if (condition) unit else raiseError(error)
   }
 
   extension [A](io: SyncIO[A]) {
