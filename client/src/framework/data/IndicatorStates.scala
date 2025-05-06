@@ -36,6 +36,9 @@ object IndicatorStates {
   case class BooleanState[Page](forPages: PageMatcher[Page], hasUnread: Boolean) extends State {
     def unreadCount: Int = if (hasUnread) 1 else 0
 
+    /** Reset the indicator. */
+    def reset: BooleanState[Page] = copy(hasUnread = false)
+
     /** Invoke this when you have received new data for the page.
       *
       * @param currentPage
@@ -69,6 +72,9 @@ object IndicatorStates {
     def hasUnread: Boolean = unreadItems.nonEmpty
 
     def unreadCount: Int = unreadItems.size
+
+    /** Reset the indicator. */
+    def reset: SingleLevelItemsState[Page, ItemId] = copy(unreadItems = Set.empty)
 
     /** Invoke this when new unread item is received.
       *
@@ -127,6 +133,9 @@ object IndicatorStates {
     def hasUnread: Boolean = unreadItems.nonEmpty
 
     def unreadCount: Int = unreadItems.size
+
+    /** Reset the indicator. */
+    def reset: ListIndicatorState[ItemId] = copy(unreadItems = Set.empty)
 
     /** Invoke this when you have received new data for the specified items. */
     def newDataReceived(unreadItemIds: IterableOnce[ItemId]): ListIndicatorState[ItemId] =
