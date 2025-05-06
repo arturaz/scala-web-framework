@@ -26,6 +26,8 @@ import sttp.tapir.server.http4s.Http4sServerInterpreter
 import scala.util.chaining.*
 
 import concurrent.duration.*
+import org.http4s.server.middleware.ErrorHandling
+import framework.data.InsufficientPermissionsException
 
 object FrameworkHttpServer {
   given PrettyPrintDuration.Strings = PrettyPrintDuration.Strings.EnglishShortNoSpaces
@@ -117,6 +119,17 @@ object FrameworkHttpServer {
       } yield service
     }
 
+    def insufficientPermissionsHandler(httpApp: HttpApp[IO]): HttpApp[IO] = Kleisli { (req: Request[IO]) =>
+      httpApp.run(req).recoverWith { case err: InsufficientPermissionsException =>
+        for {
+          _ <- log.debug(
+            s"Insufficient permissions for ${req.method} ${req.pathInfo} from ${req.remoteAddr.getOrElse("<unknown>")}: ${err.sensitiveMessage}"
+          )
+          response <- BadRequest(err.redactedMessage)
+        } yield response
+      }
+    }
+
     for {
       metricsOps <- (
         OtelMetrics.serverMetricsOps[IO]() <* log.info("Created HTTP server metrics under `http.` namespace.")
@@ -129,7 +142,7 @@ object FrameworkHttpServer {
         routesPipeline(metricsMiddleware, currentReq, withClientTracing = false)(extraRoutes).toResource
       // Note the order matters here, as `extraRoutes` are more lax and `ctxRoutes` needs certain headers to be set and
       // fails requests if they are missing.
-      httpApp = (extraRoutes <+> ctxRoutes).orNotFound
+      httpApp = (extraRoutes <+> ctxRoutes).orNotFound.pipe(insufficientPermissionsHandler)
       maybeTls <- cfg.server.tls
         .map(tlsConfig =>
           TLSContext.Builder
