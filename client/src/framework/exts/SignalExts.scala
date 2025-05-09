@@ -30,7 +30,7 @@ trait SignalExts {
                 owner.killSubscriptions()
                 callback(Right(b))
             }
-          }))(owner)
+          }))(using owner)
 
           Some(IO(owner.killSubscriptions()))
         }

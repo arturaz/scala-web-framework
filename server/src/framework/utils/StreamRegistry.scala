@@ -42,7 +42,7 @@ object StreamRegistry {
 
   /** Creates a stream registry. */
   def apply[F[_]: Concurrent: MeterProvider]: F[StreamRegistry[F]] = for {
-    meter <- MeterProvider[F]().meter("framework.utils.StreamRegistry").get
+    meter <- MeterProvider[F].meter("framework.utils.StreamRegistry").get
     totalCounter <- meter
       .upDownCounter[StreamCount](show"$StreamNamePrefix.total")
       .withDescription("Total number of streams.")

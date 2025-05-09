@@ -83,7 +83,7 @@ object MapDecoder {
   given applicative[K, V]: Applicative[[Output] =>> MapDecoder[K, V, Output]] = new {
     override def pure[A](x: A): MapDecoder[K, V, A] = _ => Right(x)
 
-    override def ap[A, B](ff: MapDecoder[K, V, A => B])(fa: MapDecoder[K, V, A]): MapDecoder[K, V, B] =
+    override def ap[A, B](ff: MapDecoder[K, V, A => B])(fa: MapDecoder[K, V, A]): MapDecoder[K, V, B] = {
       map => {
         val aEither = fa.decode(map)
         val fEither = ff.decode(map)
@@ -95,5 +95,6 @@ object MapDecoder {
           case (Right(a), Right(f))       => Right(f(a))
         }
       }
+    }
   }
 }

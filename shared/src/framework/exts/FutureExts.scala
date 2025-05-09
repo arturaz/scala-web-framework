@@ -10,7 +10,7 @@ extension [A](future: Future[A]) {
   def attempt: Future[Either[Throwable, A]] = future.transformWith {
     case util.Success(value) => Future.successful(Right(value))
     case util.Failure(cause) => Future.successful(Left(cause))
-  }(ExecutionContext.parasitic)
+  }(using ExecutionContext.parasitic)
 }
 
 extension [A](future: Future[Option[A]]) {
@@ -21,5 +21,5 @@ extension [A](future: Future[Option[A]]) {
   def orNever: Future[A] = future.flatMap {
     case None        => Future.never
     case Some(value) => Future.successful(value)
-  }(ExecutionContext.parasitic)
+  }(using ExecutionContext.parasitic)
 }
