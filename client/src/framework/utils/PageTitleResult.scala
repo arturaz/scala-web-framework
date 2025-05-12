@@ -33,17 +33,27 @@ object PageTitleResult {
       */
     def pageTitleNodeForDocument: Option[L.Node] = pageTitleForDocument.map(L.textToTextNode)
 
-    /** Returns the window title, which is the page title appended with the app name. */
-    def windowTitle(appName: String): String = {
-      if (pageTitle == appName) appName else show"$pageTitle - $appName"
+    /** Returns the window title, which is the page title appended with the app name.
+      *
+      * @param prefix
+      *   a custom prefix which is not considered a part of the page title, for example this can be used to indicate a
+      *   number of unread items.
+      */
+    def windowTitle(appName: String, prefix: Option[String] = None): String = {
+      def withPrefix(str: String) = prefix match {
+        case None         => str
+        case Some(prefix) => s"$prefix$str"
+      }
+
+      withPrefix(if (pageTitle == appName) appName else show"$pageTitle - $appName")
     }
 
     /** Applies the [[windowTitle]] to the window.
       *
       * Example: {{{pageTitleSignal --> (_.applyWindowTitle("My App"))}}}
       */
-    def applyWindowTitle(appName: String): Unit = {
-      org.scalajs.dom.document.title = windowTitle(appName)
+    def applyWindowTitle(appName: String, prefix: Option[String] = None): Unit = {
+      org.scalajs.dom.document.title = windowTitle(appName, prefix)
     }
   }
 
