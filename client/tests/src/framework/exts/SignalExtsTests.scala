@@ -15,7 +15,7 @@ class SignalExtsTests extends FrameworkTestSuite {
 
     val results = Buffer[Option[String]]()
     val owner = new ManualOwner
-    resultSignal.foreach(results += _)(owner)
+    resultSignal.foreach(results += _)(using owner)
 
     srcRx.set(1)
     srcRx.set(2)

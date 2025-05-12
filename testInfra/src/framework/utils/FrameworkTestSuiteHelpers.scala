@@ -27,7 +27,7 @@ trait FrameworkTestSuiteHelpers { self: CatsEffectSuite =>
               // Save the value that we received for teardown.
               lastA = Some(a)
               f(a)
-            }(munitExecutionContext),
+            }(using munitExecutionContext),
         teardown = _ => fixture.teardown(lastA.get),
       )
     }
