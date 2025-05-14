@@ -46,7 +46,7 @@ object shared extends Module {
       // Effect system for Scala
       // https://typelevel.org/cats-effect/
       // https://mvnrepository.com/artifact/org.typelevel/cats-effect
-      ivy"org.typelevel::cats-effect::3.6.0-14-e3c932a",
+      ivy"org.typelevel::cats-effect::3.6.1",
 
       // Retries for cats-effect
       // https://cb372.github.io/cats-retry
