@@ -37,17 +37,19 @@ class PersistedVar[A](
   /** Returns an [[EventStream]] that emits whenever the form is submitted or changed (with debounce). */
   def persistEvent(submitting: EventStream[Unit], underlyingDebounceMs: Int = 100): EventStream[A] =
     submitting
-      .mapTo(underlying.now())
+      .sample(underlying.signal)
       .mergeWith(
         underlying.signal.changes.debounce(underlyingDebounceMs)
       )
       .distinct
 
+  /** Sets the value and persists it. */
   def setAndPersist(value: A): Unit = {
     underlying.set(value)
     persist(value)
   }
 
+  /** Persists the given value. */
   def persist(value: A): Unit = {
     val serialized = value.asJson.noSpaces
     storage.setItem(persistenceKey, serialized)
@@ -195,7 +197,7 @@ object PersistedVar {
   def session[A](
     persistenceKey: String,
     defaultValue: => A,
-  )(using CirceDecoder[A], CirceEncoder[A], CanEqual[A, A]): (PersistedVar[A], Persister) = {
+  )(using CirceDecoder[A], CirceEncoder[A], CanEqual[A, A]): (pVar: PersistedVar[A], persister: Persister) = {
     val pVar = apply(persistenceKey, defaultValue, window.sessionStorage)
     (pVar, Persister.ForVar(pVar))
   }
@@ -210,7 +212,7 @@ object PersistedVar {
   def local[A](
     persistenceKey: String,
     defaultValue: => A,
-  )(using CirceDecoder[A], CirceEncoder[A], CanEqual[A, A]): (PersistedVar[A], Persister) = {
+  )(using CirceDecoder[A], CirceEncoder[A], CanEqual[A, A]): (pVar: PersistedVar[A], persister: Persister) = {
     val pVar = apply(persistenceKey, defaultValue, window.localStorage)
     (pVar, Persister.ForVar(pVar))
   }
@@ -228,7 +230,7 @@ object PersistedVar {
   def when[A](condition: Boolean)(
     whenTrue: => (PersistedVar[A], Persister),
     whenFalse: => A,
-  ): (MaybePersistedVar[A], Persister) = {
+  ): (pVar: MaybePersistedVar[A], persister: Persister) = {
     if (condition) {
       val (pVar, p) = whenTrue
       (pVar, p)
@@ -243,6 +245,6 @@ object PersistedVar {
   def unless[A](condition: Boolean)(
     whenTrue: => A,
     whenFalse: => (PersistedVar[A], Persister),
-  ): (MaybePersistedVar[A], Persister) =
+  ): (pVar: MaybePersistedVar[A], persister: Persister) =
     when(!condition)(whenFalse, whenTrue)
 }
