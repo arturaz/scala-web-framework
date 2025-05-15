@@ -134,6 +134,8 @@ trait FrameworkScalaModule extends BaseScalaModule with ScalafmtModule /*  with 
       "-no-indent",
       // https://www.scala-lang.org/2024/08/19/given-priority-change-3.7.html
       "-source", "3.7",
+      // Enable preview features: https://www.scala-lang.org/news/3.7.0/#preview-features
+      "-preview",
       // From https://github.com/iRevive/union-derivation?tab=readme-ov-file#getting-started:
       // important for the detection of an abstract method in a trait
       "-Yretain-trees", 
