@@ -63,7 +63,7 @@ object shared extends Module {
       // It doesn't work that great right now.
       // // async/await syntax
       // // https://github.com/dotty-cps-async/dotty-cps-async
-      // // https://mvnrepository.com/artifact/io.github.dotty-cps-async/dotty-cps-async
+      // // https://mvnrepository.com/artifact/io.github.dotty-cps-async/dotty-cps-async-next
       // ivy"io.github.dotty-cps-async::dotty-cps-async-next::${Versions.DottyCpsAsync}",
       // // https://mvnrepository.com/artifact/io.github.dotty-cps-async/cps-async-connect-cats-effect
       // ivy"io.github.dotty-cps-async::cps-async-connect-cats-effect::${Versions.DottyCpsAsyncConnect}",

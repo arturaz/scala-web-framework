@@ -60,8 +60,8 @@ object Versions {
   final val Otel4sRedis4Cats = "0.1-77d3f6f-SNAPSHOT"
 
   final val BouncyCastle = "1.80"
-  // final val DottyCpsAsync = "1.0.0"
-  // final val DottyCpsAsyncConnect = "1.0.1"
+  // final val DottyCpsAsync = "1.0.2"
+  // final val DottyCpsAsyncConnect = "1.0.2"
   final val Decline = "2.5.0"
 }
 
