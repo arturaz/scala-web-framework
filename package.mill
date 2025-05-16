@@ -60,15 +60,14 @@ object shared extends Module {
       // https://mvnrepository.com/artifact/co.fs2/fs2-io
       ivy"co.fs2::fs2-io::${Versions.Fs2}",
 
-      // It doesn't work that great right now.
-      // // async/await syntax
-      // // https://github.com/dotty-cps-async/dotty-cps-async
-      // // https://mvnrepository.com/artifact/io.github.dotty-cps-async/dotty-cps-async-next
-      // ivy"io.github.dotty-cps-async::dotty-cps-async-next::${Versions.DottyCpsAsync}",
-      // // https://mvnrepository.com/artifact/io.github.dotty-cps-async/cps-async-connect-cats-effect
-      // ivy"io.github.dotty-cps-async::cps-async-connect-cats-effect::${Versions.DottyCpsAsyncConnect}",
-      // // https://mvnrepository.com/artifact/io.github.dotty-cps-async/cps-async-connect-fs2
-      // ivy"io.github.dotty-cps-async::cps-async-connect-fs2::${Versions.DottyCpsAsyncConnect}",
+      // async/await syntax
+      // https://github.com/dotty-cps-async/dotty-cps-async
+      // https://mvnrepository.com/artifact/io.github.dotty-cps-async/dotty-cps-async-next
+      ivy"io.github.dotty-cps-async::dotty-cps-async::${Versions.DottyCpsAsync}",
+      // https://mvnrepository.com/artifact/io.github.dotty-cps-async/cps-async-connect-cats-effect
+      ivy"io.github.dotty-cps-async::cps-async-connect-cats-effect::${Versions.DottyCpsAsyncConnect}",
+      // https://mvnrepository.com/artifact/io.github.dotty-cps-async/cps-async-connect-fs2
+      ivy"io.github.dotty-cps-async::cps-async-connect-fs2::${Versions.DottyCpsAsyncConnect}",
 
       // Quickly modify deeply nested case class fields
       // https://www.optics.dev/Monocle/
