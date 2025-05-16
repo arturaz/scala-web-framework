@@ -24,4 +24,6 @@ trait NewtypeBoolean extends Newtype.WithoutValidationOf[Boolean] {
   /** Used when using this newtype as a query parameter. */
   given stringTapirCodec: TapirCodec[String, Type, TapirCodecFormat.TextPlain] =
     summon[TapirCodec[String, Boolean, TapirCodecFormat.TextPlain]].map(apply)(unwrap)
+
+  def schemaFor: Schema[Type] = summon[Schema[Boolean]].map(v => Some(apply(v)))(unwrap)
 }

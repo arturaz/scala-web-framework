@@ -4,7 +4,7 @@ import framework.prelude.*
 import cats.Functor
 
 /** Indicates whether the previous/next page are available. */
-case class HasSurroundingPages[Data](data: Data, pages: HasSurroundingPages.Pages) derives CanEqual {
+case class HasSurroundingPages[Data](data: Data, pages: HasSurroundingPages.Pages) derives CanEqual, Schema {
   def isEmpty(using Data <:< Iterable[?]): Boolean = data.isEmpty
   def nonEmpty(using Data <:< Iterable[?]): Boolean = data.nonEmpty
 
@@ -36,7 +36,7 @@ case class HasSurroundingPages[Data](data: Data, pages: HasSurroundingPages.Page
     copy(data = f(data), pages)
 }
 object HasSurroundingPages {
-  case class Pages(hasPrevious: Boolean, hasNext: Boolean) derives CanEqual, CirceCodec {
+  case class Pages(hasPrevious: Boolean, hasNext: Boolean) derives CanEqual, Schema, CirceCodec {
     override def toString(): String = show"Pages(prev = $hasPrevious, next = $hasNext)"
   }
 

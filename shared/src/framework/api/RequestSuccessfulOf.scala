@@ -4,7 +4,7 @@ import framework.prelude.*
 import cats.ApplicativeThrow
 
 /** Whether the request was successful or not with accompanying data if it was. */
-case class RequestSuccessfulOf[+A](successValue: Option[A]) derives CanEqual, CirceCodec {
+case class RequestSuccessfulOf[+A](successValue: Option[A]) derives CanEqual, Schema, CirceCodec {
   def isSuccessful: Boolean = successValue.nonEmpty
 
   def withoutValue: RequestSuccessful = RequestSuccessful(isSuccessful)
