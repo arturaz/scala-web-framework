@@ -29,9 +29,13 @@ object FrameworkDate {
   private val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd")
 
   def nowUTC(): FrameworkDate = apply(LocalDate.now(utc))
+  def nowUTCIO: SyncIO[FrameworkDate] = SyncIO(nowUTC())
 
   /** Returns the current date from the clients local timezone. */
   def nowClient(): FrameworkDate = apply(FrameworkPlatform.localDateNowClient())
+
+  /** Returns the current date from the clients local timezone. */
+  def nowClientIO: SyncIO[FrameworkDate] = SyncIO(nowClient())
 
   /** Parses a date in "yyyy-MM-dd" format. */
   def fromString(str: String): Either[String, FrameworkDate] = {
@@ -74,10 +78,17 @@ object FrameworkDate {
     given UrlConvertible[Type, DummyError] = UrlConvertible.fromCodec
 
     given CanEqual1[Type] = CanEqual.derived
+  }
+  object Newtype {
+    extension [A](obj: yantl.Newtype.WithType[FrameworkDate, A] & yantl.Newtype.WithoutValidation) {
+      def nowUTC(): A = obj(FrameworkDate.nowUTC())
+      def nowUTCIO: SyncIO[A] = SyncIO(obj.nowUTC())
 
-    def nowUTC(): Type = make(FrameworkDate.nowUTC()).getOrThrow
+      /** Returns the current date from the clients local timezone. */
+      def nowClient(): A = obj(FrameworkDate.nowClient())
 
-    /** Returns the current date from the clients local timezone. */
-    def nowClient(): Type = make(FrameworkDate.nowClient()).getOrThrow
+      /** Returns the current date from the clients local timezone. */
+      def nowClientIO: SyncIO[A] = SyncIO(obj.nowClient())
+    }
   }
 }
