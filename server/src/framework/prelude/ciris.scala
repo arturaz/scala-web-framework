@@ -1,11 +1,12 @@
 package framework.prelude
 
-import yantl.Newtype
-import sttp.model.Uri
 import ciris.ConfigError
+import framework.data.{FrameworkDate, FrameworkDateTime}
 import scribe.Level
+import sttp.model.Uri
+import yantl.Newtype
+
 import java.nio.file.Path
-import framework.data.FrameworkDateTime
 
 export framework.config.EnvConfigPrefix
 export ciris.{ConfigDecoder, ConfigValue}
@@ -23,6 +24,10 @@ given ConfigDecoder[String, Path] =
 given ConfigDecoder[String, FrameworkDateTime] =
   ConfigDecoder.instance((key, str: String) =>
     FrameworkDateTime.fromString(str).left.map(err => ConfigError(show"Invalid date time '$str': $err"))
+  )
+given ConfigDecoder[String, FrameworkDate] =
+  ConfigDecoder.instance((key, str: String) =>
+    FrameworkDate.fromString(str).left.map(err => ConfigError(show"Invalid date '$str': $err"))
   )
 
 given configDecoderForUriWrapper[Wrapper](using newtype: Newtype.WithType[Uri, Wrapper]): ConfigDecoder[Uri, Wrapper] =
