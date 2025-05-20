@@ -10,9 +10,13 @@ import doobie.util.meta.Meta
 def doobieGetForNewtype[TUnderlying, TWrapperCompanion <: Newtype.WithUnderlying[TUnderlying]](
   wrapper: TWrapperCompanion
 )(using
-  read: Get[TUnderlying]
+  read: Get[TUnderlying],
+  typename: TypeName[wrapper.Type],
 ): Get[wrapper.Type] =
-  read.map(wrapper.make(_).getOrThrow)
+  read.map(wrapper.make(_) match {
+    case Left(err)    => throw new IllegalArgumentException(show"Cannot create ${typename.value}: ${err.toString}")
+    case Right(value) => value
+  })
 
 def doobiePutForNewtype[TUnderlying, TWrapperCompanion <: Newtype.WithUnderlying[TUnderlying]](
   wrapper: TWrapperCompanion
