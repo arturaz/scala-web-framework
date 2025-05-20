@@ -977,6 +977,8 @@ object FormInput {
     *   selected. Use [[AutocompleteValidateValueRequiredWith]] to create this validation.
     * @param debounceDurationMs
     *   The debounce duration in milliseconds.
+    * @param sendEmptyNeedle
+    *   Whether to send an empty needle to the server.
     */
   def stringWithAutocomplete[RequestData, ResponseItem, SplitKey](
     label: String,
@@ -993,6 +995,8 @@ object FormInput {
     beforeInput: Seq[Modifier[Div]] = Seq.empty,
     afterInput: Seq[Modifier[Div]] = Seq.empty,
     inputModifiers: Seq[Modifier[Input]] = Seq.empty,
+    dropdownDivModifiers: Seq[Modifier[Div]] = Seq.empty,
+    sendEmptyNeedle: Boolean = false,
   ) = {
     val searchTermStr = backing.bimap {
       case AutocompleteData.RawInput(str)      => str
@@ -1002,14 +1006,16 @@ object FormInput {
     val doRequestStream = backing.signal.changes.distinct
       .debounce(debounceDurationMs)
       .collectOpt {
-        case AutocompleteData.RawInput(input) => Some(input)
-        case AutocompleteData.SelectedItem(_) => None
+        case AutocompleteData.RawInput(input) if sendEmptyNeedle && input.isBlank => Some(input)
+        case AutocompleteData.RawInput(input)                                     => Some(input)
+        case AutocompleteData.SelectedItem(_)                                     => None
       }
       .pipe(composeRequest)
 
     div(
       div(
         cls := "dropdown dropdown-bottom dropdown-open",
+        dropdownDivModifiers,
         div(
           tabIndex := 0,
           FormInput.stringWithLabel(
@@ -1039,7 +1045,7 @@ object FormInput {
           .splitOption((_, items) =>
             ul(
               tabIndex := 0,
-              cls := "dropdown-content menu bg-base-100 rounded-box z-[1] w-52 p-2 shadow",
+              cls := "dropdown-content menu bg-base-100 rounded-box z-[1] w-full p-2 shadow",
               children <-- items.split(itemToKey)((key, initialItem, itemSignal) =>
                 li(
                   buildItem(key, initialItem, itemSignal),
