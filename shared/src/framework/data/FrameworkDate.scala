@@ -54,6 +54,10 @@ object FrameworkDate {
       year * 10000 + month * 100 + day
     })
 
+  /** Parses a date in "yyyy-MM-dd" format. */
+  def circeCodecIso: CirceCodec[FrameworkDate] =
+    CirceCodec.fromUsing[String].iemap(date => fromString(date))(date => date.asString)
+
   given tapirCodec: TapirCodec[String, FrameworkDate, TapirCodecFormat.TextPlain] =
     TapirCodec.string.mapEither(str => Try(apply(LocalDate.parse(str, formatter))).toEither.leftMap(_.toString))(
       _.ld.format(formatter)
