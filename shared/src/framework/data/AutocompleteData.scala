@@ -15,6 +15,12 @@ enum AutocompleteData[+A] {
   /** The user has selected an item from the options. */
   case SelectedItem(item: A)
 
+  /** The needle to be used for autocompletion. */
+  def asNeedle: String = this match {
+    case RawInput(input)    => input
+    case SelectedItem(item) => ""
+  }
+
   def asInput: Option[String] = this match {
     case RawInput(input)    => Some(input)
     case SelectedItem(item) => None
