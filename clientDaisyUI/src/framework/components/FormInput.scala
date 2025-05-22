@@ -36,6 +36,7 @@ import framework.utils.FetchRequest
 import io.scalaland.chimney.PartialTransformer
 import yantl.Validator
 import framework.localization.LocalizedErrorMessages
+import org.scalajs.dom.HTMLUListElement
 
 /** Various helpers for form inputs. */
 object FormInput {
@@ -996,6 +997,7 @@ object FormInput {
     afterInput: Seq[Modifier[Div]] = Seq.empty,
     inputModifiers: Seq[Modifier[Input]] = Seq.empty,
     dropdownDivModifiers: Seq[Modifier[Div]] = Seq.empty,
+    dropdownContentModifiers: Seq[Modifier[ReactiveHtmlElement[HTMLUListElement]]] = Seq.empty,
     sendEmptyNeedle: Boolean = false,
   ) = {
     val searchTermStr = backing.bimap {
@@ -1046,6 +1048,7 @@ object FormInput {
             ul(
               tabIndex := 0,
               cls := "dropdown-content menu bg-base-100 rounded-box z-[1] w-full p-2 shadow",
+              dropdownContentModifiers,
               children <-- items.split(itemToKey)((key, initialItem, itemSignal) =>
                 li(
                   buildItem(key, initialItem, itemSignal),
