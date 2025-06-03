@@ -37,12 +37,18 @@ enum LoginViaEmailWithOTPError {
   *
   * @param isLoggedInSignal
   *   the signal that indicates whether the user is logged in, the `String` is the email
+  * @param beforeEmailInputLabel
+  *   ((rawEmailVar, emailSignal) => content). The content that is shown before the email input label.
   * @param emailInputLabel
   *   the label for the email input to which OTP will be sent
+  * @param afterEmailInputLabel
+  *   ((rawEmailVar, emailSignal) => content). The content that is shown after the email input label.
   * @param loginButtonContent
   *   the content for the login button
   * @param beforeOtpInputLabel
   *   ((email, sendOTPResult) => content). The content that is shown before the OTP input.
+  * @param afterOtpInputLabel
+  *   ((email, sendOTPResult) => content). The content that is shown after the OTP input.
   * @param otpInputLabel
   *   the label for the input where user enters the OTP
   * @param otpCheckButtonContent
@@ -72,6 +78,9 @@ def LoginViaEmailWithOTP[SendOTPResult](
   otpCheckButtonContent: Seq[Modifier[Button]],
   otpVerificationFailedContent: (Email, SendOTPResult) => Seq[Modifier[Div]],
   otpVerificationSucceededContent: (Email, Option[SendOTPResult]) => Seq[Modifier[Div]],
+  beforeEmailInputLabel: (Var[String], Signal[Option[Email]]) => Seq[Modifier[Div]] = (_, _) => Seq.empty,
+  afterEmailInputLabel: (Var[String], Signal[Option[Email]]) => Seq[Modifier[Div]] = (_, _) => Seq.empty,
+  afterOtpInputLabel: (Email, SendOTPResult) => Seq[Modifier[Div]] = (_, _: SendOTPResult) => Seq.empty,
 ): Signal[Element] = {
 
   /** The email input. */
@@ -102,6 +111,7 @@ def LoginViaEmailWithOTP[SendOTPResult](
     div(
       cls := "space-y-2",
       child.maybe <-- cannotProgressToNextStepRx.signal.mapSome(err => div(err.userFriendlyMessage)),
+      beforeEmailInputLabel(emailStrRx, emailRx),
       FormInput
         .stringWithLabel(
           emailInputLabel,
@@ -110,6 +120,7 @@ def LoginViaEmailWithOTP[SendOTPResult](
           placeholder = emailInputPlaceholder,
           inputModifiers = Seq(disabled <-- tracker.submitting),
         ),
+      afterEmailInputLabel(emailStrRx, emailRx),
       button(
         `type` := "submit",
         cls := "btn btn-primary",
@@ -160,6 +171,7 @@ def LoginViaEmailWithOTP[SendOTPResult](
                   placeholder = otpInputPlaceholder,
                   inputModifiers = Seq(disabled <-- tracker.submitting),
                 ),
+              afterOtpInputLabel(email, result),
               button(
                 `type` := "submit",
                 cls := "btn btn-primary",
