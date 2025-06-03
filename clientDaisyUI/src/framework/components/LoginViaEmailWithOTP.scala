@@ -41,6 +41,9 @@ enum LoginViaEmailWithOTPError {
   *   ((rawEmailVar, emailSignal) => content). The content that is shown before the email input label.
   * @param emailInputLabel
   *   the label for the email input to which OTP will be sent
+  * @param emailInputModifiers
+  *   (tracker => modifiers). The modifiers for the email input. If you override the `disabled` property make sure to
+  *   include `disabled <-- tracker.submitting` into your new expression.
   * @param afterEmailInputLabel
   *   ((rawEmailVar, emailSignal) => content). The content that is shown after the email input label.
   * @param loginButtonContent
@@ -59,6 +62,9 @@ enum LoginViaEmailWithOTPError {
   *   ((email, maybeSendOTPResult) => content). The content that is shown when OTP verification succeeds. The
   *   `maybeSendOTPResult` is `None` if the user is logged in without perform an OTP login, as in the case that a
   *   previous session was restored.
+  * @param otpInputModifiers
+  *   (tracker => modifiers). The modifiers for the OTP input. If you override the `disabled` property make sure to
+  *   include `disabled <-- tracker.submitting` into your new expression.
   * @param sendOTP
   *   (email => [[IO]]). Sends an OTP to the given email address.
   * @param verifyOTP
@@ -79,7 +85,9 @@ def LoginViaEmailWithOTP[SendOTPResult](
   otpVerificationFailedContent: (Email, SendOTPResult) => Seq[Modifier[Div]],
   otpVerificationSucceededContent: (Email, Option[SendOTPResult]) => Seq[Modifier[Div]],
   beforeEmailInputLabel: (Var[String], Signal[Option[Email]]) => Seq[Modifier[Div]] = (_, _) => Seq.empty,
+  emailInputModifiers: ModificationRequestTracker => Seq[Modifier[Input]] = _ => Seq.empty,
   afterEmailInputLabel: (Var[String], Signal[Option[Email]]) => Seq[Modifier[Div]] = (_, _) => Seq.empty,
+  otpInputModifiers: ModificationRequestTracker => Seq[Modifier[Input]] = _ => Seq.empty,
   afterOtpInputLabel: (Email, SendOTPResult) => Seq[Modifier[Div]] = (_, _: SendOTPResult) => Seq.empty,
 ): Signal[Element] = {
 
@@ -118,7 +126,7 @@ def LoginViaEmailWithOTP[SendOTPResult](
           emailStrRx,
           validation = emailValidation,
           placeholder = emailInputPlaceholder,
-          inputModifiers = Seq(disabled <-- tracker.submitting),
+          inputModifiers = Seq(disabled <-- tracker.submitting) ++ emailInputModifiers(tracker),
         ),
       afterEmailInputLabel(emailStrRx, emailRx),
       button(
@@ -169,7 +177,7 @@ def LoginViaEmailWithOTP[SendOTPResult](
                   otpRx,
                   validation = None,
                   placeholder = otpInputPlaceholder,
-                  inputModifiers = Seq(disabled <-- tracker.submitting),
+                  inputModifiers = Seq(disabled <-- tracker.submitting) ++ otpInputModifiers(tracker),
                 ),
               afterOtpInputLabel(email, result),
               button(
