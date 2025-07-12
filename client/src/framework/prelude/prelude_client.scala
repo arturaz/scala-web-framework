@@ -65,5 +65,6 @@ object js {
 
   inline def undefined: UndefOr[Nothing] = scalajs.js.undefined
 
+  inline def isDefined(a: Any): Boolean = !scalajs.js.isUndefined(a)
   inline def isUndefined(a: Any): Boolean = scalajs.js.isUndefined(a)
 }
