@@ -7,6 +7,7 @@ import org.scalajs.dom.{ErrorEvent, EventSource, MessageEvent}
 import java.util.concurrent.TimeUnit
 import scala.concurrent.duration.FiniteDuration
 import scala.scalajs.js.JSON
+import org.scalajs.dom.Event
 
 trait EventStreamBooleanExts {
   extension (stream: EventStream[Boolean]) {
@@ -96,7 +97,7 @@ extension (obj: EventStream.type) {
   /** Creates an [[EventStream]] from a DOM event source. */
   def fromDomEventSource(
     create: => EventSource,
-    convertError: ErrorEvent => Throwable = { evt =>
+    convertError: Event => Throwable = { evt =>
       new Exception(s"An error occurred while getting events from EventSource: ${JSON.stringify(evt, space = 2)}")
     },
   ): EventStream[MessageEvent] = {
@@ -114,14 +115,14 @@ extension (obj: EventStream.type) {
   }
 
   /** Creates an [[EventStream]] from a DOM event source which emits `Right([[MessageEvent]])` and then finally
-    * `Left([[ErrorEvent]])`, after which the event source is closed.
+    * `Left([[Event]])`, after which the event source is closed.
     */
   def fromDomEventSourceEither(
     create: => EventSource
-  ): EventStream[Either[ErrorEvent, MessageEvent]] = {
+  ): EventStream[Either[Event, MessageEvent]] = {
     fromCustomSourceWithSubscription(
       start = (
-        fireValue: CustomSource.FireValue[Either[ErrorEvent, MessageEvent]],
+        fireValue: CustomSource.FireValue[Either[Event, MessageEvent]],
         fireError,
         getStartIndex,
         getIsStarted,

@@ -1,12 +1,13 @@
 package framework.exts
 
 import com.raquo.airstream.custom.CustomSource
-import framework.data.AppBaseUri
+import framework.api.FrameworkHeaders
+import framework.data.{AppBaseUri, FrameworkDateTime}
 import framework.prelude.sttpClientInterpreter
 import framework.sourcecode.DefinedAt
 import framework.tapir.capabilities.ServerSentEvents
-import framework.utils.{NetworkError, NetworkOrAuthError}
-import org.scalajs.dom.{ErrorEvent, EventSource, EventSourceInit, MessageEvent}
+import framework.utils.{NetworkError, NetworkOrAuthError, PrettyPrintDuration}
+import org.scalajs.dom.{Event, EventSource, EventSourceInit, MessageEvent}
 import sttp.client3.Request
 import sttp.model.Uri
 import sttp.tapir.{DecodeResult, Endpoint, PublicEndpoint}
@@ -14,9 +15,6 @@ import sttp.tapir.{DecodeResult, Endpoint, PublicEndpoint}
 import scala.annotation.targetName
 import scala.concurrent.duration.*
 import scala.scalajs.js.JSON
-import framework.data.FrameworkDateTime
-import framework.api.FrameworkHeaders
-import framework.utils.PrettyPrintDuration
 
 extension [Input, Error, Output, Requirements](e: PublicEndpoint[Input, Error, Output, Requirements]) {
   def toReq(params: Input, now: FrameworkDateTime)(using
@@ -87,7 +85,7 @@ trait OnSSEStreamError[SecurityInput, Input, -Message] { self =>
     */
   def onError(
     uri: Uri,
-    error: ErrorEvent,
+    error: Event,
     connectionIndex: Int,
     securityInput: SecurityInput,
     input: Input,
@@ -101,7 +99,7 @@ trait OnSSEStreamError[SecurityInput, Input, -Message] { self =>
 
     override def onError(
       uri: Uri,
-      error: ErrorEvent,
+      error: Event,
       connectionIndex: Int,
       securityInput: SecurityInput,
       input: Input,
@@ -122,7 +120,7 @@ object OnSSEStreamError {
 
     override def onError(
       uri: Uri,
-      error: ErrorEvent,
+      error: Event,
       connectionIndex: Int,
       securityInput: SecurityInput,
       input: Input,
@@ -138,7 +136,7 @@ object OnSSEStreamError {
   /** Stores the last message received and uses that to determine the next request when the error occurs. */
   def keepingLastMessage[SecurityInput, Input, Message, StoredContents](
     onMessage: (Option[StoredContents], Message) => Option[StoredContents],
-    onError: (Uri, ErrorEvent, Int, SecurityInput, Input, Option[StoredContents]) => DefinedAt ?=> (
+    onError: (Uri, Event, Int, SecurityInput, Input, Option[StoredContents]) => DefinedAt ?=> (
       SecurityInput,
       Input,
       FiniteDuration,
@@ -157,7 +155,7 @@ object OnSSEStreamError {
 
       override def onError(
         uri: Uri,
-        error: ErrorEvent,
+        error: Event,
         connectionIndex: Int,
         securityInput: SecurityInput,
         input: Input,
@@ -174,7 +172,7 @@ object OnSSEStreamError {
 
   def defaultOnError[SecurityInput, Input](
     uri: Uri,
-    error: ErrorEvent,
+    error: Event,
     connectionIndex: Int,
     securityInput: SecurityInput,
     input: Input,
