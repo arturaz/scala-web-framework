@@ -12,22 +12,27 @@ import org.http4s.dsl.Http4sDsl
 object FrameworkHttpServerWithRedis {
   object Routes {
 
-    /** Returns Redis pub/sub stats as JSON at `/api/stats/redis/pubsub`. */
+    /** Returns Redis pub/sub stats as JSON at `/stats/redis/pubsub`. */
     def pubSubStats[F[_]: Monad, K: CirceKeyEncoder: CirceEncoder, V](
       cmd: PubSubCommands[F, [X] =>> fs2.Stream[F, X], K, V]
     ): HttpRoutes[F] = {
       val dsl = new Http4sDsl[F] {}
       import dsl.*
 
-      val response = Vector(
+      HttpRoutes.of[F] { case GET -> Root / "stats" / "redis" / "pubsub" => Ok(pubSubStatsResponse(cmd)) }
+    }
+
+    /** Returns Redis pub/sub stats as JSON. */
+    def pubSubStatsResponse[F[_]: Monad, K: CirceKeyEncoder: CirceEncoder, V](
+      cmd: PubSubCommands[F, [X] =>> fs2.Stream[F, X], K, V]
+    ): F[Json] = {
+      Vector(
         cmd.internalChannelSubscriptions.map("internalChannelSubscriptions" -> _.asJson),
         cmd.internalPatternSubscriptions.map("internalPatternSubscriptions" -> _.asJson),
         cmd.numPat.map("numPat" -> _.asJson),
         cmd.pubSubChannels.map("pubSubChannels" -> _.asJson),
         cmd.pubSubShardChannels.map("pubSubShardChannels" -> _.asJson),
       ).sequence.map(Json.obj(_*))
-
-      HttpRoutes.of[F] { case GET -> Root / "api" / "stats" / "redis" / "pubsub" => Ok(response) }
     }
   }
 }

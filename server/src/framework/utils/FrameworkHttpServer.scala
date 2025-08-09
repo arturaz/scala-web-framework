@@ -3,10 +3,11 @@ package framework.utils
 import cats.data.Kleisli
 import cats.syntax.all.*
 import framework.config.HttpConfig
-import framework.data.FrameworkDateTime
+import framework.data.{FrameworkDateTime, InsufficientPermissionsException}
 import framework.http.middleware.*
 import framework.prelude.*
 import fs2.io.net.tls.TLSContext
+import io.circe.Json
 import org.http4s.*
 import org.http4s.circe.*
 import org.http4s.dsl.io.*
@@ -15,19 +16,18 @@ import org.http4s.otel4s.middleware.metrics.OtelMetrics
 import org.http4s.otel4s.middleware.server.RouteClassifier
 import org.http4s.otel4s.middleware.trace.redact.{HeaderRedactor, PathRedactor, QueryRedactor}
 import org.http4s.otel4s.middleware.trace.server.{PathAndQueryRedactor, ServerMiddleware, ServerSpanDataProvider}
-import org.http4s.server.middleware.Metrics
+import org.http4s.server.middleware.{ErrorHandling, Metrics}
 import org.http4s.server.{ContextMiddleware, HttpMiddleware, Router, Server}
 import org.typelevel.otel4s.metrics.MeterProvider
 import org.typelevel.otel4s.trace.TracerProvider
 import retry.syntax.*
 import retry.{ErrorHandler, ResultHandler, RetryPolicies, RetryPolicy}
 import sttp.tapir.server.http4s.Http4sServerInterpreter
+import sttp.tapir.swagger.bundle.SwaggerInterpreter
 
 import scala.util.chaining.*
 
 import concurrent.duration.*
-import org.http4s.server.middleware.ErrorHandling
-import framework.data.InsufficientPermissionsException
 
 object FrameworkHttpServer {
   given PrettyPrintDuration.Strings = PrettyPrintDuration.Strings.EnglishShortNoSpaces
@@ -38,15 +38,19 @@ object FrameworkHttpServer {
     def all(using StreamRegistry[IO]): HttpRoutes[IO] =
       health <+> streamStats
 
-    /** Returns a route that returns a 200 OK response on `/api/health`. */
+    /** Returns a route that returns a 200 OK response on `/health`. */
     def health: HttpRoutes[IO] =
-      HttpRoutes.of[IO] { case GET -> Root / "api" / "health" => Ok("OK") }
+      HttpRoutes.of[IO] { case GET -> Root / "health" => Ok("OK") }
 
-    /** Returns a route that returns response on `/api/stats/streams`. */
+    /** Returns a route that returns response on `/stats/streams`. */
     def streamStats(using streamRegistry: StreamRegistry[IO]): HttpRoutes[IO] =
-      HttpRoutes.of[IO] { case GET -> Root / "api" / "stats" / "streams" =>
-        streamRegistry.get.flatMap(map => Ok(Map("streams" -> map).asJson))
+      HttpRoutes.of[IO] { case GET -> Root / "stats" / "streams" =>
+        streamStatsResponse.flatMap(Ok(_))
       }
+
+    /** Returns [[StreamRegistry]] stats as a JSON. */
+    def streamStatsResponse(using streamRegistry: StreamRegistry[IO]): IO[Json] =
+      streamRegistry.get.map(map => Map("streams" -> map).asJson)
   }
 
   /** Returns a context middleware that extracts the request. */
@@ -87,7 +91,7 @@ object FrameworkHttpServer {
     contextMiddleware: ContextMiddleware[IO, Context],
     createRoutes: GetCurrentRequest[IO] ?=> Http4sServerInterpreter[IO] => ContextRoutes[Context, IO],
     otelMiddleware: ServerMiddleware.Builder[IO],
-    extraRoutes: HttpRoutes[IO],
+    extraRoutes: Http4sServerInterpreter[IO] => HttpRoutes[IO],
     clientSpanName: Request[IO] => String = defaultSpanNameForClient,
   )(using TracerProvider[IO], MeterProvider[IO]): Resource[IO, Server] = {
     val serverInterpreter = Http4sServerInterpreter[IO]()
@@ -139,7 +143,9 @@ object FrameworkHttpServer {
       ctxRoutes = createRoutes(using currentReq)(serverInterpreter).pipe(contextMiddleware)
       ctxRoutes <- routesPipeline(metricsMiddleware, currentReq, withClientTracing = true)(ctxRoutes).toResource
       extraRoutes <-
-        routesPipeline(metricsMiddleware, currentReq, withClientTracing = false)(extraRoutes).toResource
+        routesPipeline(metricsMiddleware, currentReq, withClientTracing = false)(
+          extraRoutes(serverInterpreter)
+        ).toResource
       // Note the order matters here, as `extraRoutes` are more lax and `ctxRoutes` needs certain headers to be set and
       // fails requests if they are missing.
       httpApp = (extraRoutes <+> ctxRoutes).orNotFound.pipe(insufficientPermissionsHandler)
