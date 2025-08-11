@@ -81,6 +81,7 @@ def LoginViaEmailWithOTP[SendOTPResult](
   beforeOtpInputLabel: (Email, SendOTPResult) => Seq[Modifier[Div]],
   otpInputLabel: String,
   otpInputPlaceholder: Option[String],
+  otpValidation: Option[LocalizedAppliedValidate[String]],
   otpCheckButtonContent: Seq[Modifier[Button]],
   otpVerificationFailedContent: (Email, SendOTPResult) => Seq[Modifier[Div]],
   otpVerificationSucceededContent: (Email, Option[SendOTPResult]) => Seq[Modifier[Div]],
@@ -126,7 +127,10 @@ def LoginViaEmailWithOTP[SendOTPResult](
           emailStrRx,
           validation = emailValidation,
           placeholder = emailInputPlaceholder,
-          inputModifiers = Seq(disabled <-- tracker.submitting) ++ emailInputModifiers(tracker),
+          inputModifiers = Seq(
+            `type` := "email",
+            disabled <-- tracker.submitting,
+          ) ++ emailInputModifiers(tracker),
         ),
       afterEmailInputLabel(emailStrRx, emailRx),
       button(
@@ -159,6 +163,12 @@ def LoginViaEmailWithOTP[SendOTPResult](
     val otpRx = Var("")
     val otpVerifiedRx = Var(Option.empty[Boolean])
 
+    val inputInvalid = otpValidation.fold2(
+      otpRx.signal.map(_.isEmpty),
+      validation =>
+        otpRx.signal.combineWithFn(validation.validate)((str, validate) => str.isBlank() || !validate.isValid(str)),
+    )
+
     div(
       child.maybe <-- otpVerifiedRx.signal
         .map(_.contains(false))
@@ -175,7 +185,7 @@ def LoginViaEmailWithOTP[SendOTPResult](
                 .stringWithLabel(
                   otpInputLabel,
                   otpRx,
-                  validation = None,
+                  validation = otpValidation,
                   placeholder = otpInputPlaceholder,
                   inputModifiers = Seq(disabled <-- tracker.submitting) ++ otpInputModifiers(tracker),
                 ),
@@ -183,7 +193,7 @@ def LoginViaEmailWithOTP[SendOTPResult](
               button(
                 `type` := "submit",
                 cls := "btn btn-primary",
-                cls("btn-disabled") <-- tracker.submitting,
+                disabled <-- tracker.submitting.combineWithFn(inputInvalid)(_ || _),
                 child.maybe <-- tracker.submitting.splitBooleanAsOption(_ => Spinner),
                 otpCheckButtonContent,
                 onClick(_.sample(otpRx.signal)) ---> { otp =>
