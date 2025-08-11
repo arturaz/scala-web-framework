@@ -1,7 +1,15 @@
 package build.framework
 
-import mill._, scalalib._, scalajslib._
-import $file.framework.helpers._
+import coursier.ivy.IvyRepository
+import coursier.maven.MavenRepository
+import mill.*, scalalib.*, scalajslib.*
+import mill.api.{BuildCtx, Logger}
+import mill.scalajslib.api.{ModuleKind, ModuleSplitStyle, Report}
+import mill.scalalib.scalafmt.ScalafmtModule
+import os.{Path, RelPath}
+
+import java.nio.file.Files
+
 
 /** Helpers for tests. Applications can use them if they need to. */
 object testInfra extends Module {
@@ -17,134 +25,134 @@ object testInfra extends Module {
 /** Code common for all projects that use this stack and shared between JVM and JS. */
 object shared extends Module {
   trait SharedModule extends FrameworkPlatformModule {
-    override def ivyDeps = Agg(
+    override def mvnDeps = Seq(
       // Newtypes
       // https://github.com/arturaz/yantl
       // https://mvnrepository.com/artifact/io.github.arturaz/yantl
-      ivy"io.github.arturaz::yantl::0.2.3",
+      mvn"io.github.arturaz::yantl::0.2.3",
 
       // Functional programming library
       // https://typelevel.org/cats/
       // https://mvnrepository.com/artifact/org.typelevel/cats-core
-      ivy"org.typelevel::cats-core::${Versions.Cats}",
+      mvn"org.typelevel::cats-core::${Versions.Cats}",
       // // Library containing data structures which facilitate pure functional programming in the Scala programming
       // // language. Some of these are replacements for structures already present in the Scala standard library, but with improvements in safety, some are data structures for which there is no analogue in the Scala standard library.
       // // https://typelevel.org/cats-collections/
       // // https://mvnrepository.com/artifact/org.typelevel/cats-collections
-      // ivy"org.typelevel::cats-collections-core::0.9.8",
+      // mvn"org.typelevel::cats-collections-core::0.9.8",
 
       // Utilities for Cats
       // https://typelevel.org/cats/alleycats.html
       // https://mvnrepository.com/artifact/org.typelevel/alleycats-core
-      ivy"org.typelevel::alleycats-core::${Versions.Cats}",
+      mvn"org.typelevel::alleycats-core::${Versions.Cats}",
 
       // Typeclass derivation for Cats
       // https://github.com/typelevel/kittens
       // https://mvnrepository.com/artifact/org.typelevel/kittens
-      ivy"org.typelevel::kittens::3.5.0",
+      mvn"org.typelevel::kittens::3.5.0",
 
       // Effect system for Scala
       // https://typelevel.org/cats-effect/
       // https://mvnrepository.com/artifact/org.typelevel/cats-effect
-      ivy"org.typelevel::cats-effect::3.6.1",
+      mvn"org.typelevel::cats-effect::3.6.1",
 
       // Retries for cats-effect
       // https://cb372.github.io/cats-retry
       // https://mvnrepository.com/artifact/com.github.cb372/cats-retry
-      ivy"com.github.cb372::cats-retry::4.0.0",
+      mvn"com.github.cb372::cats-retry::4.0.0",
 
       // Functional streams for cats-effect
       // https://fs2.io
       // https://mvnrepository.com/artifact/co.fs2/fs2-core
-      ivy"co.fs2::fs2-core::${Versions.Fs2}",
+      mvn"co.fs2::fs2-core::${Versions.Fs2}",
       // https://mvnrepository.com/artifact/co.fs2/fs2-io
-      ivy"co.fs2::fs2-io::${Versions.Fs2}",
+      mvn"co.fs2::fs2-io::${Versions.Fs2}",
 
       // async/await syntax
       // https://github.com/dotty-cps-async/dotty-cps-async
       // https://mvnrepository.com/artifact/io.github.dotty-cps-async/dotty-cps-async-next
-      ivy"io.github.dotty-cps-async::dotty-cps-async::${Versions.DottyCpsAsync}",
+      mvn"io.github.dotty-cps-async::dotty-cps-async::${Versions.DottyCpsAsync}",
       // https://mvnrepository.com/artifact/io.github.dotty-cps-async/cps-async-connect-cats-effect
-      ivy"io.github.dotty-cps-async::cps-async-connect-cats-effect::${Versions.DottyCpsAsyncConnect}",
+      mvn"io.github.dotty-cps-async::cps-async-connect-cats-effect::${Versions.DottyCpsAsyncConnect}",
       // https://mvnrepository.com/artifact/io.github.dotty-cps-async/cps-async-connect-fs2
-      ivy"io.github.dotty-cps-async::cps-async-connect-fs2::${Versions.DottyCpsAsyncConnect}",
+      mvn"io.github.dotty-cps-async::cps-async-connect-fs2::${Versions.DottyCpsAsyncConnect}",
 
       // Quickly modify deeply nested case class fields
       // https://www.optics.dev/Monocle/
       // https://mvnrepository.com/artifact/dev.optics/monocle-core
-      ivy"dev.optics::monocle-core::${Versions.Monocle}",
+      mvn"dev.optics::monocle-core::${Versions.Monocle}",
       // https://mvnrepository.com/artifact/dev.optics/monocle-macro
-      ivy"dev.optics::monocle-macro::${Versions.Monocle}",
+      mvn"dev.optics::monocle-macro::${Versions.Monocle}",
 
       // case class transformations
       // https://chimney.readthedocs.io/en/stable
       // https://mvnrepository.com/artifact/io.scalaland/chimney
-      ivy"io.scalaland::chimney::${Versions.Chimney}",
+      mvn"io.scalaland::chimney::${Versions.Chimney}",
       // https://mvnrepository.com/artifact/io.scalaland/chimney-cats
-      ivy"io.scalaland::chimney-cats::${Versions.Chimney}",
+      mvn"io.scalaland::chimney-cats::${Versions.Chimney}",
 
       // JSON serialization
       // https://github.com/circe/circe
       // https://mvnrepository.com/artifact/io.circe/circe-core
-      ivy"io.circe::circe-core::${Versions.Circe}",
+      mvn"io.circe::circe-core::${Versions.Circe}",
       // https://mvnrepository.com/artifact/io.circe/circe-generic
-      ivy"io.circe::circe-generic::${Versions.Circe}",
+      mvn"io.circe::circe-generic::${Versions.Circe}",
       // https://mvnrepository.com/artifact/io.circe/circe-parser
-      ivy"io.circe::circe-parser::${Versions.Circe}",
+      mvn"io.circe::circe-parser::${Versions.Circe}",
 
       // JSON Web Tokens
       // https://jwt-scala.github.io
       // https://mvnrepository.com/artifact/com.github.jwt-scala/jwt-circe
-      ivy"com.github.jwt-scala::jwt-circe::10.0.4",
+      mvn"com.github.jwt-scala::jwt-circe::10.0.4",
 
       // Macros for source code information
       // https://github.com/com-lihaoyi/sourcecode
       // https://mvnrepository.com/artifact/com.lihaoyi/sourcecode
-      ivy"com.lihaoyi::sourcecode::0.4.2",
+      mvn"com.lihaoyi::sourcecode::0.4.2",
 
       // ULID generation,
       // https://github.com/jkugiya/ulid-scala
       // https://mvnrepository.com/artifact/com.github.jkugiya/ulid-scala
-      ivy"com.github.jkugiya::ulid-scala::1.0.5",
+      mvn"com.github.jkugiya::ulid-scala::1.0.5",
 
       // Endpoint description library
       // https://tapir.softwaremill.com/en/latest/
       // https://mvnrepository.com/artifact/com.softwaremill.sttp.tapir/tapir-core
-      ivy"com.softwaremill.sttp.tapir::tapir-core::${Versions.Tapir}",
+      mvn"com.softwaremill.sttp.tapir::tapir-core::${Versions.Tapir}",
       // https://mvnrepository.com/artifact/com.softwaremill.sttp.tapir/tapir-cats
-      ivy"com.softwaremill.sttp.tapir::tapir-cats::${Versions.Tapir}",
+      mvn"com.softwaremill.sttp.tapir::tapir-cats::${Versions.Tapir}",
       // https://mvnrepository.com/artifact/com.softwaremill.sttp.tapir/tapir-json-circe
-      ivy"com.softwaremill.sttp.tapir::tapir-json-circe::${Versions.Tapir}",
+      mvn"com.softwaremill.sttp.tapir::tapir-json-circe::${Versions.Tapir}",
       // https://mvnrepository.com/artifact/com.softwaremill.sttp.tapir/tapir-json-pickler
-      // ivy"com.softwaremill.sttp.tapir::tapir-json-pickler::${Versions.Tapir}",
+      // mvn"com.softwaremill.sttp.tapir::tapir-json-pickler::${Versions.Tapir}",
       // https://mvnrepository.com/artifact/com.softwaremill.sttp.tapir/tapir-cats-effect
-      ivy"com.softwaremill.sttp.tapir::tapir-cats-effect::${Versions.Tapir}",
+      mvn"com.softwaremill.sttp.tapir::tapir-cats-effect::${Versions.Tapir}",
       // https://mvnrepository.com/artifact/com.softwaremill.sttp.shared/fs2
-      ivy"com.softwaremill.sttp.shared::fs2::1.5.0",
+      mvn"com.softwaremill.sttp.shared::fs2::1.5.0",
 
       // Reactive router for Laminar
       // https://github.com/raquo/Waypoint
       // https://mvnrepository.com/artifact/com.raquo/waypoint
       //
       // Defined in shared part because sometimes you want to access client-side routes from the server.
-      ivy"com.raquo::waypoint::9.0.0",
+      mvn"com.raquo::waypoint::9.0.0",
 
       // Pretty printing library
       // https://github.com/com-lihaoyi/PPrint
       // https://mvnrepository.com/artifact/com.lihaoyi/pprint
-      ivy"com.lihaoyi::pprint::0.9.0",
+      mvn"com.lihaoyi::pprint::0.9.0",
 
       Libraries.magnolia,
 
       // // Derivation of case classes and sealed traits/enums
       // // https://github.com/propensive/wisteria
       // // https://mvnrepository.com/artifact/dev.soundness/wisteria-core
-      // ivy"dev.soundness:wisteria-core:0.23.0",
+      // mvn"dev.soundness:wisteria-core:0.23.0",
 
       // Derivation of union types
       // https://github.com/irevive/union-derivation
       // https://mvnrepository.com/artifact/io.github.irevive/union-derivation-core
-      ivy"io.github.irevive::union-derivation-core::0.2.1"
+      mvn"io.github.irevive::union-derivation-core::0.2.1"
     )
   }
 
@@ -170,7 +178,7 @@ object shared extends Module {
 /** Support for Squants. */
 object sharedSquants extends Module {
   trait SharedModule extends FrameworkPlatformModule {
-    override def ivyDeps = Agg(
+    override def mvnDeps = Seq(
       Libraries.squants
     )
   }
@@ -210,43 +218,43 @@ object sharedRedis extends FrameworkScalaModule {
 object client extends FrameworkScalaJSModule {
   override def moduleDeps = Seq(shared.js)
 
-  override def scalacOptions: Target[Seq[String]] = T {
+  override def scalacOptions: Task.Simple[Seq[String]] = Task {
     super.scalacOptions() ++ Seq(makePreludeImportsCompilerOption(ScalaDefaultImports ++ FrameworkPreludeImports))
   }
 
-  override def ivyDeps = Agg(
+  override def mvnDeps = Seq(
     // Reactive UI library for Scala.js
     // https://laminar.dev
     // https://mvnrepository.com/artifact/com.raquo/laminar
-    ivy"com.raquo::laminar::17.2.1",
+    mvn"com.raquo::laminar::17.2.1",
 
     // FRP library for Scala.js
     // https://github.com/raquo/Airstream/
     // https://mvnrepository.com/artifact/com.raquo/airstream
-    ivy"com.raquo::airstream::17.2.1",
+    mvn"com.raquo::airstream::17.2.1",
 
     // An implementation of ExecutionContext in terms of JavaScript's `setImmediate`.
     // https://github.com/scala-js/scala-js-macrotask-executor
-    ivy"org.scala-js::scala-js-macrotask-executor::1.1.1",
+    mvn"org.scala-js::scala-js-macrotask-executor::1.1.1",
 
     // The HTTP client.
     // https://tapir.softwaremill.com/en/latest/client/sttp.html#
-    ivy"com.softwaremill.sttp.tapir::tapir-sttp-client::${Versions.Tapir}",
+    mvn"com.softwaremill.sttp.tapir::tapir-sttp-client::${Versions.Tapir}",
 
     // https://sttp.softwaremill.com/en/stable/backends/javascript/fetch.html#cats-effect-based
     // We use cats-effect because `Future` based backend does not have cancellation support.
     // https://mvnrepository.com/artifact/com.softwaremill.sttp.client3/cats
-    ivy"com.softwaremill.sttp.client3::cats::3.10.3",
+    mvn"com.softwaremill.sttp.client3::cats::3.10.3",
 
     // Java 8 Date/Time API implemented in Scala
     // http://cquiroz.github.io/scala-java-time/
     // https://mvnrepository.com/artifact/io.github.cquiroz/scala-java-time
-    ivy"io.github.cquiroz::scala-java-time::2.6.0",
+    mvn"io.github.cquiroz::scala-java-time::2.6.0",
 
     // Idiomatic Cats Effect and FS2 integrations for Web APIs via scala-js-dom.
     // https://github.com/armanbilge/fs2-dom
     // https://mvnrepository.com/artifact/com.armanbilge/fs2-dom
-    ivy"com.armanbilge::fs2-dom::0.3.0-M1",
+    mvn"com.armanbilge::fs2-dom::0.3.0-M1",
   )
 
   object tests extends FrameworkTestModule with FrameworkScalaJSTestModule {
@@ -256,7 +264,7 @@ object client extends FrameworkScalaJSModule {
 
 /** Code for UI components using tailwindcss and [[https://daisyui.com/ daisyui]]. */
 object clientDaisyUI extends FrameworkScalaJSModule {
-  override def scalacOptions: Target[Seq[String]] = T {
+  override def scalacOptions: Task.Simple[Seq[String]] = Task {
     super.scalacOptions() ++ Seq(makePreludeImportsCompilerOption(ScalaDefaultImports ++ FrameworkPreludeImports))
   }
 
@@ -264,28 +272,28 @@ object clientDaisyUI extends FrameworkScalaJSModule {
 }
 
 object clientDaisyUISquants extends FrameworkScalaJSModule {
-  override def scalacOptions: Target[Seq[String]] = T {
+  override def scalacOptions: Task.Simple[Seq[String]] = Task {
     super.scalacOptions() ++ Seq(makePreludeImportsCompilerOption(ScalaDefaultImports ++ FrameworkPreludeImports))
   }
 
   override def moduleDeps = Seq(clientDaisyUI)  
 
-  override def ivyDeps = Agg(
+  override def mvnDeps = Seq(
     Libraries.squants,
   )
 }
 
 object clientSupabase extends FrameworkScalaJSModule {
-  override def scalacOptions: Target[Seq[String]] = T {
+  override def scalacOptions: Task.Simple[Seq[String]] = Task {
     super.scalacOptions() ++ Seq(makePreludeImportsCompilerOption(ScalaDefaultImports ++ FrameworkPreludeImports))
   }
 
   override def moduleDeps = Seq(client)
 
-  override def compileIvyDeps = Agg(
+  override def compileMvnDeps = Seq(
     // Generated by scalably-typed
-    ivy"org.scalablytyped::supabase__supabase-js::2.46.1-48343c",
-    ivy"org.scalablytyped::supabase__auth-js::2.65.1-518a34"
+    mvn"org.scalablytyped::supabase__supabase-js::2.46.1-48343c",
+    mvn"org.scalablytyped::supabase__auth-js::2.65.1-518a34"
   )
 }
 
@@ -293,169 +301,169 @@ object clientSupabase extends FrameworkScalaJSModule {
 object server extends FrameworkScalaModule {
   override def moduleDeps = Seq(shared.jvm)
 
-  override def scalacOptions: Target[Seq[String]] = T {
+  override def scalacOptions: Task.Simple[Seq[String]] = Task {
     super.scalacOptions() ++ Seq(makePreludeImportsCompilerOption(ScalaDefaultImports ++ FrameworkPreludeImports))
   }
 
-  override def ivyDeps = Agg(
+  override def mvnDeps = Seq(
     // HTTP endpoint description library
     // https://tapir.softwaremill.com/en/latest/
     // https://mvnrepository.com/artifact/com.softwaremill.sttp.tapir
-    ivy"com.softwaremill.sttp.tapir::tapir-http4s-server:${Versions.Tapir}",
-    ivy"com.softwaremill.sttp.tapir::tapir-cats-effect:${Versions.Tapir}",
-    ivy"com.softwaremill.sttp.tapir::tapir-swagger-ui-bundle:${Versions.Tapir}",
-    ivy"com.softwaremill.sttp.tapir::tapir-redoc-bundle:${Versions.Tapir}",
+    mvn"com.softwaremill.sttp.tapir::tapir-http4s-server:${Versions.Tapir}",
+    mvn"com.softwaremill.sttp.tapir::tapir-cats-effect:${Versions.Tapir}",
+    mvn"com.softwaremill.sttp.tapir::tapir-swagger-ui-bundle:${Versions.Tapir}",
+    mvn"com.softwaremill.sttp.tapir::tapir-redoc-bundle:${Versions.Tapir}",
 
     // HTTP server
     // https://http4s.org/
     // https://mvnrepository.com/artifact/org.http4s/http4s-dsl
-    ivy"org.http4s::http4s-dsl:${Versions.Http4s}",
+    mvn"org.http4s::http4s-dsl:${Versions.Http4s}",
     // https://mvnrepository.com/artifact/org.http4s/http4s-ember-server
-    ivy"org.http4s::http4s-ember-server:${Versions.Http4s}",
+    mvn"org.http4s::http4s-ember-server:${Versions.Http4s}",
     // https://mvnrepository.com/artifact/org.http4s/http4s-ember-client
-    ivy"org.http4s::http4s-ember-client:${Versions.Http4s}",
+    mvn"org.http4s::http4s-ember-client:${Versions.Http4s}",
     // https://mvnrepository.com/artifact/org.http4s/http4s-circe
-    ivy"org.http4s::http4s-circe:${Versions.Http4s}",
+    mvn"org.http4s::http4s-circe:${Versions.Http4s}",
 
     // Pure Scala Logging library
     // https://github.com/outr/scribe
     // https://mvnrepository.com/artifact/com.outr/scribe
-    ivy"com.outr::scribe:${Versions.Scribe}",
+    mvn"com.outr::scribe:${Versions.Scribe}",
     // https://mvnrepository.com/artifact/com.outr/scribe-cats
-    ivy"com.outr::scribe-cats:${Versions.Scribe}",
+    mvn"com.outr::scribe-cats:${Versions.Scribe}",
     // immudb and http4s uses SLF4J
     // https://github.com/outr/scribe/wiki/slf4j
     // https://mvnrepository.com/artifact/com.outr/scribe-slf4j
-    ivy"com.outr::scribe-slf4j2:${Versions.Scribe}",
+    mvn"com.outr::scribe-slf4j2:${Versions.Scribe}",
     // File logging support
     // https://mvnrepository.com/artifact/com.outr/scribe-file
-    ivy"com.outr::scribe-file:${Versions.Scribe}",
+    mvn"com.outr::scribe-file:${Versions.Scribe}",
 
     // Tracing
     //
     // Opentelemetry
     // https://typelevel.org/otel4s/
     // https://mvnrepository.com/artifact/org.typelevel/otel4s-oteljava
-    ivy"org.typelevel::otel4s-oteljava:${Versions.Otel4s}",
+    mvn"org.typelevel::otel4s-oteljava:${Versions.Otel4s}",
     // HTTP4s integration
     // https://github.com/http4s/http4s-otel4s-middleware
     // https://mvnrepository.com/artifact/org.http4s/http4s-otel4s-middleware-metrics
-    ivy"org.http4s::http4s-otel4s-middleware-metrics:${Versions.Otel4sHttp4s}",
+    mvn"org.http4s::http4s-otel4s-middleware-metrics:${Versions.Otel4sHttp4s}",
     // Support for declarative configuration
     // https://opentelemetry.io/docs/languages/java/configuration/#declarative-configuration
     // https://mvnrepository.com/artifact/io.opentelemetry/opentelemetry-sdk-extension-incubator
-    ivy"io.opentelemetry:opentelemetry-sdk-extension-incubator:${Versions.OpenTelemetryJavaIncubator}",
+    mvn"io.opentelemetry:opentelemetry-sdk-extension-incubator:${Versions.OpenTelemetryJavaIncubator}",
     // https://mvnrepository.com/artifact/org.http4s/http4s-otel4s-middleware-trace-server
-    ivy"org.http4s::http4s-otel4s-middleware-trace-server:${Versions.Otel4sHttp4s}",
+    mvn"org.http4s::http4s-otel4s-middleware-trace-server:${Versions.Otel4sHttp4s}",
     // JVM runtime metrics
     // https://typelevel.org/otel4s/oteljava/metrics-jvm-runtime.html#java-17-and-newer
     // https://mvnrepository.com/artifact/io.opentelemetry.instrumentation/opentelemetry-runtime-telemetry-java17
-    ivy"io.opentelemetry.instrumentation:opentelemetry-runtime-telemetry-java17:2.14.0-alpha",
+    mvn"io.opentelemetry.instrumentation:opentelemetry-runtime-telemetry-java17:2.14.0-alpha",
     // Cats Effect metrics
     // https://typelevel.org/otel4s/instrumentation/metrics-cats-effect-io-runtime.html#getting-started
     // https://mvnrepository.com/artifact/org.typelevel/otel4s-instrumentation-metrics
-    ivy"org.typelevel::otel4s-instrumentation-metrics:${Versions.Otel4s}",
+    mvn"org.typelevel::otel4s-instrumentation-metrics:${Versions.Otel4s}",
     // Otel4s and Doobie integration
     // https://github.com/arturaz/otel4s-doobie
     // https://mvnrepository.com/artifact/io.github.arturaz/otel4s-doobie
-    ivy"io.github.arturaz::otel4s-doobie:0.3.0",
+    mvn"io.github.arturaz::otel4s-doobie:0.3.0",
 
     // Flyway database migrations wrapped in cats-effect
     // https://github.com/geirolz/fly4s
     // https://mvnrepository.com/artifact/com.github.geirolz/fly4s
-    ivy"com.github.geirolz::fly4s:1.1.0",
+    mvn"com.github.geirolz::fly4s:1.1.0",
     // https://documentation.red-gate.com/flyway/reference/database-driver-reference/postgresql-database
     // https://mvnrepository.com/artifact/org.flywaydb/flyway-database-postgresql
-    ivy"org.flywaydb:flyway-database-postgresql:11.5.0",
+    mvn"org.flywaydb:flyway-database-postgresql:11.5.0",
 
     // PostgreSQL driver
     // https://jdbc.postgresql.org/
     // https://mvnrepository.com/artifact/org.postgresql/postgresql
-    ivy"org.postgresql:postgresql:42.7.5",
+    mvn"org.postgresql:postgresql:42.7.5",
 
     // PostgreSQL database access
     // https://tpolecat.github.io/doobie
     // https://mvnrepository.com/artifact/org.tpolecat/doobie-core
-    ivy"org.tpolecat::doobie-core:${Versions.Doobie}",
+    mvn"org.tpolecat::doobie-core:${Versions.Doobie}",
     // https://mvnrepository.com/artifact/org.tpolecat/doobie-postgres
-    ivy"org.tpolecat::doobie-postgres:${Versions.Doobie}",
+    mvn"org.tpolecat::doobie-postgres:${Versions.Doobie}",
     // https://mvnrepository.com/artifact/org.tpolecat/doobie-hikari
-    ivy"org.tpolecat::doobie-hikari:${Versions.Doobie}",
+    mvn"org.tpolecat::doobie-hikari:${Versions.Doobie}",
     // https://mvnrepository.com/artifact/org.tpolecat/doobie-postgres-circe
-    ivy"org.tpolecat::doobie-postgres-circe:${Versions.Doobie}",
+    mvn"org.tpolecat::doobie-postgres-circe:${Versions.Doobie}",
 
     // Typesafe doobie (for SQL queries)
     // https://arturaz.github.io/doobie-typesafe
     // https://mvnrepository.com/artifact/io.github.arturaz/doobie-typesafe
-    ivy"io.github.arturaz::doobie-typesafe:0.4.1",
+    mvn"io.github.arturaz::doobie-typesafe:0.4.1",
 
     // Functional Configurations for Scala
     // https://cir.is/
     // https://mvnrepository.com/artifact/is.cir/ciris
-    ivy"is.cir::ciris:${Versions.Ciris}",
+    mvn"is.cir::ciris:${Versions.Ciris}",
     // https://mvnrepository.com/artifact/is.cir/ciris-http4s
-    ivy"is.cir::ciris-http4s:${Versions.Ciris}",
+    mvn"is.cir::ciris-http4s:${Versions.Ciris}",
 
     // Calculating diffs for auditing
     // https://github.com/jatcwang/difflicious
     // https://mvnrepository.com/artifact/com.github.jatcwang/difflicious-cats
-    ivy"com.github.jatcwang::difflicious-cats:0.4.3",
+    mvn"com.github.jatcwang::difflicious-cats:0.4.3",
 
     // WebPush notifications
     // https://github.com/web-push-libs/webpush-java
     // https://mvnrepository.com/artifact/nl.martijndwars/web-push
-    ivy"nl.martijndwars:web-push:5.1.2",
+    mvn"nl.martijndwars:web-push:5.1.2",
     // ### WebPush runtime dependencies ###
     // HTTP client for WebPush. Why is there two of them? No idea.
     // https://mvnrepository.com/artifact/org.apache.httpcomponents/httpasyncclient
-    ivy"org.apache.httpcomponents:httpasyncclient:4.1.5",
+    mvn"org.apache.httpcomponents:httpasyncclient:4.1.5",
     // https://mvnrepository.com/artifact/org.asynchttpclient/async-http-client
-    ivy"org.asynchttpclient:async-http-client:3.0.2",
+    mvn"org.asynchttpclient:async-http-client:3.0.2",
     // https://mvnrepository.com/artifact/org.bitbucket.b_c/jose4j
-    ivy"org.bitbucket.b_c:jose4j:0.9.6",
+    mvn"org.bitbucket.b_c:jose4j:0.9.6",
     // ###
 
     // BouncyCastle - cryptography library (for WebPush)
     // Core provider
     // https://mvnrepository.com/artifact/org.bouncycastle/bcprov-jdk18on
-    ivy"org.bouncycastle:bcprov-jdk18on:${Versions.BouncyCastle}",
+    mvn"org.bouncycastle:bcprov-jdk18on:${Versions.BouncyCastle}",
     // Bouncy Castle PKIX, CMS, EAC, TSP, PKCS, OCSP, CMP, and CRMF APIs
     // https://mvnrepository.com/artifact/org.bouncycastle/bcpkix-jdk18on
-    ivy"org.bouncycastle:bcpkix-jdk18on:${Versions.BouncyCastle}",
+    mvn"org.bouncycastle:bcpkix-jdk18on:${Versions.BouncyCastle}",
 
     // Command line argument parsing
     // https://github.com/bkirwi/decline
     // https://mvnrepository.com/artifact/com.monovore/decline
-    ivy"com.monovore::decline:${Versions.Decline}",
+    mvn"com.monovore::decline:${Versions.Decline}",
     // https://mvnrepository.com/artifact/com.monovore/decline-effect
-    ivy"com.monovore::decline-effect:${Versions.Decline}",
+    mvn"com.monovore::decline-effect:${Versions.Decline}",
   )
 
-  override def runIvyDeps = Agg(
+  override def runMvnDeps = Seq(
     // https://mvnrepository.com/artifact/io.opentelemetry/opentelemetry-exporter-otlp
-    ivy"io.opentelemetry:opentelemetry-exporter-otlp:${Versions.OpenTelemetryJava}",
+    mvn"io.opentelemetry:opentelemetry-exporter-otlp:${Versions.OpenTelemetryJava}",
     // https://mvnrepository.com/artifact/io.opentelemetry/opentelemetry-sdk-extension-autoconfigure
-    ivy"io.opentelemetry:opentelemetry-sdk-extension-autoconfigure:${Versions.OpenTelemetryJava}"
+    mvn"io.opentelemetry:opentelemetry-sdk-extension-autoconfigure:${Versions.OpenTelemetryJava}"
   )
 
   object testInfra extends FrameworkTestModule {
     override def moduleDeps: Seq[JavaModule] = Seq(server, build.framework.testInfra.jvm)
 
-    override def ivyDeps = super.ivyDeps() ++ Agg(
+    override def mvnDeps = super.mvnDeps() ++ Seq(
       // https://typelevel.org/doobie/docs/13-Unit-Testing.html#the-munit-package
       // https://mvnrepository.com/artifact/org.tpolecat/doobie-munit
-      ivy"org.tpolecat::doobie-munit:${Versions.Doobie}",
+      mvn"org.tpolecat::doobie-munit:${Versions.Doobie}",
     )
   }
 
   object tests extends FrameworkTestModule {
     override def moduleDeps: Seq[JavaModule] = Seq(server.testInfra)
 
-    override def ivyDeps = super.ivyDeps() ++ Agg(
+    override def mvnDeps = super.mvnDeps() ++ Seq(
       // In-memory database.
       // https://www.h2database.com/
       // https://mvnrepository.com/artifact/com.h2database/h2
-      ivy"com.h2database:h2:2.3.232"
+      mvn"com.h2database:h2:2.3.232"
     )
   }
 }
@@ -463,20 +471,20 @@ object server extends FrameworkScalaModule {
 object serverRedis extends FrameworkScalaModule {
   override def moduleDeps = Seq(server, sharedRedis.jvm)
 
-  override def ivyDeps = Agg(
+  override def mvnDeps = Seq(
     // Redis client
     // https://github.com/profunktor/redis4cats
     // https://mvnrepository.com/artifact/dev.profunktor/redis4cats-effects
-    ivy"dev.profunktor::redis4cats-effects:${Versions.Redis4Cats}",
+    mvn"dev.profunktor::redis4cats-effects:${Versions.Redis4Cats}",
     // https://mvnrepository.com/artifact/dev.profunktor/redis4cats-streams
-    ivy"dev.profunktor::redis4cats-streams:${Versions.Redis4Cats}",
+    mvn"dev.profunktor::redis4cats-streams:${Versions.Redis4Cats}",
 
     // Otel4s and Redis4Cats integration
     // https://github.com/arturaz/otel4s-redis4cats
     // https://mvnrepository.com/artifact/io.github.arturaz/otel4s-redis4cats-effects
-    ivy"io.github.arturaz::otel4s-redis4cats-effects:${Versions.Otel4sRedis4Cats}",
+    mvn"io.github.arturaz::otel4s-redis4cats-effects:${Versions.Otel4sRedis4Cats}",
     // https://mvnrepository.com/artifact/io.github.arturaz/otel4s-redis4cats-streams
-    ivy"io.github.arturaz::otel4s-redis4cats-streams:${Versions.Otel4sRedis4Cats}",
+    mvn"io.github.arturaz::otel4s-redis4cats-streams:${Versions.Otel4sRedis4Cats}",
   )
 
   object testInfra extends FrameworkTestModule {
@@ -489,9 +497,9 @@ object serverRedis extends FrameworkScalaModule {
 object serverSquants extends FrameworkScalaModule {
   override def moduleDeps = Seq(server, sharedSquants.jvm)
 
-  override def ivyDeps = Agg(
+  override def mvnDeps = Seq(
     // https://mvnrepository.com/artifact/is.cir/ciris-squants
-    ivy"is.cir::ciris-squants:${Versions.Ciris}",
+    mvn"is.cir::ciris-squants:${Versions.Ciris}",
   )
 }
 
@@ -499,10 +507,316 @@ object serverSquants extends FrameworkScalaModule {
 object serverPostGIS extends FrameworkScalaModule {
   override def moduleDeps = Seq(server)
 
-  override def ivyDeps = Agg(
+  override def mvnDeps = Seq(
     // PostGIS JDBC driver
     // https://postgis.net/docs/manual-1.5/ch05.html#id366626
     // https://mvnrepository.com/artifact/net.postgis/postgis-jdbc
-    ivy"net.postgis:postgis-jdbc:2024.1.0"
+    mvn"net.postgis:postgis-jdbc:2024.1.0"
+  )
+}
+
+//// HELPERS ////
+
+
+/** Run `mill mill.scalalib.Dependency/showUpdates` to check for new versions. */
+object Versions {
+
+  /** [[https://scala-lang.org]].
+    *
+    * See the newest versions in https://github.com/scala/scala3/releases.
+    */
+  final val Scala = "3.7.0"
+
+  /** Look up the version compatible with [[Scala]] version in https://mvnrepository.com/artifact/com.lihaoyi/ammonite.
+    */
+  final val Ammonite = "3.0.0-2-6342755f"
+
+  /** [[https://scala-js.org]] */
+  final val ScalaJS = "1.19.0"
+
+  final val Cats = "2.13.0"
+  final val Fs2 = "3.12.0"
+  final val MUnit = "1.1.1"
+  final val Tapir = "1.11.41"
+  final val Http4s = "0.23.30"
+  final val Scribe = "3.16.0"
+  final val Doobie = "1.0.0-RC8"
+  final val Chimney = "1.7.3"
+  final val Circe = "0.14.12"
+  final val Monocle = "3.3.0"
+  final val Ciris = "3.8.0"
+  // Build with fixes for:
+  // https://github.com/profunktor/redis4cats/pull/952 - bugfix: reading from a silent stream should not fail with 
+  //                                                     RedisCommandTimeoutException
+  // https://github.com/profunktor/redis4cats/pull/963 - Change the streaming API
+  // https://github.com/profunktor/redis4cats/pull/966 - Fix race conditions in pubsub
+  final val Redis4Cats = "1.8.0-21-2b73cea-SNAPSHOT"
+
+  final val Squants = "1.8.3"
+
+  final val OpenTelemetryJava = "1.48.0"
+  final val OpenTelemetryJavaIncubator = OpenTelemetryJava + "-alpha"
+  final val Otel4s = "0.12.0"
+  final val Otel4sHttp4s = "0.12.0-beta.3"
+  final val Otel4sRedis4Cats = "0.1-77d3f6f-SNAPSHOT"
+
+  final val BouncyCastle = "1.80"
+  final val DottyCpsAsync = "1.0.2"
+  final val DottyCpsAsyncConnect = "1.0.2"
+  final val Decline = "2.5.0"
+}
+
+object Libraries {
+  // The Scala API for Quantities, Units of Measure and Dimensional Analysis
+  // https://github.com/typelevel/squants
+  // https://mvnrepository.com/artifact/org.typelevel/squants
+  val squants = mvn"org.typelevel::squants::${Versions.Squants}"
+
+  // Derivation of case classes and sealed traits/enums
+  // https://github.com/softwaremill/magnolia
+  // https://mvnrepository.com/artifact/com.softwaremill.magnolia1_3/magnolia
+  val magnolia = mvn"com.softwaremill.magnolia1_3::magnolia::1.3.16"
+}
+
+/** Barebones Scala build. */
+trait BaseScalaModule extends ScalaModule {
+  override def scalaVersion = Versions.Scala
+
+  override def ammoniteVersion = Versions.Ammonite
+}
+
+/** Barebones Scala.js build. */
+trait BaseScalaJSModule extends BaseScalaModule with ScalaJSModule {
+  // https://www.scala-js.org/
+  override def scalaJSVersion = Versions.ScalaJS
+
+  /** Emit ES-type modules */
+  override def moduleKind = ModuleKind.ESModule
+
+  /** Split the JS output into lots of small files so that Vite could reload them quickly.
+    *   - small modules for our code
+    *   - large modules for external dependencies and standard library
+    */
+  override def moduleSplitStyle = ModuleSplitStyle.SmallModulesFor("app")
+}
+
+def ivyRepositoryFromUrl(url: String) = {
+  IvyRepository.parse(
+    s"$url/[organization]/[module](_[scalaVersion])/[revision]/[type]s/[artifact](-[classifier]).[ext]"
+  ) match {
+    case Left(value)  => throw new Exception(value)
+    case Right(value) => value
+  }
+}
+
+/** Scala module for our own non-generated code. */
+trait FrameworkScalaModule extends BaseScalaModule with ScalafmtModule /*  with ScalafixModule */ {
+  override def scalacOptions = Task {
+    Seq(
+      // Show deprecation warnings
+      "-deprecation",
+      // Show feature warnings,
+      "-feature",
+      // Warn if a non-unit value is being discarded implicitly
+      "-Wvalue-discard",
+      // https://github.com/scala/scala3/pull/18093
+      "-Wimplausible-patterns",
+      // Treat warnings as errors
+      "-Werror",
+      // Allow implicit conversions
+      "-language:implicitConversions",
+      // Allow higher-kinded types
+      "-language:higherKinds",
+      // Enable strict equality: https://docs.scala-lang.org/scala3/reference/contextual/multiversal-equality.html
+      "-language:strictEquality",
+      // Increase the number of allowed inlines, we have case classes with loads of fields.
+      "-Xmax-inlines:128",
+      // Disable significant indentation, it's evil and error-prone.
+      "-no-indent",
+      // https://www.scala-lang.org/2024/08/19/given-priority-change-3.7.html
+      "-source", "3.7",
+      // Enable preview features: https://www.scala-lang.org/news/3.7.0/#preview-features
+      "-preview",
+      // From https://github.com/iRevive/union-derivation?tab=readme-ov-file#getting-started:
+      // important for the detection of an abstract method in a trait
+      "-Yretain-trees", 
+      // "-experimental"
+    )
+  }
+
+  override def repositoriesTask = Task.Anon {
+    super.repositoriesTask() ++ Seq(
+      ivyRepositoryFromUrl("https://arturaz.github.io/packages/ivy2"),
+      MavenRepository("https://arturaz.github.io/packages/maven/repository"),
+    )
+  }
+}
+
+/** ScalaJS module for our own non-generated code. */
+trait FrameworkScalaJSModule extends FrameworkScalaModule with BaseScalaJSModule
+
+/** ScalaJS module for the web client which uses Vite. */
+trait FrameworkScalaJSViteModule extends FrameworkScalaJSModule {
+  /** The name of the web client directory relative to the workspace root. */
+  def clientDirName: String
+
+  def buildDevJS() = Task.Command {
+    copyGeneratedJS(fastLinkJS(), BuildCtx.workspaceRoot, Task.log, cleanBeforeCopy = false)
+  }
+
+  def buildProdJS() = Task.Command {
+    copyGeneratedJS(fullLinkJS(), BuildCtx.workspaceRoot, Task.log, cleanBeforeCopy = true)
+  }
+
+  private def copyGeneratedJS(
+    report: Report,
+    workspace: Path,
+    log: Logger,
+    cleanBeforeCopy: Boolean
+  ): Report = {
+    val src = report.dest.path
+    val dstDir = workspace / clientDirName / "vite" / "scala_output"
+
+    if (cleanBeforeCopy) {
+      log.info(s"Cleaning '$dstDir'")
+      os.remove.all(dstDir)
+      os.makeDir(dstDir)
+    }
+
+    copyBySwap(src, dstDir, log)
+
+    report
+  }
+}
+
+/** A module shared between JVM and JS. */
+trait FrameworkPlatformModule extends FrameworkScalaModule with PlatformScalaModule
+
+val ScalaDefaultImports: Vector[String] = Vector(
+  "java.lang",
+  "scala",
+  "scala.Predef",
+)
+
+val FrameworkPreludeImports: Vector[String] = Vector(
+  "framework.exts",
+  "framework.prelude",
+  "cps",
+  "cps.monads",
+  "cps.monads.catsEffect",
+)
+
+def makePreludeImportsCompilerOption(imports: Vector[String]): String =
+  s"-Yimports:${imports.mkString(",")}"
+
+trait FrameworkTestModule extends FrameworkScalaModule with TestModule.Munit {
+  override def mvnDeps = super.mvnDeps() ++ Seq(
+    // Testing framework
+    // https://scalameta.org/munit/
+    // https://mvnrepository.com/artifact/org.scalameta/munit
+    mvn"org.scalameta::munit::${Versions.MUnit}",
+
+    // MUnit support for Cats Effect
+    // https://github.com/typelevel/munit-cats-effect
+    // https://mvnrepository.com/artifact/org.typelevel/munit-cats-effect
+    mvn"org.typelevel::munit-cats-effect::2.1.0",
+
+    // MUnit support for ScalaCheck
+    // https://scalameta.org/munit/docs/integrations/scalacheck.html
+    // https://mvnrepository.com/artifact/org.scalameta/munit-scalacheck
+    // mvn"org.scalameta::munit-scalacheck::${Versions.MUnit}",
+
+    // MUnit support for Hedgehog (property based testing)
+    // https://hedgehogqa.github.io/scala-hedgehog/docs/integration-munit
+    // https://mvnrepository.com/artifact/qa.hedgehog/hedgehog-munit
+    mvn"qa.hedgehog::hedgehog-munit::0.11.0",
+
+    // Used for sharing test resources between test suites.
+    // https://arturaz.github.io/cats-effect-resource-shared-memoized/
+    // https://mvnrepository.com/artifact/io.github.arturaz/cats-effect-resource-shared-memoized
+    mvn"io.github.arturaz::cats-effect-resource-shared-memoized::0.1.2",
+
+    Libraries.magnolia,
+  )
+}
+
+/** Module for tests that use Scala.js. */
+trait FrameworkScalaJSTestModule extends FrameworkTestModule with FrameworkScalaJSModule with TestScalaJSModule
+
+/** Copies all existing and new files from [[src]] to [[dst]] by exchanging the directories with a `move`. */
+def copyBySwap(
+  src: Path,
+  dst: Path,
+  log: Logger,
+): Unit = {
+  log.info(s"Copying '$src' to '$dst'")
+
+  if (os.exists(dst)) {
+    val dstNew = Path(s"$dst.new")
+    val dstOld = Path(s"$dst.old")
+
+    // Copy the files to the new directory
+    os.remove.all(dstNew)
+    os.copy(src, dstNew, replaceExisting = true, createFolders = true)
+
+    // Try to do an semi-atomic swap
+    os.remove.all(dstOld)
+    os.move(dst, dstOld)
+    os.move(dstNew, dst)
+
+    // Remove the old path
+    os.remove.all(dstOld)
+  } else {
+    os.copy(src, dst, replaceExisting = true, createFolders = true)
+  }
+}
+
+/** Copies all existing and new files from [[src]] to [[dst]], removes files from [[dst]] which do not exist in [[src]]
+  * anymore.
+  */
+def syncDirectories(
+  src: Path,
+  dst: Path,
+  log: Logger,
+  removeOldFiles: Boolean = true,
+): Unit = {
+  val srcFiles = os.walk(src).iterator.map(_.relativeTo(src)).toVector
+  if (!Files.exists(dst.toNIO)) os.makeDir.all(dst)
+  val dstFiles = os.walk(dst).iterator.map(_.relativeTo(dst)).toVector
+
+  val newFiles = srcFiles diff dstFiles
+  val removedFiles = dstFiles diff srcFiles
+  val keptFiles = dstFiles intersect srcFiles
+
+  log.info(s"Syncing directories: $src -> $dst")
+  log.info(s"  New files: ${newFiles.size}")
+  if (log.debugEnabled) log.debug(s"  New files:\n    ${newFiles.mkString(",\n    ")}")
+  log.info(s"  Kept files: ${keptFiles.size}")
+  if (log.debugEnabled) log.debug(s"  Kept files:\n    ${keptFiles.mkString(",\n    ")}")
+  if (removeOldFiles) {
+    log.info(s"  Removed files: ${removedFiles.size}")
+    if (log.debugEnabled) log.debug(s"  Removed files:\n    ${removedFiles.mkString(",\n    ")}")
+  }
+
+  val toCopy = newFiles ++ keptFiles
+  toCopy.foreach { file =>
+    os.copy(src / file, dst / file, replaceExisting = true, createFolders = true)
+  }
+
+  if (removeOldFiles) {
+    val toRemove = removedFiles
+    // Remove from the longest path to the shortest
+    toRemove.reverseIterator.foreach { file =>
+      os.remove.all(dst / file)
+    }
+  }
+}
+
+object OpenTelemetry {
+  /** Environment variables for development with Grafana LGTM OpenTelemetry stack. */
+  def environmentVariablesForDevelopment(serviceName: String): Map[String, String] = Map(
+    // https://opentelemetry.io/docs/languages/java/configuration/#environment-variables-and-system-properties
+    "OTEL_JAVA_GLOBAL_AUTOCONFIGURE_ENABLED" -> "true",
+    "OTEL_SERVICE_NAME" -> serviceName,
   )
 }
