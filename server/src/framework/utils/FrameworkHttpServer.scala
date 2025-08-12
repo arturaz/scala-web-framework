@@ -24,10 +24,12 @@ import retry.syntax.*
 import retry.{ErrorHandler, ResultHandler, RetryPolicies, RetryPolicy}
 import sttp.tapir.server.http4s.Http4sServerInterpreter
 import sttp.tapir.swagger.bundle.SwaggerInterpreter
+import monocle.syntax.all.*
 
 import scala.util.chaining.*
 
 import concurrent.duration.*
+import org.typelevel.ci.CIString
 
 object FrameworkHttpServer {
   given PrettyPrintDuration.Strings = PrettyPrintDuration.Strings.EnglishShortNoSpaces
@@ -53,7 +55,7 @@ object FrameworkHttpServer {
       streamRegistry.get.map(map => Map("streams" -> map).asJson)
   }
 
-  /** Returns a context middleware that extracts the request. */
+  /** Returns a context middleware that allows you to store the request into the context. */
   def reqContextMiddleware[Context](f: Request[IO] => IO[Context]): ContextMiddleware[IO, Context] =
     ContextMiddleware(Kleisli { (req: Request[IO]) =>
       OptionT.liftF(f(req))
@@ -80,11 +82,41 @@ object FrameworkHttpServer {
         .optIntoHttpResponseHeaders(HeaderRedactor.default)
     )
 
+  /** Sets the `X-Frame-Options` header (if the response does not already have it) to prevent clickjacking attacks.
+    *
+    * @param sameOrigin
+    *   if true, the page can only be displayed if all ancestor frames are same origin to the page itself. You can still
+    *   use the page in a frame as long as the site including it in a frame is the same as the one serving the page. If
+    *   false, the page cannot be displayed in a frame, regardless of the site attempting to do so. Not only will the
+    *   browser attempt to load the page in a frame fail when loaded from other sites, attempts to do so will fail when
+    *   loaded from the same site.
+    *
+    * @see
+    *   https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/X-Frame-Options
+    */
+  def denyIFramesMiddleware(sameOrigin: Boolean): HttpMiddleware[IO] = {
+    val headerKey = CIString("X-Frame-Options")
+    val header = Header.Raw(headerKey, if (sameOrigin) "SAMEORIGIN" else "DENY")
+    service =>
+      Kleisli { req =>
+        service(req).map { response =>
+          if (response.headers.get(headerKey).isDefined) response
+          else response.copy(headers = response.headers.put(header))
+        }
+      }
+  }
+
+  /** The default set of security middlewares. */
+  def defaultSecurityMiddleware: HttpMiddleware[IO] =
+    denyIFramesMiddleware(sameOrigin = true)
+
   /** Creates a HTTP server with CORS, logging, metrics and tracing.
     *
     * @param extraRoutes
     *   additional routes to attach, like those in [[Routes]]. These routes won't have client tracing applied. Use
     *   [[HttpRoutes.empty]] to not add any extra routes.
+    * @param securityMiddleware
+    *   middleware that applies common security practices.
     */
   def serverResource[Context](
     cfg: HttpConfig,
@@ -92,6 +124,7 @@ object FrameworkHttpServer {
     createRoutes: GetCurrentRequest[IO] ?=> Http4sServerInterpreter[IO] => ContextRoutes[Context, IO],
     otelMiddleware: ServerMiddleware.Builder[IO],
     extraRoutes: Http4sServerInterpreter[IO] => HttpRoutes[IO],
+    securityMiddleware: HttpMiddleware[IO] = defaultSecurityMiddleware,
     clientSpanName: Request[IO] => String = defaultSpanNameForClient,
   )(using TracerProvider[IO], MeterProvider[IO]): Resource[IO, Server] = {
     val serverInterpreter = Http4sServerInterpreter[IO]()
@@ -109,6 +142,7 @@ object FrameworkHttpServer {
         .pipe(cfg.corsPolicy.apply)
         .pipe(loggerMiddleware.apply)
         .pipe(metricsMiddleware.apply)
+        .pipe(securityMiddleware.apply)
 
       for {
         service <- otelMiddleware.build.map(middleware => middleware.wrapHttpRoutes(service))
