@@ -14,6 +14,7 @@ import scala.reflect.ClassTag
   * environments.
   */
 final case class RedisKeyPrefix[+Key](prefix: Key) {
+  def ++[K2 >: Key](key: K2)(using Semigroup[K2]): RedisKeyPrefix[K2] = RedisKeyPrefix((prefix: K2) |+| key)
 
   /** Creates a composite key with this prefix and the specified key. */
   def key[K2 >: Key](key: K2)(using Semigroup[K2]): RedisKey[K2] = RedisKey(this, key)

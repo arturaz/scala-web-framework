@@ -13,5 +13,6 @@ final case class RedisKey[+Key: Semigroup](prefix: RedisKeyPrefix[Key], key: Key
 }
 object RedisKey {
   given [Key: Show]: Show[RedisKey[Key]] = _.fullKey.show
+  given [Key]: Conversion[RedisKey[Key], Key] = _.fullKey
   given [Key: Show]: Conversion[RedisKey[Key], String] = _.fullKey.show
 }
