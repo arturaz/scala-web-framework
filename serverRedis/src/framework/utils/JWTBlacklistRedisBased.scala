@@ -32,7 +32,7 @@ object JWTBlacklistRedisBased {
     override def isBlacklisted(jwt: JwtClaim): F[Boolean] =
       cmd.exists(keyFor(jwt))
 
-    override def blacklistFor(jwt: JwtClaim): F[Unit] = {
+    override def blacklist(jwt: JwtClaim): F[Unit] = {
       for {
         ttl <- jwt.expiration match {
           case Some(secondsSinceEpoch) =>

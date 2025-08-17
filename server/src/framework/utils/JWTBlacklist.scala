@@ -12,7 +12,7 @@ trait JWTBlacklistChecker[F[_]] {
 trait JWTBlacklister[F[_]] {
 
   /** Blacklists the JWT until it expires, or if [[JwtClaim.expiration]] is not set, indefinitely. */
-  def blacklistFor(jwt: JwtClaim): F[Unit]
+  def blacklist(jwt: JwtClaim): F[Unit]
 }
 
 trait JWTBlacklist[F[_]] extends JWTBlacklistChecker[F] with JWTBlacklister[F]
