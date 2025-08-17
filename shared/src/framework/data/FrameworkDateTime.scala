@@ -64,8 +64,13 @@ object FrameworkDateTime {
   def fromInstant(instant: Instant): FrameworkDateTime =
     apply(LocalDateTime.ofInstant(instant, utc))
 
+  /** Returns the timestamp from the unix epoch in milliseconds. */
   def fromUnixMillis(millis: Long): FrameworkDateTime =
     fromInstant(Instant.ofEpochMilli(millis))
+
+  /** Returns the timestamp from the unix epoch in seconds. */
+  def fromUnixSeconds(seconds: Long): FrameworkDateTime =
+    fromInstant(Instant.ofEpochSecond(seconds))
 
   def now(): FrameworkDateTime = apply(LocalDateTime.now(utc))
 
