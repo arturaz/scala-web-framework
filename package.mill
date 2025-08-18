@@ -525,7 +525,7 @@ object Versions {
     *
     * See the newest versions in https://github.com/scala/scala3/releases.
     */
-  final val Scala = "3.7.0"
+  final val Scala = "3.7.2"
 
   /** Look up the version compatible with [[Scala]] version in https://mvnrepository.com/artifact/com.lihaoyi/ammonite.
     */
