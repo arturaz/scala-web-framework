@@ -14,6 +14,7 @@ export cats.syntax.flatMap.*
 export cats.syntax.comonad.*
 export cats.syntax.monoid.*
 export cats.syntax.order.*
+export cats.syntax.contravariant.*
 
 export alleycats.syntax.all.*
 
