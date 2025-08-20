@@ -6,7 +6,7 @@ extension (value: Long) {
   def toBytesPretty: String = {
     val units = List("b", "kb", "mb", "gb", "tb")
     val maxUnit = units.size - 1
-    val unitIdx = math.min(maxUnit, math.log10(value.toDouble) / 3).toInt
+    val unitIdx = math.max(0, math.min(maxUnit, math.log10(math.abs(value).toDouble) / 3).toInt)
     val unit = units(unitIdx)
     val valueInUnit = value / math.pow(1024, unitIdx)
 
