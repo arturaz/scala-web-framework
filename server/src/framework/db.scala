@@ -2,6 +2,7 @@ package framework
 
 import cats.data.Validated
 import cats.syntax.all.*
+import doobie.postgres.Text
 import doobie.postgres.implicits.*
 import doobie.syntax.SqlInterpolator.SingleFragment
 import doobie.util.{Read, Write}
@@ -227,8 +228,10 @@ object db
   object WithLatLngBackedByPoint {
     given latLngGet: Get[LatLng] =
       Get[PGpoint].map(p => LatLng(Latitude.make.orThrow(p.y), Longitude.make.orThrow(p.x)))
-    given latLngPut: Put[LatLng] = Put[PGpoint].contramap(p => new PGpoint(p.longitude.unwrap, p.latitude.unwrap))
+    given latLngPut: Put[LatLng] = Put[PGpoint].contramap(_.asPgPoint)
     given latLngRead: Read[LatLng] = Read.fromGet
     given latLngWrite: Write[LatLng] = Write.fromPut
+    given pgPointText: Text[PGpoint] = Text[String].contramap(_.getValue())
+    given latLngText: Text[LatLng] = Text[PGpoint].contramap(_.asPgPoint)
   }
 }
