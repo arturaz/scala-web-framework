@@ -6,7 +6,7 @@ import framework.data.MaybeSignal
 /** Renders a tiny badge. */
 def badge(
   key: MaybeSignal[String],
-  value: MaybeSignal[String],
+  value: Modifier[Span],
   classes: Vector[String] = Vector("badge-outline"),
   modContents: Seq[Modifier.Base] => Seq[Modifier[Span]] = identity,
 ) = {
@@ -18,13 +18,7 @@ def badge(
           case key: String         => show"$key:"
           case key: Signal[String] => child.text <-- key.map(k => show"$k:")
         }),
-        span(
-          cls := "ml-2",
-          value match {
-            case s: String              => s
-            case signal: Signal[String] => child.text <-- signal
-          },
-        ),
+        span(cls := "ml-2", value),
       )
     ),
   )
