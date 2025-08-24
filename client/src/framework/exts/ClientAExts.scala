@@ -2,7 +2,7 @@ package framework.exts
 
 import cats.syntax.all.*
 import framework.data.CookieNameFor
-import org.scalajs.dom.document
+import org.scalajs.dom.{document, window}
 import sttp.tapir.{Codec, CodecFormat}
 
 extension [A](a: A) {
@@ -14,7 +14,10 @@ extension [A](a: A) {
   ): Either[String, Unit] = {
     val encoded = codec.encode(a)
 
-    document.cookie = show"$name=$encoded; Path=/; SameSite=Strict"
+    val onHttps = window.location.protocol == "https:"
+    // We need this for local development over HTTP
+    val secureFlag = if onHttps then "; Secure" else ""
+    document.cookie = show"$name=$encoded; Path=/; SameSite=Strict; $secureFlag"
     document.cookieMap.get(name.name) match {
       case None            => Left(show"Failed to set cookie: ${name}")
       case Some(`encoded`) => Right(())
