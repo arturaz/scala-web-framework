@@ -9,6 +9,7 @@ import doobie.util.{Read, Write}
 import fly4s.Fly4s
 import framework.config.PostgresqlConfig
 import framework.data.*
+import framework.prelude.given
 import framework.utils.seaweedfs.SeaweedFsFileId
 import io.circe.Json
 import jkugiya.ulid.ULID
@@ -127,44 +128,41 @@ object db
     } yield ()
   }
 
-  given sttpUriPut: Get[sttp.model.Uri] = Get[String].map(sttp.model.Uri.parse(_).getOrThrow)
-  given sttpUriGet: Put[sttp.model.Uri] = Put[String].contramap(_.toString)
+  given sttpUriMeta: Meta[sttp.model.Uri] = Meta[String].tiemap(sttp.model.Uri.parse)(_.toString)
+  given ulidMeta: Meta[ULID] = Meta[UUID].imap(ULID.fromUUID)(_.uuid)
 
-  given ulidGet: Get[ULID] = Get[UUID].map(uuid => ULID.fromUUID(uuid))
-  given ulidPut: Put[ULID] = Put[UUID].contramap(_.uuid)
+  given ulidWrapperMeta[Wrapper](using newType: yantl.Newtype.WithType[ULID, Wrapper]): Meta[Wrapper] =
+    Meta[ULID].tiemap(newType.make.asString(_))(newType.unwrap)
 
-  given ulidWrapperGet[Wrapper](using newType: yantl.Newtype.WithType[ULID, Wrapper]): Get[Wrapper] =
-    Get[ULID].map(newType.make(_).getOrThrow)
+  given iArrayMeta: Meta[IArray[Byte]] = Meta[Array[Byte]].imap(IArray.unsafeFromArray)(_.unsafeArray)
 
-  given ulidWrapperPut[Wrapper](using newType: yantl.Newtype.WithType[ULID, Wrapper]): Put[Wrapper] =
-    Put[ULID].contramap(newType.unwrap)
+  given frameworkDateTimeMeta: Meta[FrameworkDateTime] = Meta[LocalDateTime].imap(FrameworkDateTime.apply)(_.ldt)
+  given frameworkDateMeta: Meta[FrameworkDate] = Meta[LocalDate].imap(FrameworkDate.apply)(_.ld)
 
-  given iArrayGet: Get[IArray[Byte]] = Get[Array[Byte]].map(IArray.unsafeFromArray)
-  given iArrayPut: Put[IArray[Byte]] = Put[Array[Byte]].contramap(_.unsafeArray)
+  given seaweedFsFileIdMeta: Meta[SeaweedFsFileId] = doobieMetaForNewtype(SeaweedFsFileId)
+  given latitudeMeta: Meta[Latitude] = doobieMetaForNewtype(Latitude)
+  given longitudeMeta: Meta[Longitude] = doobieMetaForNewtype(Longitude)
+  given emailMeta: Meta[Email] = doobieMetaForNewtype(Email)
 
-  given frameworkDateTimeGet: Get[FrameworkDateTime] = Get[LocalDateTime].map(FrameworkDateTime.apply)
-  given frameworkDateTimePut: Put[FrameworkDateTime] = Put[LocalDateTime].contramap(_.ldt)
-
-  given frameworkDateGet: Get[FrameworkDate] = Get[LocalDate].map(FrameworkDate.apply)
-  given frameworkDatePut: Put[FrameworkDate] = Put[LocalDate].contramap(_.ld)
-
-  given seaweedFsFileIdGet: Get[SeaweedFsFileId] = doobieGetForNewtype(SeaweedFsFileId)
-  given seaweedFsFileIdPut: Put[SeaweedFsFileId] = doobiePutForNewtype(SeaweedFsFileId)
-
-  given latitudeGet: Get[Latitude] = doobieGetForNewtype(Latitude)
-  given latitudePut: Put[Latitude] = doobiePutForNewtype(Latitude)
-
-  given longitudeGet: Get[Longitude] = doobieGetForNewtype(Longitude)
-  given longitudePut: Put[Longitude] = doobiePutForNewtype(Longitude)
+  /** [[Meta]] instance for types that extend [[Email.Validated]]. */
+  def doobieMetaForEmailValidated(companion: Email.Validated): Meta[companion.Type] =
+    emailMeta.tiemap(companion.apply(_))(_.unwrap)
 
   given versionedDataGet[Version, Data](using
     CirceDecoder[VersionedData[Version, Data]]
   ): Get[VersionedData[Version, Data]] =
-    Get[Json].map(_.as[VersionedData[Version, Data]].getOrThrow)
+    Get[Json].temap(_.as[VersionedData[Version, Data]].leftMap(_.show))
+
   given versionedDataPut[Version, Data](using
     CirceEncoder[VersionedData[Version, Data]]
   ): Put[VersionedData[Version, Data]] =
     Put[Json].contramap(_.asJson)
+
+  given versionedDataMeta[Version, Data](using
+    get: Get[VersionedData[Version, Data]],
+    put: Put[VersionedData[Version, Data]],
+  ): Meta[VersionedData[Version, Data]] =
+    new Meta(get, put)
 
   /** @return
     *   `true` if migrations were applied, `false` otherwise

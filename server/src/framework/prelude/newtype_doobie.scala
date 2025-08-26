@@ -25,6 +25,15 @@ def doobiePutForNewtype[TUnderlying, TWrapperCompanion <: Newtype.WithUnderlying
 ): Put[wrapper.Type] =
   write.contramap(wrapper.unwrap)
 
+def doobieMetaForNewtype[TUnderlying, TWrapperCompanion <: Newtype.WithUnderlying[TUnderlying]](
+  wrapper: TWrapperCompanion
+)(using
+  read: Get[TUnderlying],
+  write: Put[TUnderlying],
+  typename: TypeName[wrapper.Type],
+): Meta[wrapper.Type] =
+  new Meta(doobieGetForNewtype(wrapper), doobiePutForNewtype(wrapper))
+
 /** Constructs a [[Meta]] instance for a PostgreSQL enum. */
 def doobieMetaForEnum[A: TypeName](databaseEnumName: String)(using named: NamedEnum[A]): Meta[A] =
   pgEnumStringOpt(databaseEnumName, named.fromName, named.toName)
