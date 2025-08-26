@@ -1,5 +1,7 @@
 package framework.prelude
 
+import jkugiya.ulid.ULID
+
 export cats.{~>, Id, Show}
 export cats.data.{EitherT, NonEmptyChain, NonEmptyList, NonEmptyMap, NonEmptySet, NonEmptyVector, OptionT}
 export cats.effect.{IO, Resource, SyncIO}
@@ -30,3 +32,5 @@ export yantl.Newtype
   *   https://docs.scala-lang.org/scala3/reference/contextual/multiversal-equality.html#why-two-type-parameters-1
   */
 type CanEqual1[A] = CanEqual[A, A]
+
+given ulidShow: Show[ULID] = _.base32
