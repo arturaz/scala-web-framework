@@ -59,7 +59,12 @@ extension [PrimaryColumn, SecondaryColumn, PageSize](cursor: PageCursor[PrimaryC
     colPrimary: Column[PrimaryColumn],
     colSecondary: Column[SecondaryColumn],
     order: SqlOrder,
-  )(using Write[PrimaryColumn], Write[SecondaryColumn], Transformer[PageSize, Long]): Query0[Result] = {
+  )(using
+    Write[PrimaryColumn],
+    Write[SecondaryColumn],
+    Transformer[PageSize, Long],
+    sourcecode.Enclosing,
+  ): Query0[Result] = {
     val whereSql = whereFragment.getOrElse(sql"1=1")
 
     sql"""
@@ -69,7 +74,7 @@ extension [PrimaryColumn, SecondaryColumn, PageSize](cursor: PageCursor[PrimaryC
         AND ${cursor.sqlWhereFragment(colPrimary, colSecondary, order)}
       ORDER BY ${cursor.sqlOrderFragment(colPrimary, colSecondary, order)}
       ${cursor.sqlLimitFragment}
-    """.queryOf(columns)
+    """.queryOf(columns, sourcecode.Enclosing.here)
   }
 
   /** Returns the [[ConnectionIO]] that fetches results and checks whether the previous/next page are available.

@@ -107,7 +107,7 @@ trait PageCursorTest(rngSeed: Long) extends FrameworkTestSuite with InMemoryDBFi
     sql"""SELECT $columns FROM $t WHERE ${cursor.sqlWhereFragment(t.timestamp, t.id, order)}
           ORDER BY ${cursor.sqlOrderFragment(t.timestamp, t.id, order)}
           ${cursor.sqlLimitFragment}"""
-      .queryOf(columns)
+      .queryOf(columns, sourcecode.Enclosing.here)
       .to[Vector]
       .map(cursor.processResults)
       .flatMap(
