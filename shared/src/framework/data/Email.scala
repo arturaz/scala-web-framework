@@ -1,7 +1,7 @@
 package framework.data
 
 import framework.exts.*
-import framework.prelude.*
+import framework.prelude.{*, given}
 import framework.utils.NewtypeString
 import yantl.{Newtype, ValidatorRule}
 
@@ -26,6 +26,9 @@ object Email extends NewtypeString with Newtype.ValidatedOf(IArray(Email.Validat
   }
 
   case class NotAnEmail(email: String) derives CanEqual
+
+  def schema: Schema[Type] =
+    Schema.schemaForString.map(make(_).toOption)(_.unwrap).description("Email address")
 
   /** Mix this into an `object` to get a new type of email that is validated.
     *
@@ -75,10 +78,13 @@ object Email extends NewtypeString with Newtype.ValidatedOf(IArray(Email.Validat
       def unwrap: Email = email
     }
 
-    given Show[Type] = _.unwrap
-
     /** Emails that are valid. */
     def ValidEmails: Set[Validator]
+
+    given Show[Type] = _.unwrap
+    given CirceCodec[Type] = CirceCodec[Email].iemap(apply(_))(_.unwrap)
+
+    def schemaFor: Schema[Type] = Email.schema.map(apply(_).toOption)(_.unwrap)
   }
 
 }
