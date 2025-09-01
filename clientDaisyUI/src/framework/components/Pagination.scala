@@ -64,7 +64,7 @@ def PageSizeSelector[PageSize: CanEqual1](
 def PaginationWithPageSizeSelector[Page, PageSize: CanEqual1](
   cursors: MaybeSignal[PageCursors.OfInput[Page]],
   pageSizeSignal: ZoomedOwnerlessSignal[PageSize],
-)(using RouterOps.In[Page], PaginationL18n)(using pageSizeEnum: NamedEnum.WithIntRepresentation[PageSize]) = {
+)(using RouterOps.In[Page], PaginationL18n)(using pageSizeEnum: NamedEnum.WithIntRepresentation[PageSize]): Div = {
   val hasDifferentPageSizes = pageSizeEnum.values.size > 1
 
   div(

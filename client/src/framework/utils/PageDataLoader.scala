@@ -201,6 +201,10 @@ object PageDataLoader {
   class BuilderWithRequest[Input, Output](
     private val build: (WithInput[Input, Output] => PageRenderResult) => PageRenderResult
   ) {
+    def mapOutput[Output2](f: Output => Output2): BuilderWithRequest[Input, Output2] = {
+      BuilderWithRequest(fn2 => this.build(fn2.compose(_.mapFetchedData(f))))
+    }
+
     def apply(whenLoaded: WithInput[Input, Output] => PageRenderResult): PageRenderResult =
       build(whenLoaded)
   }

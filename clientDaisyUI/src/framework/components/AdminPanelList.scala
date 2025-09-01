@@ -53,6 +53,27 @@ object AdminPanelListItem {
   def edit: AdminPanelListItemEditing.type = AdminPanelListItemEditing
 }
 
+/** Paging configuration for the admin panel list action. */
+case class AdminPanelListPaging[
+  Input,
+  Response,
+  PageSize,
+  CursorPrimaryColumn,
+  CursorSecondaryColumn,
+  Collection[X],
+  Element,
+](
+  extractSurroundingPages: Response => HasSurroundingPages[Collection[Element]],
+  cursorLens: Input => AppliedLens[Input, PageCursor[CursorPrimaryColumn, CursorSecondaryColumn, PageSize]],
+  getPrimary: Element => CursorPrimaryColumn,
+  getSecondary: Element => CursorSecondaryColumn,
+)(using
+  val pageSizeEmpty: Empty[PageSize],
+  val pageSizeCanEqual: CanEqual1[PageSize],
+  val pageSizeEnum: NamedEnum.WithIntRepresentation[PageSize],
+  val paginationL18n: PaginationL18n,
+)
+
 /** Renders a list of items for an admin panel. */
 def AdminPanelList[
   Input,
@@ -65,36 +86,44 @@ def AdminPanelList[
   UpdateRequestInput,
 ](
   loader: PageDataLoader.BuilderWithRequest[Input, Response],
-  extractSurroundingPages: Response => HasSurroundingPages[Collection[Element]],
-  cursorLens: Input => AppliedLens[Input, PageCursor[CursorPrimaryColumn, CursorSecondaryColumn, PageSize]],
-  getPrimary: Element => CursorPrimaryColumn,
-  getSecondary: Element => CursorSecondaryColumn,
   onNoItems: Modifier[Div],
   getHeader: StrictSignal[Element] => Modifier[ReactiveHtmlElement[HTMLHeadingElement]],
   getSubHeaders: StrictSignal[Element] => Seq[Modifier[Span]],
   getContents: (StrictSignal[Element], AdminPanelListItem.type) => AdminPanelListItem[Element, UpdateRequestInput],
+  paging: Either[
+    Response => Collection[Element],
+    AdminPanelListPaging[Input, Response, PageSize, CursorPrimaryColumn, CursorSecondaryColumn, Collection, Element],
+  ],
 )(using
-  pageSizeEmpty: Empty[PageSize],
-  pageSizeCanEqual: CanEqual1[PageSize],
-  pageSizeEnum: NamedEnum.WithIntRepresentation[PageSize],
-  router: RouterOps.In[Input],
-  paginationL18n: PaginationL18n,
-) = {
+  router: RouterOps.In[Input]
+): PageRenderResult = {
   loader { withInput =>
     val response = withInput.fetchedData
-    val surroundingPages = extractSurroundingPages(response)
-    val page = withInput.input
 
-    val pageCursors = withInput.pageCursorsForIndexedSeq(extractSurroundingPages, cursorLens, getPrimary, getSecondary)
-    val pageSizeRx = Var(empty[PageSize])
+    val maybePaging = paging.toOption.map { paging =>
+      val pageCursors = withInput.pageCursorsForIndexedSeq(
+        paging.extractSurroundingPages,
+        paging.cursorLens,
+        paging.getPrimary,
+        paging.getSecondary,
+      )
+      val pageSizeRx = Var(paging.pageSizeEmpty.empty)
+
+      (pageCursors = pageCursors, pageSizeRx = pageSizeRx, paging = paging)
+    }
+
+    val elements = paging match {
+      case Left(getElements) => getElements(response)
+      case Right(paging)     => paging.extractSurroundingPages(response).data
+    }
 
     val html =
-      if (surroundingPages.isEmpty) div(onNoItems)
+      if (elements.isEmpty) div(onNoItems)
       else
         div(
           div( // container for all items
             cls := "shadow-lg rounded-lg mb-8 border",
-            surroundingPages.data.map { item =>
+            elements.map { item =>
               val itemRx = Var(item)
               val editingRx = Var(false)
               val showingSig = editingRx.signal.invert
@@ -166,9 +195,67 @@ def AdminPanelList[
 
             },
           ),
-          PaginationWithPageSizeSelector(pageCursors, pageSizeRx),
+          maybePaging.map { tpl =>
+            val paging = tpl.paging
+            import paging.given
+            PaginationWithPageSizeSelector(tpl.pageCursors, tpl.pageSizeRx)
+          },
         )
 
     PageRenderResult(html)
   }
+}
+
+def AdminPanelListWithPaging[
+  Input,
+  Response,
+  PageSize,
+  CursorPrimaryColumn,
+  CursorSecondaryColumn,
+  Collection[X] <: IndexedSeq[X],
+  Element,
+  UpdateRequestInput,
+](
+  loader: PageDataLoader.BuilderWithRequest[Input, Response],
+  extractSurroundingPages: Response => HasSurroundingPages[Collection[Element]],
+  cursorLens: Input => AppliedLens[Input, PageCursor[CursorPrimaryColumn, CursorSecondaryColumn, PageSize]],
+  getPrimary: Element => CursorPrimaryColumn,
+  getSecondary: Element => CursorSecondaryColumn,
+  onNoItems: Modifier[Div],
+  getHeader: StrictSignal[Element] => Modifier[ReactiveHtmlElement[HTMLHeadingElement]],
+  getSubHeaders: StrictSignal[Element] => Seq[Modifier[Span]],
+  getContents: (StrictSignal[Element], AdminPanelListItem.type) => AdminPanelListItem[Element, UpdateRequestInput],
+)(using
+  router: RouterOps.In[Input],
+  pageSizeEmpty: Empty[PageSize],
+  pageSizeCanEqual: CanEqual1[PageSize],
+  pageSizeEnum: NamedEnum.WithIntRepresentation[PageSize],
+  paginationL18n: PaginationL18n,
+): PageRenderResult = {
+  val paging = AdminPanelListPaging(extractSurroundingPages, cursorLens, getPrimary, getSecondary)
+  AdminPanelList(loader, onNoItems, getHeader, getSubHeaders, getContents, Right(paging))
+}
+
+def AdminPanelListWithoutPaging[
+  Input,
+  Collection[X] <: IndexedSeq[X],
+  Element,
+  UpdateRequestInput,
+](
+  loader: PageDataLoader.BuilderWithRequest[Input, Collection[Element]],
+  onNoItems: Modifier[Div],
+  getHeader: StrictSignal[Element] => Modifier[ReactiveHtmlElement[HTMLHeadingElement]],
+  getSubHeaders: StrictSignal[Element] => Seq[Modifier[Span]],
+  getContents: (StrictSignal[Element], AdminPanelListItem.type) => AdminPanelListItem[Element, UpdateRequestInput],
+)(using
+  router: RouterOps.In[Input]
+) = {
+  AdminPanelList(
+    loader,
+    onNoItems,
+    getHeader,
+    getSubHeaders,
+    getContents,
+    Left(identity),
+  )
 }
