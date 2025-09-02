@@ -1,7 +1,8 @@
 package framework.prelude
 
 import ciris.ConfigError
-import framework.data.{FrameworkDate, FrameworkDateTime}
+import framework.data.{Email, FrameworkDate, FrameworkDateTime}
+import org.tpolecat.typename.TypeName
 import scribe.Level
 import sttp.model.Uri
 import yantl.Newtype
@@ -37,3 +38,11 @@ given configDecoderForUriWrapperFromString[Wrapper](using
   newtype: Newtype.WithType[Uri, Wrapper]
 ): ConfigDecoder[String, Wrapper] =
   ConfigDecoder[String, Uri].as[Wrapper]
+
+given configDecoderForEmailValidator: ConfigDecoder[String, Email.Validator] =
+  summon[ConfigDecoder[String, String]].mapEither { (maybeKey, str) =>
+    Email.Validator
+      .fromString(str)
+      .left
+      .map(_ => ConfigError.decode(typeName = summon[TypeName[Email.Validator]].value, key = maybeKey, value = str))
+  }

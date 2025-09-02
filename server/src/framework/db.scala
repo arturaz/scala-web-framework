@@ -146,7 +146,7 @@ object db
 
   /** [[Meta]] instance for types that extend [[Email.Validated]]. */
   def doobieMetaForEmailValidated(companion: Email.Validated): Meta[companion.Type] =
-    emailMeta.tiemap(companion.apply(_))(_.unwrap)
+    emailMeta.tiemap(companion.make.asString(_))(_.unwrap)
 
   given versionedDataGet[Version, Data](using
     CirceDecoder[VersionedData[Version, Data]]
