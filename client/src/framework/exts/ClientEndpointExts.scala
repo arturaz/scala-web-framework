@@ -63,6 +63,12 @@ extension [SecurityInput, Input, Output, AuthError, Requirements](
         case DecodeResult.Value(Right(output)) => Right(output)
       }
   }
+
+  /** [[toReq]] with the current time. */
+  def toReqNow(securityParams: SecurityInput, params: Input)(using
+    AppBaseUri
+  ): SyncIO[Request[Either[NetworkOrAuthError[AuthError], Output], Requirements]] =
+    FrameworkDateTime.nowIO.map(e.toReq(securityParams, params, _))
 }
 
 trait OnSSEStreamError[SecurityInput, Input, -Message] { self =>
