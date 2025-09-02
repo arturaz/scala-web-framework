@@ -27,6 +27,9 @@ case class PageRenderResult(
 
   def withExternalModifiers(f: Seq[L.Modifier.Base] => Seq[L.Modifier.Base]): PageRenderResult =
     copy(externalModifiers = externalModifiers.deunionizeSignal.map(f))
+
+  def mapContent(f: L.Element => MaybeSignal[L.Element]): PageRenderResult =
+    copy(content = content.deunionizeSignal.flatMapSwitch(f(_).deunionizeSignal))
 }
 object PageRenderResult {
   given Conversion[L.Element, PageRenderResult] = fromElement(_)
