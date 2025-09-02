@@ -68,13 +68,18 @@ case class AdminPanelListPaging[
   getPrimary: Element => CursorPrimaryColumn,
   getSecondary: Element => CursorSecondaryColumn,
 )(using
+  val router: RouterOps.In[Input],
   val pageSizeEmpty: Empty[PageSize],
   val pageSizeCanEqual: CanEqual1[PageSize],
   val pageSizeEnum: NamedEnum.WithIntRepresentation[PageSize],
   val paginationL18n: PaginationL18n,
 )
 
-/** Renders a list of items for an admin panel. */
+/** Renders a list of items for an admin panel.
+  *
+  * @param paging
+  *   Either Left(function to get the elements from the response) or Right([[AdminPanelListPaging]])
+  */
 def AdminPanelList[
   Input,
   Response,
@@ -94,8 +99,6 @@ def AdminPanelList[
     Response => Collection[Element],
     AdminPanelListPaging[Input, Response, PageSize, CursorPrimaryColumn, CursorSecondaryColumn, Collection, Element],
   ],
-)(using
-  router: RouterOps.In[Input]
 ): PageRenderResult = {
   loader { withInput =>
     val response = withInput.fetchedData
@@ -247,15 +250,6 @@ def AdminPanelListWithoutPaging[
   getHeader: StrictSignal[Element] => Modifier[ReactiveHtmlElement[HTMLHeadingElement]],
   getSubHeaders: StrictSignal[Element] => Seq[Modifier[Span]],
   getContents: (StrictSignal[Element], AdminPanelListItem.type) => AdminPanelListItem[Element, UpdateRequestInput],
-)(using
-  router: RouterOps.In[Input]
-) = {
-  AdminPanelList(
-    loader,
-    onNoItems,
-    getHeader,
-    getSubHeaders,
-    getContents,
-    Left(identity),
-  )
+): PageRenderResult = {
+  AdminPanelList(loader, onNoItems, getHeader, getSubHeaders, getContents, Left(identity))
 }
