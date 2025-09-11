@@ -219,8 +219,17 @@ object EditForm {
   }
 
   /** @see [[NotPersisted]] */
-  def notPersisted[A](rxVar: Var[A], additionalSubmitting: Signal[Boolean]): NotPersisted[A] =
-    new NotPersisted(rxVar, additionalSubmitting)
+  def notPersisted[A](rxVar: Var[A], additionalSubmitting: Signal[Boolean] | None.type): NotPersisted[A] = {
+    given CanEqual[None.type, Signal[Boolean] | None.type] = CanEqual.derived
+
+    new NotPersisted(
+      rxVar,
+      additionalSubmitting match {
+        case None                          => Signal.fromValue(false)
+        case s: Signal[Boolean] @unchecked => s
+      },
+    )
+  }
 
   /** Sends the form data to the given endpoint. */
   def sendAuthedToEndpointIO[AuthData, AuthError, Input, Output, Requirements >: Effect[IO]](
