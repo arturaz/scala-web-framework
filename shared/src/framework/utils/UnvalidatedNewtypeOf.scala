@@ -73,7 +73,7 @@ trait UnvalidatedNewtypeOf[
   def apply(underlying: TUnderlying): Type = underlying
 
   @targetName("applyFromValidatedWrapper")
-  def apply(underlying: TValidatedWrapper): Type = companionOfValidated.unwrap(underlying)
+  def apply(wrapped: TValidatedWrapper): Type = companionOfValidated.unwrap(wrapped)
 
   given CanEqual1[Type] = CanEqual.derived
 
@@ -116,6 +116,7 @@ trait UnvalidatedNewtypeOf[
   ): CirceCodec[Type] =
     CirceCodec.from(decoder, encoder).imap(apply)(unwrap)
 
+  /** Tries to convert from the unvalidated newtype to the validated newtype. */
   given partialTransformer: PartialTransformer[Type, TValidatedWrapper] =
     PartialTransformer.fromEitherStrings(unvalidated => companionOfValidated.make.asStrings(unvalidated))
 
