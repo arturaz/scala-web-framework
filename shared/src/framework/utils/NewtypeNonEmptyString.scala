@@ -6,7 +6,7 @@ import yantl.*
 trait NewtypeNonEmptyString extends NewtypeString {
   type TError = NewtypeNonEmptyString.TError
 
-  override val validator = Validator.fromRules(NewtypeNonEmptyString.validators)
+  override val validate: Validator[String, TError] = Validator.fromRules(NewtypeNonEmptyString.validators)
 }
 object NewtypeNonEmptyString {
   type TError = ValidatorRule.HadSurroundingWhitespace | ValidatorRule.WasBlank

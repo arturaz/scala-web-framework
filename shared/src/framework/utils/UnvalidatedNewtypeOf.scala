@@ -7,7 +7,8 @@ import io.scalaland.chimney.{PartialTransformer, Transformer}
 import yantl.Newtype
 import scala.annotation.targetName
 import framework.exts.*
-import yantl.Validator
+import yantl.Validate
+import yantl.Newtype
 
 /** Provides a newtype that is unvalidated.
   *
@@ -118,7 +119,7 @@ trait UnvalidatedNewtypeOf[
   given partialTransformer: PartialTransformer[Type, TValidatedWrapper] =
     PartialTransformer.fromEitherStrings(unvalidated => companionOfValidated.make.asStrings(unvalidated))
 
-  given validator: Validator[Type, TValidationError] = companionOfValidated.validator
+  given validate: Validate[Type, TValidationError] = companionOfValidated.validate
 
   extension (unvalidated: Type) {
     def unwrap: TUnderlying = unvalidated

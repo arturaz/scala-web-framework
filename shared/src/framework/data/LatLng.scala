@@ -10,15 +10,15 @@ import sttp.model.Uri
 import sttp.tapir.{Schema, SchemaType}
 import yantl.*
 
-object Latitude extends NewtypeDouble {
+object Latitude
+    extends Newtype.ValidatedOf(
+      Validator.of(
+        ValidatorRule.between[Double](Latitude.MinValue, Latitude.MaxValue)
+      )
+    ),
+      NewtypeDouble {
   final val MinValue: Double = -90
   final val MaxValue: Double = 90
-
-  type TError = ValidatorRule.SmallerThan[Double] | ValidatorRule.LargerThan[Double]
-
-  override val validator = Validator.of(
-    ValidatorRule.between[Double](MinValue, MaxValue)
-  )
 
   val zero = make.orThrow(0)
   given Schema[Type] =
@@ -26,15 +26,15 @@ object Latitude extends NewtypeDouble {
 }
 type Latitude = Latitude.Type
 
-object Longitude extends NewtypeDouble {
+object Longitude
+    extends Newtype.ValidatedOf(
+      Validator.of(
+        ValidatorRule.between[Double](Longitude.MinValue, Longitude.MaxValue)
+      )
+    ),
+      NewtypeDouble {
   final val MinValue: Double = -180
   final val MaxValue: Double = 180
-
-  type TError = ValidatorRule.SmallerThan[Double] | ValidatorRule.LargerThan[Double]
-
-  override val validator = Validator.of(
-    ValidatorRule.between[Double](MinValue, MaxValue)
-  )
 
   val zero = make.orThrow(0)
   given Schema[Type] =

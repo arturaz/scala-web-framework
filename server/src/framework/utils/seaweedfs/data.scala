@@ -9,7 +9,7 @@ import org.http4s.Uri
   *   - https://github.com/seaweedfs/seaweedfs/wiki/Components#master-service
   *   - https://github.com/seaweedfs/seaweedfs/wiki/Master-Server-API
   */
-object SeaweedFsMasterServerUri extends NewtypeUri
+object SeaweedFsMasterServerUri extends NewtypeUri, Newtype.WithoutValidation
 type SeaweedFsMasterServerUri = SeaweedFsMasterServerUri.Type
 
 /** The URI for the SeaweedFs volume server. This will usually be not publically accessible.
@@ -18,7 +18,7 @@ type SeaweedFsMasterServerUri = SeaweedFsMasterServerUri.Type
   *   - https://github.com/seaweedfs/seaweedfs/wiki/Components#volume-service
   *   - https://github.com/seaweedfs/seaweedfs/wiki/Volume-Server-API
   */
-object SeaweedFsVolumeServerUri extends NewtypeUri
+object SeaweedFsVolumeServerUri extends NewtypeUri, Newtype.WithoutValidation
 type SeaweedFsVolumeServerUri = SeaweedFsVolumeServerUri.Type
 
 /** The publicly accessible URI for the SeaweedFs volume server for retrieving the data.
@@ -27,7 +27,7 @@ type SeaweedFsVolumeServerUri = SeaweedFsVolumeServerUri.Type
   *   - https://github.com/seaweedfs/seaweedfs/wiki/Components#volume-service
   *   - https://github.com/seaweedfs/seaweedfs/wiki/Volume-Server-API
   */
-object SeaweedFsVolumeServerPublicUri extends NewtypeUri {
+object SeaweedFsVolumeServerPublicUri extends NewtypeUri, Newtype.WithoutValidation {
   given Conversion[SeaweedFsVolumeServerPublicUri, SeaweedFsVolumeServerUri] = v =>
     SeaweedFsVolumeServerUri.make(unwrap(v)).getOrThrow
 }

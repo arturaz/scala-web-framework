@@ -29,7 +29,7 @@ object shared extends Module {
       // Newtypes
       // https://github.com/arturaz/yantl
       // https://mvnrepository.com/artifact/io.github.arturaz/yantl
-      mvn"io.github.arturaz::yantl::0.2.3",
+      mvn"io.github.arturaz::yantl::0.3-518ed10-SNAPSHOT",
 
       // Functional programming library
       // https://typelevel.org/cats/

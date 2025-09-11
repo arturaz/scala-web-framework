@@ -24,6 +24,9 @@ extension [Input, Error](self: Validate[Input, Error]) {
 
 /** Provides a newtype that is unvalidated that is of different underlying type than the validated wrapper.
   *
+  * For example, you can have a type as `LatLng(latitude: Double, longitude: Double)` and a newtype on that, but the
+  * user inputs a "latitude,longitude" string. In that case you can use this trait.
+  *
   * @param unvalidatedExample
   *   any value of type [[TValidatedUnderlying]], helps the type inference. This will not be needed once Scala gains the
   *   ability to specify only some type parameters.
@@ -148,10 +151,9 @@ trait UnvalidatedNewtypeOfDifferentUnderlying[
     CirceCodec.from(decoder, encoder).imap(apply)(unwrap)
 
   given validate: Validate[Type, TUnderlyingMakeError | TValidatedValidationError] =
-    companion.validator.emapValidateInput[Type, TUnderlyingMakeError | TValidatedValidationError] {
-      wrappedUnvalidated =>
-        val unvalidatedUnderlying = unwrap(wrappedUnvalidated)
-        unvalidatedtoValidatedUnderlying(unvalidatedUnderlying)
+    companion.validate.emapValidateInput[Type, TUnderlyingMakeError | TValidatedValidationError] { wrappedUnvalidated =>
+      val unvalidatedUnderlying = unwrap(wrappedUnvalidated)
+      unvalidatedtoValidatedUnderlying(unvalidatedUnderlying)
     }
 }
 object UnvalidatedNewtypeOfDifferentUnderlying {
