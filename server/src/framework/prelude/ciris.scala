@@ -39,10 +39,11 @@ given configDecoderForUriWrapperFromString[Wrapper](using
 ): ConfigDecoder[String, Wrapper] =
   ConfigDecoder[String, Uri].as[Wrapper]
 
-given configDecoderForEmailValidator: ConfigDecoder[String, Email.Validator] =
+/** Creates an instance of email validator. */
+def configDecoderForEmailValidator[V <: Email.Validated#RegexValidator: TypeName](
+  fromString: String => Either[String, V]
+): ConfigDecoder[String, V] =
   summon[ConfigDecoder[String, String]].mapEither { (maybeKey, str) =>
-    Email.Validator
-      .fromString(str)
-      .left
-      .map(_ => ConfigError.decode(typeName = summon[TypeName[Email.Validator]].value, key = maybeKey, value = str))
+    fromString(str).left
+      .map(_ => ConfigError.decode(typeName = summon[TypeName[V]].value, key = maybeKey, value = str))
   }
