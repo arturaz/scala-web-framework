@@ -71,6 +71,7 @@ enum LoginViaEmailWithOTPError {
   *   ((email, otp) => [[IO]]). Verifies the given OTP for the given email address.
   */
 def LoginViaEmailWithOTP[SendOTPResult](
+  pageLoadingIndicator: PageLoadingIndicator,
   sendOTP: Email => IO[Either[LoginViaEmailWithOTPError, SendOTPResult]],
   verifyOTP: (Email, String, SendOTPResult) => IO[Either[LoginViaEmailWithOTPError, Boolean]],
   isLoggedInSignal: Signal[LocalLoadingStatus[Option[Email]]],
@@ -259,7 +260,7 @@ def LoginViaEmailWithOTP[SendOTPResult](
                 ),
             )
             .flattenSwitch,
-        pending = (_, _) => Signal.fromValue(PageLoadingIndicatorSkeleton.html),
+        pending = (_, _) => Signal.fromValue(pageLoadingIndicator.html),
       )
       .flattenSwitch
 
