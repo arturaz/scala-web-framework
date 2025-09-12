@@ -12,7 +12,7 @@ import yantl.*
 
 object Latitude
     extends Newtype.ValidatedOf(
-      Validator.of(
+      Validator.ofLazy(
         ValidatorRule.between[Double](Latitude.MinValue, Latitude.MaxValue)
       )
     ),
@@ -28,7 +28,7 @@ type Latitude = Latitude.Type
 
 object Longitude
     extends Newtype.ValidatedOf(
-      Validator.of(
+      Validator.ofLazy(
         ValidatorRule.between[Double](Longitude.MinValue, Longitude.MaxValue)
       )
     ),
