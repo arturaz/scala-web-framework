@@ -16,6 +16,18 @@ extension [A](connectionIO: ConnectionIO[A]) {
       case other   => ConnectionIO.raiseError(new Exception(s"Expected $value, got $other at $definedAt"))
     }
 
+  /** Raises an exception aborting the transaction if the value does not match. */
+  def throwIfError(predicate: A => Option[String])(using definedAt: DefinedAt)(using CanEqual1[A]): ConnectionIO[Unit] =
+    connectionIO.flatMap { value =>
+      predicate(value) match {
+        case None => ConnectionIO.unit
+        case Some(error) =>
+          ConnectionIO.raiseError(
+            Exception(s"Expected predicate to pass for value $value at $definedAt, but received error: $error")
+          )
+      }
+    }
+
   /** Returns true if the value matches. */
   def falseIfNot(value: A)(using CanEqual1[A]): ConnectionIO[Boolean] =
     connectionIO.map(_ == value)
