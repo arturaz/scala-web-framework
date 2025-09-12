@@ -22,6 +22,9 @@ class TestValues {
   /** Generates a unique string for use in tests. */
   def string(prefix: String): String = s"$prefix ${bumped(strings, prefix)}"
 
+  /** Generates a unique string (without the space between `prefix` and the number) for use in tests. */
+  def string0(prefix: String): String = s"$prefix${bumped(strings, prefix)}"
+
   /** Generates a unique (within the given `key`) long for use in tests. */
   def long(key: String): Long = bumped(longs, key)
 
