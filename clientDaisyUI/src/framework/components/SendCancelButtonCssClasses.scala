@@ -17,6 +17,11 @@ case class SendCancelButtonCssClasses(
   whenCanCancel: Seq[String],
   otherwise: Seq[String],
 ) {
+
+  /** Applies a function to all sequences. */
+  def mapAll(f: Seq[String] => Seq[String]): SendCancelButtonCssClasses =
+    copy(whenCanSend = f(whenCanSend), whenCanCancel = f(whenCanCancel), otherwise = f(otherwise))
+
   def cssClasses(canSendSignal: Signal[Boolean], tracker: ModificationRequestTracker) =
     canSendSignal.combineWithFn(tracker.canCancelBool) {
       case (_, true)      => whenCanCancel
