@@ -16,6 +16,10 @@ case class LookupVector[K, V](vector: Vector[V], toKey: V => K) {
   def getValue(key: K): Option[V] = lookup.get(key).map(_._1)
   def getIndex(key: K): Option[Index] = lookup.get(key).map(_._2)
 
+  /** Maps the underlying vector using the specified function. */
+  def mapUnderlying(f: Vector[V] => Vector[V]): LookupVector[K, V] =
+    LookupVector(f(vector), toKey)
+
   def +:(v: V): LookupVector[K, V] =
     LookupVector(v +: vector, toKey)
 
