@@ -38,10 +38,12 @@ trait LocalizationSupport {
     def text(using LocaleEnum): String
 
     /** The localized text, lowercased. */
-    def textLO(using locale: LocaleEnum): String = text.toLowerCase()
+    def lowercased: LocalizedText =
+      LocalizedText(implicit locale => self.text.toLowerCase)
 
     /** The localized text, uppercased. */
-    def textUP(using locale: LocaleEnum): String = text.toUpperCase()
+    def uppercased: LocalizedText =
+      LocalizedText(implicit locale => self.text.toUpperCase)
 
     /** Applies the [[LocaleEnum]] to this instance. */
     def applied(using locale: LocaleEnum): LocalizationSupport.AppliedLocalizedText = new {
