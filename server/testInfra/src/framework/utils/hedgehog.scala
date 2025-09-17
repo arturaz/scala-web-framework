@@ -2,11 +2,10 @@ package framework.utils
 
 import framework.prelude.CanEqual1
 import hedgehog.core.*
-import hedgehog.munit.HedgehogAssertions
 import hedgehog.{runner as hr, Property}
 import munit.{Assertions, FunSuite, Location}
 
-trait HedgehogHelpers extends HedgehogAssertions { self: Assertions =>
+trait HedgehogHelpers { self: Assertions =>
   given CanEqual1[Status] = CanEqual.derived
 
   private val seedSource = hr.SeedSource.fromEnvOrTime()
@@ -46,7 +45,7 @@ trait HedgehogHelpers extends HedgehogAssertions { self: Assertions =>
         report,
         ansiCodesSupported = true,
       )
-      val _ = withMunitAssertions(assertions => assertions.fail(s"$reason\n${seedSource.renderLog}"))
+      val _ = fail(s"$reason\n${seedSource.renderLog}")
     }
   }
 }
