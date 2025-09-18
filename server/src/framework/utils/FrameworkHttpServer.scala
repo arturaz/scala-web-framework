@@ -117,6 +117,8 @@ object FrameworkHttpServer {
     *   [[HttpRoutes.empty]] to not add any extra routes.
     * @param securityMiddleware
     *   middleware that applies common security practices.
+    * @param finalMiddleware
+    *   middleware that is applied last for both `createRoutes` and `extraRoutes`.
     */
   def serverResource[Context](
     cfg: HttpConfig,
@@ -126,6 +128,7 @@ object FrameworkHttpServer {
     extraRoutes: Http4sServerInterpreter[IO] => HttpRoutes[IO],
     securityMiddleware: HttpMiddleware[IO] = defaultSecurityMiddleware,
     clientSpanName: Request[IO] => String = defaultSpanNameForClient,
+    finalMiddleware: HttpMiddleware[IO] = identity,
   )(using TracerProvider[IO], MeterProvider[IO]): Resource[IO, Server] = {
     val serverInterpreter = Http4sServerInterpreter[IO]()
     val loggerMiddleware = cfg.logging.logger()
@@ -161,7 +164,8 @@ object FrameworkHttpServer {
       httpApp.run(req).recoverWith { case err: InsufficientPermissionsException =>
         for {
           _ <- log.debug(
-            s"Insufficient permissions for ${req.method} ${req.pathInfo} from ${req.remoteAddr.getOrElse("<unknown>")}: ${err.sensitiveMessage}"
+            s"Insufficient permissions for ${req.method} ${req.pathInfo} from " +
+              s"${req.remoteAddr.getOrElse("<unknown>")}: ${err.sensitiveMessage}"
           )
           response <- BadRequest(err.redactedMessage)
         } yield response
@@ -182,7 +186,7 @@ object FrameworkHttpServer {
         ).toResource
       // Note the order matters here, as `extraRoutes` are more lax and `ctxRoutes` needs certain headers to be set and
       // fails requests if they are missing.
-      httpApp = (extraRoutes <+> ctxRoutes).orNotFound.pipe(insufficientPermissionsHandler)
+      httpApp = (extraRoutes <+> ctxRoutes).pipe(finalMiddleware).orNotFound.pipe(insufficientPermissionsHandler)
       maybeTls <- cfg.server.tls
         .map(tlsConfig =>
           TLSContext.Builder
