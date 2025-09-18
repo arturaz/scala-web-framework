@@ -7,6 +7,7 @@ import dev.profunktor.redis4cats.data.{RedisChannel, RedisPattern}
 import org.tpolecat.typename.TypeName
 
 import scala.reflect.ClassTag
+import cats.Functor
 
 /** A prefix for the Redis keys.
   *
@@ -14,6 +15,8 @@ import scala.reflect.ClassTag
   * environments.
   */
 final case class RedisKeyPrefix[+Key](prefix: Key) {
+  def map[K2](f: Key => K2): RedisKeyPrefix[K2] = RedisKeyPrefix(f(prefix))
+
   def ++[K2 >: Key](key: K2)(using Semigroup[K2]): RedisKeyPrefix[K2] = RedisKeyPrefix((prefix: K2) |+| key)
 
   /** Creates a composite key with this prefix and the specified key. */
@@ -44,5 +47,9 @@ object RedisKeyPrefix {
   case class PatternOfBuilder[+Key, Data](private val prefix: RedisKeyPrefix[Key]) extends AnyVal {
     inline def apply[K2 >: Key](key: K2)(using Semigroup[K2], Show[K2], TypeName[Data]): RedisPatternTyped[K2, Data] =
       RedisPatternTyped(prefix.pattern[K2](key))
+  }
+
+  given functor: Functor[RedisKeyPrefix] with {
+    override def map[A, B](fa: RedisKeyPrefix[A])(f: A => B): RedisKeyPrefix[B] = fa.map(f)
   }
 }
