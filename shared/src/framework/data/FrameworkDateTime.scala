@@ -19,7 +19,8 @@ import scala.util.Try
   * This precision is used to make sure we do not have problems with databases which often will only store milliseconds
   * precision.
   */
-case class FrameworkDateTime private (ldt: LocalDateTime) extends AnyVal with Ordered[FrameworkDateTime] {
+case class FrameworkDateTime private (ldt: LocalDateTime) extends AnyVal with Ordered[FrameworkDateTime]
+    derives CanEqual {
   override def compare(that: FrameworkDateTime): Int = ldt.compareTo(that.ldt)
 
   def toDate: FrameworkDate = FrameworkDate(ldt.toLocalDate)

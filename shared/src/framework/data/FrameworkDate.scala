@@ -18,7 +18,7 @@ import framework.utils.UrlConvertible
 import urldsl.errors.DummyError
 
 /** A date in the local timezone. */
-case class FrameworkDate(ld: LocalDate) extends AnyVal with Ordered[FrameworkDate] {
+case class FrameworkDate(ld: LocalDate) extends AnyVal with Ordered[FrameworkDate] derives CanEqual {
   override def compare(that: FrameworkDate): Int = ld.compareTo(that.ld)
 
   /** Returns the date in "yyyy-MM-dd" format. */
@@ -27,6 +27,9 @@ case class FrameworkDate(ld: LocalDate) extends AnyVal with Ordered[FrameworkDat
 object FrameworkDate {
   private val utc = ZoneId.of("UTC")
   private val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd")
+
+  val MinValue: FrameworkDate = apply(LocalDate.MIN)
+  val MaxValue: FrameworkDate = apply(LocalDate.MAX)
 
   def nowUTC(): FrameworkDate = apply(LocalDate.now(utc))
   def nowUTCIO: SyncIO[FrameworkDate] = SyncIO(nowUTC())
