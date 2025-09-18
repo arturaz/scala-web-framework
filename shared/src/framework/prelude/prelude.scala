@@ -3,7 +3,7 @@ package framework.prelude
 import jkugiya.ulid.ULID
 
 export cats.{~>, Id, Show}
-export cats.data.{EitherT, NonEmptyChain, NonEmptyList, NonEmptyMap, NonEmptySet, NonEmptyVector, OptionT}
+export cats.data.{EitherT, Kleisli, NonEmptyChain, NonEmptyList, NonEmptyMap, NonEmptySet, NonEmptyVector, OptionT}
 export cats.effect.{IO, Resource, SyncIO}
 export sttp.tapir.Schema
 
