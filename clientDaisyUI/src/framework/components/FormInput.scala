@@ -1,16 +1,19 @@
 package framework.components
 
 import alleycats.Empty
+import cats.syntax.all.*
 import com.raquo.airstream.core.Signal
 import com.raquo.laminar.api.L
 import com.raquo.laminar.api.L.*
 import com.raquo.laminar.inserters.DynamicInserter
 import com.raquo.laminar.modifiers.Modifier
 import com.raquo.laminar.nodes.{ChildNode, ReactiveElement, ReactiveHtmlElement}
-import framework.data.FrameworkDate
+import framework.data.{AutocompleteData, FormFileHolder, FrameworkDate, MaybeCollection, MaybeSeq, MaybeSignal}
+import framework.localization.{LocalizationSupport, LocalizedErrorMessages}
 import framework.sourcecode.DefinedAt
-import framework.utils.UpdatableSignal
-import io.scalaland.chimney.Transformer
+import framework.utils.{FetchRequest, UpdatableSignal, ZoomedOwnerlessSignal}
+import io.scalaland.chimney.{PartialTransformer, Transformer}
+import monocle.Focus.MkFocus
 import org.scalajs.dom.{
   html,
   window,
@@ -20,23 +23,12 @@ import org.scalajs.dom.{
   HTMLInputElement,
   HTMLLabelElement,
   HTMLTextAreaElement,
+  HTMLUListElement,
 }
+import yantl.Validator
 
 import scala.annotation.targetName
-import framework.utils.ZoomedOwnerlessSignal
-import framework.data.FormFileHolder
-import monocle.Focus.MkFocus
-import framework.localization.LocalizationSupport
-import cats.syntax.all.*
 import scala.util.chaining.*
-import framework.data.MaybeCollection
-import framework.data.MaybeSeq
-import framework.data.AutocompleteData
-import framework.utils.FetchRequest
-import io.scalaland.chimney.PartialTransformer
-import yantl.Validator
-import framework.localization.LocalizedErrorMessages
-import org.scalajs.dom.HTMLUListElement
 
 /** Various helpers for form inputs. */
 object FormInput {
@@ -650,10 +642,11 @@ object FormInput {
       )
   }
 
-  def checkbox[Field](
-    label: String,
+  def checkboxWithLabel[Field](
+    label: MaybeSignal[String],
     fieldSignal: UpdatableSignal[Field],
-    inputModifiers: Seq[Modifier[Input]] = Seq.empty,
+    inputModifiers: Modifier[Input] = Mod.empty,
+    labelTextModifiers: Modifier[Span] = Mod.empty,
     filterEvent: Boolean => Boolean = _ => true,
   )(using toBool: Transformer[Field, Boolean], fromBool: Transformer[Boolean, Field]): Label = {
     L.label(
@@ -667,7 +660,7 @@ object FormInput {
           onClick.mapToChecked.filter(filterEvent) --> { value => fieldSignal.setTo(fromBool.transform(value)) },
         ),
       ),
-      span(cls := "label-text ml-2", label),
+      span(cls := "label-text ml-2", labelTextModifiers, child.text <-- label.deunionizeSignal),
     )
   }
 
