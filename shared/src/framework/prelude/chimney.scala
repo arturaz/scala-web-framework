@@ -1,11 +1,12 @@
 package framework.prelude
 
 import cats.kernel.{Order, Semigroup}
-import io.scalaland.chimney.Transformer
+import io.scalaland.chimney.{PartialTransformer, Transformer}
+import io.scalaland.chimney.partial.Result
 import io.scalaland.chimney.partial.Result.Errors
 
-/** An identity transformer. */
 given identityTransformer[A]: Transformer[A, A] = a => a
+given identityPartialTransformer[A]: PartialTransformer[A, A] = PartialTransformer(Result.fromValue)
 
 given intToLongTransformer: Transformer[Int, Long] = _.toLong
 
