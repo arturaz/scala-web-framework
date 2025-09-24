@@ -171,12 +171,12 @@ object EditForm {
     *   primary action which is "save".
     */
   class Persisted[A](
-    persistedVar: PersistedVar[A],
+    val persistedVar: PersistedVar[A],
     additionalSubmitting: Signal[Boolean] = Signal.fromValue(false),
   ) extends EditForm[PersistedVar, A](persistedVar, additionalSubmitting) {
     override def rxVar: Var[A] = persistedVar.underlying
 
-    override def changeVarDefaultTo(newDefault: A): Unit = persistedVar.changeDefaultTo(newDefault)
+    override protected def changeVarDefaultTo(newDefault: A): Unit = persistedVar.changeDefaultTo(newDefault)
 
     override def asPersisted: Option[Persisted[A]] = Some(this)
   }
@@ -192,7 +192,7 @@ object EditForm {
     val rxVar: Var[A],
     additionalSubmitting: Signal[Boolean],
   ) extends EditForm[Var, A](rxVar, additionalSubmitting) {
-    override def changeVarDefaultTo(newDefault: A): Unit = {}
+    override protected def changeVarDefaultTo(newDefault: A): Unit = {}
 
     override def asPersisted: Option[Persisted[A]] = None
   }
