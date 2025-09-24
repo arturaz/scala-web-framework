@@ -272,7 +272,11 @@ object FormInput {
     beforeLabel: Seq[Modifier[ReactiveHtmlElement[html.Element]]] = Seq.empty,
     altLabel: Seq[Modifier[Span]] = Seq.empty,
     inputModifiers: Seq[HtmlMod] = Seq.empty,
-  )(using l18n: LocalizationSupport)(using Transformer[A, String], Transformer[String, A], l18n.LocaleEnum)(using
+  )(using
+    l18n: LocalizationSupport,
+    toString: Transformer[A, String],
+    fromString: Transformer[String, A],
+    locale: l18n.LocaleEnum,
     lto: l18n.LocalizedTextOf[A],
     textKind: TextKindFor[A],
   ) = textKind.textKind match {
