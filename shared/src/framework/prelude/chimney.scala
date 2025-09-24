@@ -6,7 +6,9 @@ import io.scalaland.chimney.partial.Result
 import io.scalaland.chimney.partial.Result.Errors
 
 given identityTransformer[A]: Transformer[A, A] = a => a
-given identityPartialTransformer[A]: PartialTransformer[A, A] = PartialTransformer(Result.fromValue)
+// If this one is a `given` it somehow becomes ambiguous with `identityTransformer`, even though the types are
+// different :/
+def identityPartialTransformer[A]: PartialTransformer[A, A] = PartialTransformer(Result.fromValue)
 
 given intToLongTransformer: Transformer[Int, Long] = _.toLong
 
