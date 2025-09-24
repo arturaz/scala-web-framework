@@ -16,8 +16,6 @@ import cats.syntax.all.*
   * {{{
   * case class RangeBased(range: LengthIn[InternationalMiles.type])
   * }}}
-  *
-  * @param length
   */
 case class LengthIn[U <: LengthUnit] private (length: Length) {
 
@@ -42,6 +40,8 @@ case class LengthIn[U <: LengthUnit] private (length: Length) {
 object LengthIn {
   given [U <: LengthUnit]: Conversion[LengthIn[U], Length] = _.length
   given [U <: LengthUnit](using ValueOf[U]): Conversion[Length, LengthIn[U]] = apply
+
+  given show[U <: LengthUnit]: Show[LengthIn[U]] = Show.fromToString
 
   given schema[U <: LengthUnit](using unit: ValueOf[U]): Schema[LengthIn[U]] =
     Schema(SNumber()).description(s"Length in ${unit.value} (${unit.value.symbol})")
