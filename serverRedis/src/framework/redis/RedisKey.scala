@@ -6,6 +6,8 @@ import cats.{Semigroup, Show}
 
 /** A prefixed Redis key. */
 final case class RedisKey[+Key: Semigroup](prefix: RedisKeyPrefix[Key], key: Key) {
+
+  /** The key with the prefix. */
   val fullKey: Key = prefix.prefix |+| key
 
   override def toString: String = s"RedisKey($fullKey)"
