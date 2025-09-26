@@ -405,6 +405,7 @@ object server extends FrameworkScalaModule {
     mvn"is.cir::ciris-http4s:${Versions.Ciris}",
 
     // Calculating diffs for auditing
+    // This currently does not have a JS version, so we cannot put it in `shared`.
     // https://github.com/jatcwang/difflicious
     // https://mvnrepository.com/artifact/com.github.jatcwang/difflicious-cats
     mvn"com.github.jatcwang::difflicious-cats:0.4.3",
