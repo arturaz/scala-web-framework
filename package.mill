@@ -526,10 +526,7 @@ object Versions {
     *
     * See the newest versions in https://github.com/scala/scala3/releases.
     */
-  // Can't switch to >=3.7.2, as ScalablyTyped fails with
-  // [641] [E] [E524] src/main/scala/typings/std/ScrollIntoViewOptions.scala:25:23
-  // [641] [E]        `implicit` classes are no longer supported. They can usually be replaced
-  final val Scala = "3.7.2"
+  final val Scala = "3.7.4"
 
   /** Look up the version compatible with [[Scala]] version in https://mvnrepository.com/artifact/com.lihaoyi/ammonite.
     */
