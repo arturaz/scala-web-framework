@@ -117,6 +117,8 @@ object FrameworkHttpServer {
     *   [[HttpRoutes.empty]] to not add any extra routes.
     * @param securityMiddleware
     *   middleware that applies common security practices.
+    * @param withClientTracing
+    *   whether to apply [[ClientRequestTracingMiddleware]].
     */
   def serverResource[Context](
     cfg: HttpConfig,
@@ -124,6 +126,7 @@ object FrameworkHttpServer {
     createRoutes: GetCurrentRequest[IO] ?=> Http4sServerInterpreter[IO] => ContextRoutes[Context, IO],
     otelMiddleware: ServerMiddleware.Builder[IO],
     extraRoutes: Http4sServerInterpreter[IO] => HttpRoutes[IO],
+    withClientTracing: Boolean,
     securityMiddleware: HttpMiddleware[IO] = defaultSecurityMiddleware,
     clientSpanName: Request[IO] => String = defaultSpanNameForClient,
   )(using TracerProvider[IO], MeterProvider[IO]): Resource[IO, Server] = {
@@ -175,7 +178,7 @@ object FrameworkHttpServer {
       currentReq <- GetOrStoreCurrentRequest.create.toResource
       metricsMiddleware = Metrics(metricsOps)
       ctxRoutes = createRoutes(using currentReq)(serverInterpreter).pipe(contextMiddleware)
-      ctxRoutes <- routesPipeline(metricsMiddleware, currentReq, withClientTracing = true)(ctxRoutes).toResource
+      ctxRoutes <- routesPipeline(metricsMiddleware, currentReq, withClientTracing = withClientTracing)(ctxRoutes).toResource
       extraRoutes <-
         routesPipeline(metricsMiddleware, currentReq, withClientTracing = false)(
           extraRoutes(serverInterpreter)
