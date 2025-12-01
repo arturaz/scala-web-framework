@@ -1,12 +1,12 @@
 package framework.redis
 
-import dev.profunktor.redis4cats.streams.data.MessageId
 import framework.exts.*
 import framework.utils.extractors.LongE
 import cats.syntax.show.*
 import cats.Show
 import cats.kernel.Order
 import framework.data.FrameworkDateTime
+import dev.profunktor.redis4cats.effects.MessageId
 
 /** A parsed [[MessageId]].
   *

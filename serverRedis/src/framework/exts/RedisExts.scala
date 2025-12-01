@@ -4,10 +4,10 @@ import cats.effect.{Concurrent, MonadCancelThrow}
 import cats.syntax.all.*
 import cats.{Applicative, Foldable, Parallel, UnorderedTraverse}
 import dev.profunktor.redis4cats.data.{RedisChannel, RedisCodec, RedisPatternEvent}
-import dev.profunktor.redis4cats.otel4s.{TracedPubSubCommands, TracedSubscribeCommands}
+import dev.profunktor.redis4cats.otel4s.{*, given}
 import dev.profunktor.redis4cats.pubsub.{PublishCommands, SubscribeCommands}
 import dev.profunktor.redis4cats.streams.Streaming
-import dev.profunktor.redis4cats.streams.data.{MessageId, XAddMessage}
+import dev.profunktor.redis4cats.streams.data.XAddMessage
 import framework.data.{MapEncoder, SpanOpsWithTracingData, WithTracingData}
 import framework.prelude.{*, given}
 import framework.redis.*
@@ -17,6 +17,8 @@ import io.scalaland.chimney.{PartialTransformer, Transformer}
 import org.typelevel.otel4s.trace.{SpanOps, Tracer}
 
 import java.nio.ByteBuffer
+import dev.profunktor.redis4cats.effects.XAddArgs
+import dev.profunktor.redis4cats.effects.MessageId
 
 extension [K, V](codec: RedisCodec[K, V]) {
 
@@ -206,10 +208,9 @@ extension (add: XAddMessage.type) {
   def typed[Body, K, V](
     key: K,
     body: Body,
-    approxMaxlen: Option[Long] = None,
-    minId: Option[String] = None,
+    args: XAddArgs = XAddArgs(),
   )(using encoder: MapEncoder[K, V, Body]) =
-    add(key = key, body = encoder.encode(body), approxMaxlen = approxMaxlen, minId = minId)
+    add(key = key, body = encoder.encode(body), args = args)
 }
 
 extension (id: MessageId) {

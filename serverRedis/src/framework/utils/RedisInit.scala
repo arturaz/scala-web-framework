@@ -9,6 +9,7 @@ import dev.profunktor.redis4cats.data.RedisCodec
 import dev.profunktor.redis4cats.effect.MkRedis
 import dev.profunktor.redis4cats.otel4s.utils.EnhanceTimeoutException
 import dev.profunktor.redis4cats.otel4s.{
+  withWrapper,
   CommandWrapper,
   TracedPubSubCommands,
   TracedRedisCommands,
@@ -81,18 +82,18 @@ object RedisInit {
       commandWrapper = loggingWrapper.combine(exceptionWrapper)
       mkCmd = Redis[F]
         .fromClient(redisClient, codec)
-        .evalMap(TracedRedisCommands(_, tracingConfig).map(cmd => cmd.withWrapper(w => w.combine(commandWrapper))))
+        .evalMap(TracedRedisCommands(_, tracingConfig).map(cmd => cmd.withWrapper[F](w => w.combine(commandWrapper))))
       mkPubSub = PubSub
         .mkPubSubConnection[F, K, V](redisClient, codec)
         .evalMap(
           TracedPubSubCommands(_, tracingConfig)
-            .map(cmd => cmd.withWrapper(w => w.combine(commandWrapper)))
+            .map(cmd => cmd.withWrapper[F](w => w.combine(commandWrapper)))
         )
       mkStreaming = RedisStream
         .mkStreamingConnectionResource[F, K, V](redisClient, codec)
         .evalMap(
           TracedStreaming(_, tracingConfig)
-            .map(cmd => cmd.withWrapper(w => w.combine(commandWrapper)))
+            .map(cmd => cmd.withWrapper[F](w => w.combine(commandWrapper)))
         )
     } yield RedisResourceResult(redisClient, commandWrapper, mkCmd, mkPubSub, mkStreaming)
   }
