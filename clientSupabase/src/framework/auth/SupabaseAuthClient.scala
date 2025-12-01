@@ -68,8 +68,21 @@ class SupabaseAuthClient(private val client: JSSupabaseAuthClient, val log: JSLo
         retryPolicy,
         {
           case (Left(err), details) if isAuthRetryableFetchError(err.error) =>
-            IO.pure(HandlerDecision.Adapt(doTry(details.retriesSoFar + 1)))
-          case (_, _) => IO.pure(HandlerDecision.Stop)
+            IO {
+              log.info(show"failed, retrying (${details.pprintWithoutColors})", err.error)
+              HandlerDecision.Adapt(doTry(details.retriesSoFar + 1))
+            }
+          case (Left(err), details) =>
+            IO {
+              log.error(show"failed (${details.pprintWithoutColors}):", err)
+              HandlerDecision.Stop
+            }
+          case (Right(messageId), details) => {
+            IO {
+              log.info(show"succeeded (${details.pprintWithoutColors})", messageId)
+              HandlerDecision.Stop
+            }
+          }
         },
       )
       .map(_.merge)
