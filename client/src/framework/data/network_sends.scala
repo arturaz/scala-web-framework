@@ -28,55 +28,75 @@ case class SendSignal[AuthError, Response](
 }
 object SendSignal {
 
+  /** Signal which does not ask for confirmation, but can fail auth and can be not available. */
+  case class SignalMagnet[AuthError, Response](underlying: SignalMagnet.Underlying[AuthError, Response])
+  object SignalMagnet extends SignalMagnetLowPriorityConversions {
+    type Underlying[AuthError, Response] = Signal[Option[SendRequestIO[AuthError, Response]]]
+
+    /** When the auth can fail and [[SendRequestIO]] is not always available. */
+    given fromUnderlying[AuthError, Response]
+      : Conversion[Underlying[AuthError, Response], SignalMagnet[AuthError, Response]] = apply
+
+    /** When the auth can fail and [[SendRequestIO]] is always available. */
+    given fromAlwaysAvailable[AuthError, Response]
+      : Conversion[SendRequestIO[AuthError, Response], SignalMagnet[AuthError, Response]] = sendRequest =>
+      apply(Signal.fromValue(Some(sendRequest)))
+
+    /** When the auth cannot fail and is always available. */
+    given fromAlwaysAvailableNeverFails[Response]: Conversion[IO[Response], SignalMagnet[Nothing, Response]] =
+      sendRequest => apply(Signal.fromValue(Some(EitherT.liftF(sendRequest))))
+
+    /** When the auth cannot fail and [[IO]] is not always available. */
+    given fromIO[Response]: Conversion[Signal[Option[IO[Response]]], SignalMagnet[Nothing, Response]] =
+      _.mapSome(sendRequest => EitherT.liftF(sendRequest))
+  }
+  trait SignalMagnetLowPriorityConversions extends SignalMagnetLowPriorityConversions2 {
+
+    /** When we do not make a network request and the value may not be available. */
+    given fromKnownValue[A]: Conversion[Signal[Option[A]], SignalMagnet[Nothing, A]] =
+      _.mapSome(a => EitherT.pure[IO, NetworkOrAuthError[Nothing]](a))
+  }
+  trait SignalMagnetLowPriorityConversions2 {
+
+    /** When we do not make a network request and the value is always available. */
+    given fromAlwaysAvailableKnownValue[A]: Conversion[Signal[A], SignalMagnet[Nothing, A]] =
+      _.map(a => Some(EitherT.pure[IO, NetworkOrAuthError[Nothing]](a)))
+  }
+
   /** Signal which does not ask for confirmation. */
   def withoutConfirmation[AuthError, Response](
-    signal: Signal[Option[SendRequestIO[AuthError, Response]]]
+    magnet: SignalMagnet[AuthError, Response]
   ): SendSignal[AuthError, Response] =
-    apply(signal.mapSome(send => SyncIO.pure(Some(send))))
+    apply(magnet.underlying.mapSome(sendRequest => SyncIO.pure(Some(sendRequest))))
 
-  /** Signal which is always available and does not ask for confirmation. */
-  def withoutConfirmation[AuthError, Response](
-    send: SendRequestIO[AuthError, Response]
+  /** Signal which possibly asks for confirmation. */
+  def withMaybeConfirmation[AuthError, Response](
+    question: MaybeSignal[Option[String]],
+    magnet: SignalMagnet[AuthError, Response],
   ): SendSignal[AuthError, Response] =
-    apply(Signal.fromValue(Some(SyncIO.pure(Some(send)))))
-
-  /** Signal which does not fail auth and does not ask for confirmation. */
-  def withoutConfirmation[A](send: IO[A]): SendSignal[Nothing, A] =
-    withoutConfirmation(EitherT.liftF(send))
-
-  /** Signal which does not fail auth and does not ask for confirmation. */
-  @targetName("withoutConfirmationSignalOptionWithoutAuth")
-  def withoutConfirmation[A](signal: Signal[Option[IO[A]]]): SendSignal[Nothing, A] =
-    withoutConfirmation(signal.mapSome(EitherT.liftF))
-
-  /** Signal which does not fail auth and does not ask for confirmation. */
-  @targetName("withoutConfirmationSignalOptionPureWithoutAuth")
-  def withoutConfirmation[A](signal: Signal[Option[A]]): SendSignal[Nothing, A] =
-    withoutConfirmation(signal.mapSome(IO.pure))
+    apply(
+      magnet.underlying
+        .combineWithFn(question.deunionizeSignal)((maybeSendRequest, maybeQuestion) =>
+          maybeSendRequest.map((_, maybeQuestion))
+        )
+        .mapSome {
+          case (sendRequest, None)           => SyncIO.pure(Some(sendRequest))
+          case (sendRequest, Some(question)) => SyncIO { if (window.confirm(question)) Some(sendRequest) else None }
+        }
+    )
 
   /** Signal which asks for confirmation. */
   def withConfirmation[AuthError, Response](
     question: MaybeSignal[String],
-    signal: Signal[Option[SendRequestIO[AuthError, Response]]],
+    magnet: SignalMagnet[AuthError, Response],
   ): SendSignal[AuthError, Response] =
-    apply(signal.combineWithFn(question.deunionizeSignal)((opt, question) => opt.map((_, question))).mapSome {
-      case (send, question) => SyncIO { if (window.confirm(question)) Some(send) else None }
-    })
-
-  /** Signal which is always available and asks for confirmation. */
-  @targetName("withConfirmationSignal")
-  def withConfirmation[AuthError, Response](
-    question: MaybeSignal[String],
-    sendSignal: Signal[SendRequestIO[AuthError, Response]],
-  ): SendSignal[AuthError, Response] =
-    withConfirmation(question, sendSignal.map(_.some))
-
-  /** Signal which is always available and asks for confirmation. */
-  def withConfirmation[AuthError, Response](
-    question: MaybeSignal[String],
-    send: SendRequestIO[AuthError, Response],
-  ): SendSignal[AuthError, Response] =
-    withConfirmation(question, Signal.fromValue(send))
+    apply(
+      magnet.underlying
+        .combineWithFn(question.deunionizeSignal)((maybeSendRequest, question) => maybeSendRequest.map((_, question)))
+        .mapSome { case (sendRequest, question) =>
+          SyncIO { if (window.confirm(question)) Some(sendRequest) else None }
+        }
+    )
 
   given functor[AuthError]: Functor[[Response] =>> SendSignal[AuthError, Response]] with {
     override def map[A, B](fa: SendSignal[AuthError, A])(f: A => B): SendSignal[AuthError, B] =
