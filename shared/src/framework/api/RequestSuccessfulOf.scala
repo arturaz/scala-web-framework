@@ -1,10 +1,12 @@
 package framework.api
 
+import cats.{ApplicativeThrow, Functor}
 import framework.prelude.*
-import cats.ApplicativeThrow
 
 /** Whether the request was successful or not with accompanying data if it was. */
 case class RequestSuccessfulOf[+A](successValue: Option[A]) derives CanEqual, Schema, CirceCodec {
+  def map[B](f: A => B): RequestSuccessfulOf[B] = RequestSuccessfulOf(successValue.map(f))
+
   def isSuccessful: Boolean = successValue.nonEmpty
 
   def withoutValue: RequestSuccessful = RequestSuccessful(isSuccessful)
@@ -23,6 +25,10 @@ object RequestSuccessfulOf {
     if (expected == actual) successful(value) else failed
 
   given [A]: Conversion[RequestSuccessfulOf[A], Boolean] = _.isSuccessful
+
+  given functor: Functor[RequestSuccessfulOf] with {
+    override def map[A, B](fa: RequestSuccessfulOf[A])(f: A => B): RequestSuccessfulOf[B] = fa.map(f)
+  }
 
   extension [A](self: RequestSuccessfulOf[A]) {
 
