@@ -331,7 +331,7 @@ object server extends FrameworkScalaModule {
     mvn"com.outr::scribe:${Versions.Scribe}",
     // https://mvnrepository.com/artifact/com.outr/scribe-cats
     mvn"com.outr::scribe-cats:${Versions.Scribe}",
-    // immudb and http4s uses SLF4J
+    // http4s uses SLF4J
     // https://github.com/outr/scribe/wiki/slf4j
     // https://mvnrepository.com/artifact/com.outr/scribe-slf4j
     mvn"com.outr::scribe-slf4j2:${Versions.Scribe}",
