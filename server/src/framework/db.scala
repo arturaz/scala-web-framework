@@ -19,6 +19,7 @@ import scribe.{Level, Scribe}
 
 import java.time.{LocalDate, LocalDateTime}
 import java.util.UUID
+import scala.util.control.NoStackTrace
 
 /** Allows you to get all DB related stuff in one place.
   *
@@ -66,6 +67,20 @@ object db
     Update0,
     WithSQLDefinition,
     Write,
+  }
+
+  /** Use [[ConnectionIO.raiseError]], [[ConnectionIO.raiseWhen]] or [[ConnectionIO.raiseUnless]] to raise an error in
+    * the middle of a transaction and then [[TransactionAborter.recover]] to recover from it.
+    */
+  case object TransactionAborted extends RuntimeException("Transaction aborted"), NoStackTrace derives CanEqual {
+    given CanEqual[TransactionAborted.type, Throwable] = CanEqual.derived
+
+    /** Turns an [[IO]] that contains [[TransactionAborted]] into an [[IO]] that contains [[Option[A]]]. */
+    def recover[A](io: IO[A]): IO[Option[A]] = io.attempt.flatMap {
+      case Left(TransactionAborted) => IO.pure(Right(None))
+      case Left(other)              => IO.pure(Left(other))
+      case Right(value)             => IO.pure(Right(Some(value)))
+    }.rethrow
   }
 
   object ConnectionIO {
