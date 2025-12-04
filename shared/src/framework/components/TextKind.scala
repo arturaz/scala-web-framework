@@ -11,7 +11,18 @@ enum TextKind derives CanEqual {
   * This is usually used in the client side, but because form data types are often shared between the client and server,
   * this typeclass resides in the shared part of the framework.
   */
-case class TextKindFor[A](textKind: TextKind)
+case class TextKindFor[A](textKind: TextKind) {
+
+  /** Converts the instance to be for another type. Useful when you want to share the implementation between multiple
+    * types.
+    *
+    * Example:
+    * {{{
+    * given TextKindFor[FieldType] = TextKindFor[FieldFormType].forThisType
+    * }}}
+    */
+  def forThisType[B]: TextKindFor[B] = this.asInstanceOf[TextKindFor[B]]
+}
 object TextKindFor {
   private val singleLine: TextKindFor[Nothing] = TextKindFor(TextKind.SingleLine)
   private val multiLine: TextKindFor[Nothing] = TextKindFor(TextKind.MultiLine)
