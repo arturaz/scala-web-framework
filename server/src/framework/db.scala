@@ -163,20 +163,13 @@ object db
   def doobieMetaForEmailValidated(companion: Email.Validated): Meta[companion.Type] =
     emailMeta.tiemap(companion.make.asString(_))(_.unwrap)
 
-  given versionedDataGet[Version, Data](using
-    CirceDecoder[VersionedData[Version, Data]]
-  ): Get[VersionedData[Version, Data]] =
-    Get[Json].temap(_.as[VersionedData[Version, Data]].leftMap(_.show))
+  given jsonDataGet[Data](using CirceDecoder[Data]): Get[Data] =
+    Get[Json].temap(_.as[Data].leftMap(_.show))
 
-  given versionedDataPut[Version, Data](using
-    CirceEncoder[VersionedData[Version, Data]]
-  ): Put[VersionedData[Version, Data]] =
+  given jsonDataPut[Data](using CirceEncoder[Data]): Put[Data] =
     Put[Json].contramap(_.asJson)
 
-  given versionedDataMeta[Version, Data](using
-    get: Get[VersionedData[Version, Data]],
-    put: Put[VersionedData[Version, Data]],
-  ): Meta[VersionedData[Version, Data]] =
+  given jsonDataMeta[Data](using get: Get[Data], put: Put[Data]): Meta[Data] =
     new Meta(get, put)
 
   /** @return
