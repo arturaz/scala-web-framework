@@ -146,7 +146,7 @@ object db
   given sttpUriMeta: Meta[sttp.model.Uri] = Meta[String].tiemap(sttp.model.Uri.parse)(_.toString)
   given ulidMeta: Meta[ULID] = Meta[UUID].imap(ULID.fromUUID)(_.uuid)
 
-  given ulidWrapperMeta[Wrapper](using newType: yantl.Newtype.WithType[ULID, Wrapper]): Meta[Wrapper] =
+  given doobieMetaForUlidWrapper[Wrapper](using newType: yantl.Newtype.WithType[ULID, Wrapper]): Meta[Wrapper] =
     Meta[ULID].tiemap(newType.make.asString(_))(newType.unwrap)
 
   given iArrayMeta: Meta[IArray[Byte]] = Meta[Array[Byte]].imap(IArray.unsafeFromArray)(_.unsafeArray)
@@ -163,14 +163,37 @@ object db
   def doobieMetaForEmailValidated(companion: Email.Validated): Meta[companion.Type] =
     emailMeta.tiemap(companion.make.asString(_))(_.unwrap)
 
-  given jsonDataGet[Data](using CirceDecoder[Data]): Get[Data] =
+  /** @note not a given, because it then matches for anything that has a [[CirceDecoder]] */
+  def doobieGetForJsonData[Data](using CirceDecoder[Data]): Get[Data] =
     Get[Json].temap(_.as[Data].leftMap(_.show))
 
-  given jsonDataPut[Data](using CirceEncoder[Data]): Put[Data] =
+  /** @note not a given, because it then matches for anything that has a [[CirceEncoder]] */
+  def doobiePutForJsonData[Data](using CirceEncoder[Data]): Put[Data] =
     Put[Json].contramap(_.asJson)
 
-  given jsonDataMeta[Data](using get: Get[Data], put: Put[Data]): Meta[Data] =
+  /** @note not a given, because it then matches for anything that has a [[CirceDecoder]] and [[CirceEncoder]] */
+  def doobieMetaForJsonData[Data](using CirceDecoder[Data], CirceEncoder[Data]): Meta[Data] =
+    new Meta(doobieGetForJsonData, doobiePutForJsonData)
+
+  given doobieGetForVersionedData[Version, Data](using
+    CirceDecoder[VersionedData[Version, Data]]
+  ): Get[VersionedData[Version, Data]] =
+    doobieGetForJsonData
+
+  given doobiePutForVersionedData[Version, Data](using
+    CirceEncoder[VersionedData[Version, Data]]
+  ): Put[VersionedData[Version, Data]] =
+    doobiePutForJsonData
+
+  given doobieMetaForVersionedData[Version, Data](using
+    get: Get[VersionedData[Version, Data]],
+    put: Put[VersionedData[Version, Data]],
+  ): Meta[VersionedData[Version, Data]] =
     new Meta(get, put)
+
+  /** Represents an [[enumeratum.Enum]] as a postgresql enum. */
+  def doobieMetaForEnumeratum[A <: enumeratum.EnumEntry](databaseEnumName: String, e: enumeratum.Enum[A]): Meta[A] =
+    pgEnumStringOpt(databaseEnumName, e.withNameOption, _.entryName)
 
   /** @return
     *   `true` if migrations were applied, `false` otherwise

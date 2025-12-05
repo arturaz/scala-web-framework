@@ -31,6 +31,9 @@ object shared extends Module {
       // https://mvnrepository.com/artifact/io.github.arturaz/yantl
       mvn"io.github.arturaz::yantl::0.4.1",
 
+      // findValues for sealed trait based ADTs
+      mvn"com.beachape::enumeratum::1.9.1", 
+
       // Functional programming library
       // https://typelevel.org/cats/
       // https://mvnrepository.com/artifact/org.typelevel/cats-core
