@@ -32,7 +32,9 @@ object shared extends Module {
       mvn"io.github.arturaz::yantl::0.4.1",
 
       // findValues for sealed trait based ADTs
-      mvn"com.beachape::enumeratum::1.9.1", 
+      mvn"com.beachape::enumeratum::${Versions.Enumeratum}", 
+      mvn"com.beachape::enumeratum-cats::${Versions.Enumeratum}", 
+      mvn"com.beachape::enumeratum-circe::${Versions.Enumeratum}", 
 
       // Functional programming library
       // https://typelevel.org/cats/
@@ -564,6 +566,8 @@ object Versions {
   final val DottyCpsAsync = "1.1.5"
   final val DottyCpsAsyncConnect = "1.1.5"
   final val Decline = "2.5.0"
+
+  final val Enumeratum = "1.9.1"
 }
 
 object Libraries {
