@@ -104,6 +104,8 @@ object shared extends Module {
       mvn"io.circe::circe-generic::${Versions.Circe}",
       // https://mvnrepository.com/artifact/io.circe/circe-parser
       mvn"io.circe::circe-parser::${Versions.Circe}",
+      // jsoniter backend for circe which increases parsing performance
+      mvn"com.github.plokhotnyuk.jsoniter-scala::jsoniter-scala-circe::2.38.5",
 
       // JSON Web Tokens
       // https://jwt-scala.github.io
