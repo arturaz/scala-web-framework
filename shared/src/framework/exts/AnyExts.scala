@@ -8,13 +8,12 @@ import alleycats.Empty
 extension [A](a: A) {
 
   /** Returns a pretty-printed version of the value as [[_root_.fansi.Str]]. */
-  inline def fansi: _root_.fansi.Str = _root_.pprint.apply(a)
+  inline def pprintFansi: _root_.fansi.Str = _root_.pprint.apply(a)
 
   /** Returns a pretty-printed version of the value as String with ANSI color codes. */
-  inline def pprint: String = a.fansi.render
+  inline def pprint: String = a.pprintFansi.render
 
-  /** Returns a pretty-printed version of the value as String without ANSI color codes. */
-  inline def pprintWithoutColors: String = a.fansi.plainText
+  inline def pprintWithoutColors: String = a.pprintFansi.plainText
 
   /** Runs the function on the value and returns the original. */
   inline def tap[B](f: A => B): A = { f(a); a }
