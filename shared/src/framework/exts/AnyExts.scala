@@ -6,9 +6,15 @@ import scala.reflect.ClassTag
 import alleycats.Empty
 
 extension [A](a: A) {
-  def pprint: String = _root_.pprint.apply(a).render
 
-  def pprintWithoutColors: String = _root_.pprint.apply(a).plainText
+  /** Returns a pretty-printed version of the value as [[_root_.fansi.Str]]. */
+  inline def fansi: _root_.fansi.Str = _root_.pprint.apply(a)
+
+  /** Returns a pretty-printed version of the value as String with ANSI color codes. */
+  inline def pprint: String = a.fansi.render
+
+  /** Returns a pretty-printed version of the value as String without ANSI color codes. */
+  inline def pprintWithoutColors: String = a.fansi.plainText
 
   /** Runs the function on the value and returns the original. */
   inline def tap[B](f: A => B): A = { f(a); a }
