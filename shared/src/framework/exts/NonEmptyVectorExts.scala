@@ -2,6 +2,8 @@ package framework.exts
 
 import cats.data.NonEmptyVector
 import alleycats.Empty
+import cats.data.NonEmptySet
+import scala.collection.immutable.SortedSet
 
 extension [A](self: NonEmptyVector[A]) {
 
@@ -31,4 +33,6 @@ extension [A](self: NonEmptyVector[A]) {
     empty: Empty[A]
   ): NonEmptyVector[A] =
     removeAt(idx).getOrElse(NonEmptyVector.one(empty.empty))
+
+  def toNonEmptySet(using Ordering[A]): NonEmptySet[A] = NonEmptySet.fromSetUnsafe(SortedSet.from(self.iterator))
 }
