@@ -16,6 +16,10 @@ import fly4s.data.Fly4sConfig
 import org.typelevel.otel4s.trace.{Tracer, TracerProvider}
 import fly4s.data.ValidatePattern
 import org.tpolecat.typename.TypeName
+import org.flywaydb.core.api.callback.Callback
+import org.flywaydb.core.api.callback.Context
+import org.flywaydb.core.api.callback.Event
+import scala.jdk.CollectionConverters.*
 
 case class PostgresqlConfig(
   username: String = "postgres",
@@ -28,13 +32,47 @@ case class PostgresqlConfig(
   def jdbcUrl: String =
     s"jdbc:postgresql://${host.show}:${port.show}/${database.show}?${sslMode.fold("")(sslMode => s"sslmode=${sslMode.asString}")}"
 
-  def defaultFly4sConfig: Fly4sConfig = Fly4sConfig(ignoreMigrationPatterns =
-    List(
+  def defaultFly4sConfig: Fly4sConfig = Fly4sConfig(
+    ignoreMigrationPatterns = List(
       // Ignore pending migrations when validating the migrations, as that does not make sense. We will apply
       // pending migrations later.
       ValidatePattern.ignorePendingMigrations
-    )
+    ),
+    callbacks = List(ErrorDebugCallback),
   )
+
+  /** Logs the error message for a migration error. */
+  object ErrorDebugCallback extends Callback {
+    given CanEqual[Event, Event] = CanEqual.derived
+
+    override def getCallbackName(): String = "ErrorDebugCallback"
+
+    override def handle(event: Event, context: Context): Unit = {
+      if (event != Event.AFTER_EACH_MIGRATE_STATEMENT_ERROR) return
+
+      val statement = context.getStatement()
+      val migration = context.getMigrationInfo()
+
+      appLogger.error(
+        show"""|Error applying migration (${migration.getType().toString()}) '${migration.getScript()}'
+               |
+               |Statement: 
+               |${statement.getSql().indentLines(2)}
+               |
+               |Warnings:
+               |${statement.getWarnings().asScala.mkString("\n").nonEmptyOption.getOrElse("<none>").indentLines(2)}
+               |
+               |Errors:
+               |${statement.getErrors().asScala.mkString("\n").nonEmptyOption.getOrElse("<none>").indentLines(2)}
+               |""".stripMargin
+      )
+    }
+
+    override def canHandleInTransaction(event: Event, context: Context): Boolean = true
+
+    override def supports(event: Event, context: Context): Boolean =
+      event == Event.AFTER_EACH_MIGRATE_STATEMENT_ERROR
+  }
 
   /** Returns the [[Resource]] that creates a Fly4s client. */
   def flywayResource(
