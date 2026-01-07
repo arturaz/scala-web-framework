@@ -21,6 +21,8 @@ import framework.http.middleware.GetCurrentRequest
 import framework.data.AttributeWithCirceEncoder
 import org.http4s.Request
 import java.io.IOException
+import sttp.model.Header
+import sttp.model.headers.CacheDirective
 
 trait SSEStreamFinalizer[F[_]] {
   def applicative: Applicative[F]
@@ -158,6 +160,13 @@ extension [SECURITY_INPUT, INPUT, ERROR_OUTPUT, OUTPUT, R <: ServerSentEvents](
           Stream[F, ServerSentEvent],
           Fs2Streams[F],
         ]]
+        // Caching breaks server-sent events
+        .out(header(Header.cacheControl(CacheDirective.NoCache, CacheDirective.NoTransform)))
+        // Non-standard, nginx-specific response header that tells nginx not to buffer the response and to stream
+        // it to the client immediately.
+        .out(header("X-Accel-Buffering", "no"))
+        // Similar intent to X-Accel-Buffering, but used by a few non-nginx proxies
+        .out(header("X-Proxy-Buffering", "no"))
     val endpoint =
       sseEndpoint
         .mapOut[fs2.Stream[F, OUTPUT]](_ => throw new NotImplementedError("this should never be invoked")) { stream =>
@@ -167,8 +176,8 @@ extension [SECURITY_INPUT, INPUT, ERROR_OUTPUT, OUTPUT, R <: ServerSentEvents](
               val attributes = attributesForReq(req)
               StreamDetails(attributes*)
             }
-            response <- registry.register(streamName, maybeStreamDetails, stream.through(pipe)).through(logErrors)
-          } yield response
+            event <- registry.register(streamName, maybeStreamDetails, stream.through(pipe)).through(logErrors)
+          } yield event
         }
 
     endpoint
