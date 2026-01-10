@@ -35,7 +35,7 @@ import urldsl.errors.DummyError
 case class PageCursor[+PrimaryColumn, +SecondaryColumn, +PageSize](
   cursor: Option[PageCursor.Cursor[PrimaryColumn, SecondaryColumn]],
   pageSize: PageSize,
-) extends PageCursor.PageIndex derives CanEqual {
+) extends PageCursor.PageIndex derives CanEqual, Schema {
   override def toString(): String =
     s"PageCursor(pageSize = ${pageSize}, cursor = ${cursor})"
 
@@ -273,7 +273,8 @@ object PageCursor {
     primary: PrimaryColumn,
     secondary: SecondaryColumn,
     index: Int,
-  ) {
+  ) derives CanEqual,
+        Schema {
     override def toString(): String =
       s"Cursor($direction, primary = $primary, secondary = $secondary, current page index = $index)"
   }
