@@ -4,9 +4,8 @@ import framework.prelude.*
 import cats.Functor
 
 /** Indicates whether the previous/next page are available. */
-case class HasSurroundingPages[Data](data: Data, pages: HasSurroundingPages.Pages) derives CanEqual, Schema {
-  def isEmpty(using Data <:< Iterable[?]): Boolean = data.isEmpty
-  def nonEmpty(using Data <:< Iterable[?]): Boolean = data.nonEmpty
+case class HasSurroundingPages[+Data](data: Data, pages: HasSurroundingPages.Pages)
+    extends HasSurroundingPages.Util[Data] derives CanEqual, Schema {
 
   /** Returns the cursor for the previous page if that is available. */
   def previousPageCursor[PrimaryColumn, SecondaryColumn, PageSize](
@@ -32,10 +31,30 @@ case class HasSurroundingPages[Data](data: Data, pages: HasSurroundingPages.Page
       }
   }
 
+  /** Materializes the cursors for the previous and next page. */
+  def materialize[PrimaryColumn, SecondaryColumn, PageSize](
+    currentPageCursor: PageCursor[PrimaryColumn, SecondaryColumn, PageSize],
+    getFirst: Data => Option[(PrimaryColumn, SecondaryColumn)],
+    getLast: Data => Option[(PrimaryColumn, SecondaryColumn)],
+  ): WithSurroundingPagesCursors[Data, PageCursor[PrimaryColumn, SecondaryColumn, PageSize]] = {
+    WithSurroundingPagesCursors(
+      data,
+      previousPageCursor(currentPageCursor, getFirst),
+      nextPageCursor(currentPageCursor, getLast),
+    )
+  }
+
   def map[Data2](f: Data => Data2): HasSurroundingPages[Data2] =
     copy(data = f(data), pages)
 }
 object HasSurroundingPages {
+  trait Util[+Data] {
+    def data: Data
+
+    def isEmpty(using Data <:< Iterable[?]): Boolean = data.isEmpty
+    def nonEmpty(using Data <:< Iterable[?]): Boolean = data.nonEmpty
+  }
+
   case class Pages(hasPrevious: Boolean, hasNext: Boolean) derives CanEqual, Schema, CirceCodec {
     override def toString(): String = show"Pages(prev = $hasPrevious, next = $hasNext)"
   }
