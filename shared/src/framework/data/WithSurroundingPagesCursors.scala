@@ -7,7 +7,7 @@ import cats.Functor
 case class WithSurroundingPagesCursors[+Data, +PageCursor](
   data: Data,
   pages: WithSurroundingPagesCursors.Pages[PageCursor],
-) extends HasSurroundingPages.Util[Data] {
+) extends HasSurroundingPages.Util[Data] derives CanEqual, Schema {
   def map[Data2](f: Data => Data2): WithSurroundingPagesCursors[Data2, PageCursor] =
     copy(data = f(data), pages)
 }
