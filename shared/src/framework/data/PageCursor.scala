@@ -206,17 +206,29 @@ object PageCursor {
   ): CirceCodec[PageCursor[PrimaryColumn, SecondaryColumn, PageSize]] =
     CirceCodec.fromTapirCodec
 
-  /** Default way to encode a cursor so it could be used in Tapir URI paths.
+  /** Encodes the cursor as a string, with no information hiding.
+    *
+    * You can use [[framework.exts.base64ed]] to encode the cursor as a base64 string.
     *
     * @note
     *   even default page size is encoded as "ps-XXX" because at the moment Waypoint, the frontend router that we are
     *   using has hard time matching route segments that are empty.
     */
-  given tapirCodec[PrimaryColumn, SecondaryColumn, PageSize: CanEqual1](using
-    cursorCodec: TapirCodec[String, Cursor[PrimaryColumn, SecondaryColumn], TapirCodecFormat.TextPlain],
+  def tapirCodecTransparent[PrimaryColumn, SecondaryColumn, PageSize: CanEqual1](
+    pageSizePrefix: String = "ps-",
+    primaryPrefix: String = "p-",
+    secondaryPrefix: String = "s-",
+    idxPrefix: String = "idx-",
+  )(using
+    primaryCodec: TapirCodec[String, PrimaryColumn, TapirCodecFormat.TextPlain],
+    secondaryCodec: TapirCodec[String, SecondaryColumn, TapirCodecFormat.TextPlain],
     pageSizeCodec: TapirCodec[String, PageSize, TapirCodecFormat.TextPlain],
   ): TapirCodec[String, PageCursor[PrimaryColumn, SecondaryColumn, PageSize], TapirCodecFormat.TextPlain] = {
-    val prefix = "ps-"
+    val cursorCodec = Cursor.tapirCodecTransparent[PrimaryColumn, SecondaryColumn](
+      primaryPrefix = primaryPrefix,
+      secondaryPrefix = secondaryPrefix,
+      idxPrefix = idxPrefix,
+    )
 
     TapirCodec.string
       .mapDecode {
@@ -224,7 +236,7 @@ object PageCursor {
         // case "" => DecodeResult.Value(apply(None, pageSizeEmpty.empty))
         str =>
           def decodePageSize(pageSizeRaw: String) =
-            pageSizeCodec.decode(pageSizeRaw.stripPrefix(prefix))
+            pageSizeCodec.decode(pageSizeRaw.stripPrefix(pageSizePrefix))
 
           str.split(",", 2) match {
             case Array(pageSizeRaw) =>
@@ -244,10 +256,10 @@ object PageCursor {
           // !!! See above for motivation !!!
           // // If this is the default page with default page size, we don't need to encode it at all
           // if (pageSize.isEmpty) "" else
-          show"$prefix${pageSizeCodec.encode(pageSize)}"
+          show"$pageSizePrefix${pageSizeCodec.encode(pageSize)}"
         case PageCursor(Some(cursor), pageSize) =>
           // If we have other parts of the cursor, include page size as well
-          show"$prefix${pageSizeCodec.encode(pageSize)},${cursorCodec.encode(cursor)}"
+          show"$pageSizePrefix${pageSizeCodec.encode(pageSize)},${cursorCodec.encode(cursor)}"
       }
   }
 
@@ -284,13 +296,18 @@ object PageCursor {
     ): CirceCodec[Cursor[PrimaryColumn, SecondaryColumn]] =
       CirceCodec.fromTapirCodec
 
-    given tapirCodec[PrimaryColumn, SecondaryColumn](using
+    /** Encodes the cursor as a string, with no information hiding.
+      *
+      * You can use [[framework.exts.base64ed]] to encode the cursor as a base64 string.
+      */
+    def tapirCodecTransparent[PrimaryColumn, SecondaryColumn](
+      primaryPrefix: String = "p-",
+      secondaryPrefix: String = "s-",
+      idxPrefix: String = "idx-",
+    )(using
       primaryCodec: TapirCodec[String, PrimaryColumn, TapirCodecFormat.TextPlain],
       secondaryCodec: TapirCodec[String, SecondaryColumn, TapirCodecFormat.TextPlain],
     ): TapirCodec[String, Cursor[PrimaryColumn, SecondaryColumn], TapirCodecFormat.TextPlain] = {
-      val primaryPrefix = "p-"
-      val secondaryPrefix = "s-"
-      val idxPrefix = "idx-"
       val idxCodec = TapirCodec.int
 
       TapirCodec.string.mapDecode { str =>
