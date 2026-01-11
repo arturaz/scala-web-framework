@@ -107,6 +107,13 @@ object shared extends Module {
       // jsoniter backend for circe which increases parsing performance
       mvn"com.github.plokhotnyuk.jsoniter-scala::jsoniter-scala-circe::2.38.5",
 
+      // Binary serialization
+      // https://scodec.org
+      // https://mvnrepository.com/artifact/org.scodec/scodec-cats
+      mvn"org.scodec::scodec-cats::1.2.0",
+      // https://mvnrepository.com/artifact/co.fs2/fs2-scodec
+      mvn"co.fs2::fs2-scodec::3.12.2",
+
       // JSON Web Tokens
       // https://jwt-scala.github.io
       // https://mvnrepository.com/artifact/com.github.jwt-scala/jwt-circe
