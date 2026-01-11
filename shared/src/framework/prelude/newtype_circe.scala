@@ -1,6 +1,5 @@
 package framework.prelude
 
-import framework.prelude.*
 import framework.exts.*
 
 given newTypeCirceCodec[TUnderlying, TWrapper](using

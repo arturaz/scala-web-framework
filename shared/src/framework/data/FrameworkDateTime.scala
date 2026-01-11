@@ -86,6 +86,10 @@ object FrameworkDateTime {
       .fromUsing[Long]
       .imap(millis => apply(LocalDateTime.ofInstant(Instant.ofEpochMilli(millis), utc)))(_.toInstant.toEpochMilli)
 
+  given scodecCodec: SCodecCodec[FrameworkDateTime] =
+    summon[SCodecCodec[Long]]
+      .xmap(millis => apply(LocalDateTime.ofInstant(Instant.ofEpochMilli(millis), utc)), _.toInstant.toEpochMilli)
+
   /** Parses a date in specified format ("yyyy-MM-ddTHH:mm:ss.SSSZ" by default). */
   def fromString(
     str: String,

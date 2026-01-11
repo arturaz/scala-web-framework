@@ -1,8 +1,8 @@
 package framework.data
 
 import alleycats.Empty
-import framework.prelude.*
 import framework.exts.*
+import framework.prelude.*
 import framework.utils.{NamedEnum, UrlConvertible}
 import sttp.tapir.DecodeResult
 import urldsl.errors.DummyError
@@ -263,6 +263,20 @@ object PageCursor {
       }
   }
 
+  /** Encodes the cursor as binary data, using SCodec, wrapping it in Base64. */
+  def tapirCodecBinaryBase64[PrimaryColumn, SecondaryColumn, PageSize](using
+    primaryCodec: SCodecCodec[PrimaryColumn],
+    primarySchema: Schema[PrimaryColumn],
+    secondaryCodec: SCodecCodec[SecondaryColumn],
+    secondarySchema: Schema[SecondaryColumn],
+    pageSizeCodec: SCodecCodec[PageSize],
+    pageSizeSchema: Schema[PageSize],
+  ): TapirCodec[String, PageCursor[PrimaryColumn, SecondaryColumn, PageSize], TapirCodecFormat.TextPlain] = {
+    given SCodecCodec[Cursor[PrimaryColumn, SecondaryColumn]] = SCodecCodec.derived
+    val codec = SCodecCodec.derived[PageCursor[PrimaryColumn, SecondaryColumn, PageSize]]
+    TapirCodec.fromSCodecAsBase64(using codec = codec)
+  }
+
   /** Default way to encode a cursor so it could be used in Waypoint routes. */
   given urlConvertible[PrimaryColumn, SecondaryColumn, PageSize](using
     TapirCodec[String, PageCursor[PrimaryColumn, SecondaryColumn, PageSize], TapirCodecFormat.TextPlain]
@@ -329,6 +343,17 @@ object PageCursor {
           show"$secondaryPrefix${secondaryCodec.encode(cursor.secondary)}," +
           show"$idxPrefix${idxCodec.encode(cursor.index)}"
       }
+    }
+
+    /** Encodes the cursor as binary data, using SCodec, wrapping it in Base64. */
+    def tapirCodecBinaryBase64[PrimaryColumn, SecondaryColumn](using
+      primaryCodec: SCodecCodec[PrimaryColumn],
+      primarySchema: Schema[PrimaryColumn],
+      secondaryCodec: SCodecCodec[SecondaryColumn],
+      secondarySchema: Schema[SecondaryColumn],
+    ): TapirCodec[String, Cursor[PrimaryColumn, SecondaryColumn], TapirCodecFormat.TextPlain] = {
+      val codec = SCodecCodec.derived[Cursor[PrimaryColumn, SecondaryColumn]]
+      TapirCodec.fromSCodecAsBase64(using codec = codec)
     }
 
     given urlConvertible[PrimaryColumn, SecondaryColumn](using

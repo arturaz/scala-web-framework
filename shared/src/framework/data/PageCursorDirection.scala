@@ -27,4 +27,5 @@ object PageCursorDirection {
   given schema: Schema[PageCursorDirection] = namedEnum.schema
   given tapirCodec: TapirCodec[String, PageCursorDirection, TapirCodecFormat.TextPlain] = namedEnum.tapirCodec
   given show: Show[PageCursorDirection] = namedEnum.show
+  given scodecCodec: SCodecCodec[PageCursorDirection] = SCodecCodec.derived
 }

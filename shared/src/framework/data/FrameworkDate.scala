@@ -57,6 +57,16 @@ object FrameworkDate {
       year * 10000 + month * 100 + day
     })
 
+  given scodecCodec: SCodecCodec[FrameworkDate] =
+    summon[SCodecCodec[Int]].xmap(
+      date => apply(LocalDate.of(date / 10000, Month.of(date / 100 % 100), date % 100)),
+      v => {
+        val (year, month, day) = (v.ld.getYear(), v.ld.getMonthValue(), v.ld.getDayOfMonth())
+        // 20240201
+        year * 10000 + month * 100 + day
+      },
+    )
+
   /** Parses a date in "yyyy-MM-dd" format. */
   def circeCodecIso: CirceCodec[FrameworkDate] =
     CirceCodec.fromUsing[String].iemap(date => fromString(date))(date => date.asString)

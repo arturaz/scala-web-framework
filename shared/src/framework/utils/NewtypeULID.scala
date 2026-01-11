@@ -44,6 +44,9 @@ trait NewtypeULID extends Newtype.WithoutValidationOf[ULID] {
   given circeKeyCodec: CirceKeyCodec[Type] =
     Base64Id.circeKeyCodec.iomap(fromBase64(_).toOption)(_.toBase64)
 
+  given scodecCodec: SCodecCodec[Type] =
+    framework.prelude.scodecULID.xmap(apply, unwrap)
+
   given tapirCodec: TapirCodec[String, Type, TapirCodecFormat.TextPlain] =
     Base64Id.codec.mapEither(fromBase64)(_.toBase64)
 
