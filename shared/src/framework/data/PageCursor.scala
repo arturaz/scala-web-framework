@@ -202,14 +202,9 @@ object PageCursor {
     Empty(apply[PrimaryColumn, SecondaryColumn, PageSize](None, Empty[PageSize].empty))
 
   given circeCodec[PrimaryColumn, SecondaryColumn, PageSize](using
-    CirceEncoder[PrimaryColumn],
-    CirceDecoder[PrimaryColumn],
-    CirceEncoder[SecondaryColumn],
-    CirceDecoder[SecondaryColumn],
-    CirceEncoder[PageSize],
-    CirceDecoder[PageSize],
+    TapirCodec[String, PageCursor[PrimaryColumn, SecondaryColumn, PageSize], TapirCodecFormat.TextPlain]
   ): CirceCodec[PageCursor[PrimaryColumn, SecondaryColumn, PageSize]] =
-    CirceCodec.derived
+    CirceCodec.fromTapirCodec
 
   /** Default way to encode a cursor so it could be used in Tapir URI paths.
     *
@@ -283,13 +278,11 @@ object PageCursor {
       c =>
         show"Cursor(${c.direction}, primary = ${c.primary}, secondary = ${c.secondary}, current page index = ${c.index})"
 
+    /** Circe codec that reuses [[TapirCodec]]. */
     given circeCodec[PrimaryColumn, SecondaryColumn](using
-      CirceEncoder[PrimaryColumn],
-      CirceDecoder[PrimaryColumn],
-      CirceEncoder[SecondaryColumn],
-      CirceDecoder[SecondaryColumn],
+      TapirCodec[String, Cursor[PrimaryColumn, SecondaryColumn], TapirCodecFormat.TextPlain]
     ): CirceCodec[Cursor[PrimaryColumn, SecondaryColumn]] =
-      CirceCodec.derived
+      CirceCodec.fromTapirCodec
 
     given tapirCodec[PrimaryColumn, SecondaryColumn](using
       primaryCodec: TapirCodec[String, PrimaryColumn, TapirCodecFormat.TextPlain],
