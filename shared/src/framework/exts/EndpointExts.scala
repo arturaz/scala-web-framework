@@ -1,12 +1,14 @@
 package framework.exts
 
 import framework.data.CookieNameFor
-import framework.prelude.*
+import framework.prelude.{*, given}
 import framework.tapir.capabilities.ServerSentEvents
 import io.scalaland.chimney.Transformer
 import sttp.tapir.*
 
 import java.nio.charset.StandardCharsets
+import framework.data.EndpointSSEWithWS
+import sttp.capabilities.fs2.Fs2Streams
 
 extension [SecurityInput, Input, Output, AuthError, Requirements](
   e: Endpoint[SecurityInput, Input, AuthError, Output, Requirements]
@@ -60,6 +62,17 @@ extension [SecurityInput, Input, Output, AuthError, Requirements](
   ): Endpoint[SecurityInput, Input, AuthError, Output2, Requirements & ServerSentEvents] = {
     e.withOutputPublic(EndpointIO.Body(RawBodyType.StringBody(StandardCharsets.UTF_8), codec, EndpointIO.Info.empty))
   }
+
+  /** [[serverSentEvents]] + WebSocket. */
+  def serverSentEventsAndWebSocket[Output2](using
+    codec: Codec[String, Output2, TapirCodecFormat.Json]
+  ): EndpointSSEWithWS[SecurityInput, Input, Output2, AuthError, Requirements] =
+    EndpointSSEWithWS(
+      sse = e.in("sse").serverSentEvents[Output2],
+      webSocket = e
+        .in("ws")
+        .withOutputPublic(webSocketBody[Nothing, TapirCodecFormat.Json, Output2, TapirCodecFormat.Json](Fs2Streams[IO])),
+    )
 }
 
 extension [A](query: EndpointInput.Query[Option[A]]) {

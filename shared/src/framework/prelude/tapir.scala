@@ -3,6 +3,8 @@ package framework.prelude
 import framework.utils.UnvalidatedNewtypeOf
 import yantl.Newtype
 import scala.collection.immutable.SortedSet
+import sttp.tapir.SchemaType
+import sttp.tapir.Schema.SName
 
 export sttp.tapir.{Codec as TapirCodec, CodecFormat as TapirCodecFormat, Schema as TapirSchema}
 
@@ -23,3 +25,13 @@ given stringUnvalidatedNewTypeMapSchema[TKey, TValue](using
 given [A: Schema]: Schema[NonEmptyList[A]] = summon[Schema[List[A]]].map(NonEmptyList.fromList)(_.toList)
 given [A: Schema]: Schema[NonEmptyVector[A]] = summon[Schema[Vector[A]]].map(NonEmptyVector.fromVector)(_.toVector)
 given [A: Schema]: Schema[NonEmptySet[A]] = summon[Schema[SortedSet[A]]].map(NonEmptySet.fromSet)(_.toSortedSet)
+
+given schemaForNothing: Schema[Nothing] =
+  Schema.any.name(SName("Nothing")).description("Nothing - no values will be accepted or produced.")
+
+given tapirCodecForNothing[LowLevel, CodecFormat <: TapirCodecFormat]: TapirCodec[LowLevel, Nothing, CodecFormat] with {
+  def encode(h: Nothing): LowLevel = ???
+  def format: CodecFormat = ???
+  def rawDecode(l: LowLevel): sttp.tapir.DecodeResult[Nothing] = ???
+  val schema: Schema[Nothing] = summon
+}

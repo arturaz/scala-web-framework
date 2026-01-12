@@ -30,6 +30,7 @@ import scala.util.chaining.*
 
 import concurrent.duration.*
 import org.typelevel.ci.CIString
+import scala.reflect.ClassTag
 
 object FrameworkHttpServer {
   given PrettyPrintDuration.Strings = PrettyPrintDuration.Strings.EnglishShortNoSpaces
@@ -125,14 +126,14 @@ object FrameworkHttpServer {
   def serverResource[Context](
     cfg: HttpConfig,
     contextMiddleware: ContextMiddleware[IO, Context],
-    createRoutes: GetCurrentRequest[IO] ?=> Http4sServerInterpreter[IO] => ContextRoutes[Context, IO],
+    createRoutes: GetCurrentRequest[IO] ?=> ServerRouter.Route.Builder[Context, IO] => ServerRouter.Routes[Context, IO],
     otelMiddleware: ServerMiddleware.Builder[IO],
     extraRoutes: Http4sServerInterpreter[IO] => HttpRoutes[IO],
     withClientTracing: Boolean,
     securityMiddleware: HttpMiddleware[IO] = defaultSecurityMiddleware,
     clientSpanName: Request[IO] => String = defaultSpanNameForClient,
     finalMiddleware: HttpMiddleware[IO] = identity,
-  )(using TracerProvider[IO], MeterProvider[IO]): Resource[IO, Server] = {
+  )(using TracerProvider[IO], MeterProvider[IO], ClassTag[Context]): Resource[IO, Server] = {
     val serverInterpreter = Http4sServerInterpreter[IO]()
     val loggerMiddleware = cfg.logging.logger()
 
@@ -181,15 +182,23 @@ object FrameworkHttpServer {
       ).toResource
       currentReq <- GetOrStoreCurrentRequest.create.toResource
       metricsMiddleware = Metrics(metricsOps)
-      ctxRoutes = createRoutes(using currentReq)(serverInterpreter).pipe(contextMiddleware)
-      ctxRoutes <- routesPipeline(metricsMiddleware, currentReq, withClientTracing = withClientTracing)(ctxRoutes).toResource
+      routes = createRoutes(using currentReq)(ServerRouter.Route.builderFor(serverInterpreter))
+      maybeCtxRoutes = routes.regular.map(contextMiddleware)
+      maybeCtxRoutes <- maybeCtxRoutes
+        .map(routesPipeline(metricsMiddleware, currentReq, withClientTracing = withClientTracing))
+        .sequence
+        .toResource
       extraRoutes <-
         routesPipeline(metricsMiddleware, currentReq, withClientTracing = false)(
           extraRoutes(serverInterpreter)
         ).toResource
       // Note the order matters here, as `extraRoutes` are more lax and `ctxRoutes` needs certain headers to be set and
       // fails requests if they are missing.
-      httpApp = (extraRoutes <+> ctxRoutes).pipe(finalMiddleware).orNotFound.pipe(insufficientPermissionsHandler)
+      httpApp = maybeCtxRoutes
+        .fold(extraRoutes)(ctxRoutes => ctxRoutes <+> extraRoutes)
+        .pipe(finalMiddleware)
+        .orNotFound
+        .pipe(insufficientPermissionsHandler)
       maybeTls <- cfg.server.tls
         .map(tlsConfig =>
           TLSContext.Builder

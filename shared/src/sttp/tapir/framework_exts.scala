@@ -1,5 +1,7 @@
 package sttp.tapir
 
+import sttp.capabilities.WebSockets
+
 // A hack to make package private methods visible
 
 extension [SECURITY_INPUT, INPUT, ERROR_OUTPUT, OUTPUT, R](
@@ -23,4 +25,10 @@ extension [SECURITY_INPUT, INPUT, ERROR_OUTPUT, OUTPUT, R](
     output: EndpointOutput[O2]
   ): Endpoint[SECURITY_INPUT, INPUT, ERROR_OUTPUT, O2, R & R2] =
     e.withOutput(output)
+
+  /** Allows you to completely replace the output of the endpoint for a websocket. */
+  def withOutputPublic[PIPE_REQ_RESP, O2, R2](
+    i: WebSocketBodyOutput[PIPE_REQ_RESP, ?, ?, O2, R2]
+  ): Endpoint[SECURITY_INPUT, INPUT, ERROR_OUTPUT, O2, R & R2 & WebSockets] =
+    e.withOutput(i.toEndpointOutput)
 }
