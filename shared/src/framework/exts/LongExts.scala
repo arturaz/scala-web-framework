@@ -1,6 +1,7 @@
 package framework.exts
 
 extension (value: Long) {
+  def toIntClamped: Int = Math.min(Math.max(value, Int.MinValue), Int.MaxValue).toInt
 
   /** Returns number of bytes in pretty form, for example 14b, 15.3kb, 16.5mb, 17.8gb, 3.2tb. */
   def toBytesPretty: String = {
