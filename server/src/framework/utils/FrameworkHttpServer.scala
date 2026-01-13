@@ -113,8 +113,8 @@ object FrameworkHttpServer {
 
   /** Creates a HTTP server with CORS, logging, metrics and tracing.
     *
-    * @param extraRoutes
-    *   additional routes to attach, like those in [[Routes]]. These routes won't have client tracing applied. Use
+    * @param makeExtraRoutes
+    *   additional routes to attach, like those in [[makeRoutes]]. These routes won't have client tracing applied. Use
     *   [[HttpRoutes.empty]] to not add any extra routes.
     * @param securityMiddleware
     *   middleware that applies common security practices.
@@ -126,9 +126,9 @@ object FrameworkHttpServer {
   def serverResource[Context](
     cfg: HttpConfig,
     contextMiddleware: ContextMiddleware[IO, Context],
-    createRoutes: GetCurrentRequest[IO] ?=> ServerRouter.Route.Builder[Context, IO] => ServerRouter.Routes[Context, IO],
-    otelMiddleware: ServerMiddleware.Builder[IO],
-    extraRoutes: Http4sServerInterpreter[IO] => HttpRoutes[IO],
+    makeRoutes: GetCurrentRequest[IO] ?=> ServerRouter.Route.Builder[Context, IO] => ServerRouter.Routes[Context, IO],
+    otelMiddlewareBuilder: ServerMiddleware.Builder[IO],
+    makeExtraRoutes: Http4sServerInterpreter[IO] => HttpRoutes[IO],
     withClientTracing: Boolean,
     securityMiddleware: HttpMiddleware[IO] = defaultSecurityMiddleware,
     clientSpanName: Request[IO] => String = defaultSpanNameForClient,
@@ -137,31 +137,20 @@ object FrameworkHttpServer {
     val serverInterpreter = Http4sServerInterpreter[IO]()
     val loggerMiddleware = cfg.logging.logger()
 
-    def routesPipeline(
+    def makeRoutesPipeline(
+      otelMiddleware: ServerMiddleware[IO],
       metricsMiddleware: HttpMiddleware[IO],
       currentReq: GetOrStoreCurrentRequest[IO],
-      withClientTracing: Boolean,
-    )(
-      routes: HttpRoutes[IO]
-    ): IO[HttpRoutes[IO]] = {
-      val service = routes
+      withClientTracing: Option[HttpMiddleware[IO]],
+    ): HttpMiddleware[IO] = routes => {
+      routes
         .pipe(currentReq.middleware)
-        .pipe(cfg.corsPolicy.apply)
         .pipe(loggerMiddleware.apply)
         .pipe(metricsMiddleware.apply)
         .pipe(securityMiddleware.apply)
-
-      for {
-        service <- otelMiddleware.build.map(middleware => middleware.wrapHttpRoutes(service))
+        .pipe(otelMiddleware.wrapHttpRoutes)
         // Order matters here, the client tracing middleware needs to be applied first.
-        service <-
-          if (withClientTracing)
-            ClientRequestTracingMiddleware[IO](
-              maxDriftFromCurrentTime = cfg.clientRequestTracing.maxDriftFromCurrentTime,
-              spanName = clientSpanName,
-            )(service)
-          else IO.pure(service)
-      } yield service
+        .pipe(withClientTracing.getOrElse(identity))
     }
 
     def insufficientPermissionsHandler(httpApp: HttpApp[IO]): HttpApp[IO] = Kleisli { (req: Request[IO]) =>
@@ -176,29 +165,39 @@ object FrameworkHttpServer {
       }
     }
 
+    def makeHttpApp(routes: HttpRoutes[IO]) =
+      routes
+        .pipe(finalMiddleware)
+        .orNotFound
+        .pipe(insufficientPermissionsHandler)
+        // Apply CORS policy to all requests
+        .pipe(cfg.corsPolicy.apply)
+
     for {
       metricsOps <- (
         OtelMetrics.serverMetricsOps[IO]() <* log.info("Created HTTP server metrics under `http.` namespace.")
       ).toResource
       currentReq <- GetOrStoreCurrentRequest.create.toResource
-      metricsMiddleware = Metrics(metricsOps)
-      routes = createRoutes(using currentReq)(ServerRouter.Route.builderFor(serverInterpreter))
-      maybeCtxRoutes = routes.regular.map(contextMiddleware)
-      maybeCtxRoutes <- maybeCtxRoutes
-        .map(routesPipeline(metricsMiddleware, currentReq, withClientTracing = withClientTracing))
+      otelMiddleware <- otelMiddlewareBuilder.build.toResource
+      clientTracingMiddleware <- Option
+        .when(withClientTracing)(
+          ClientRequestTracingMiddleware[IO](
+            maxDriftFromCurrentTime = cfg.clientRequestTracing.maxDriftFromCurrentTime,
+            spanName = clientSpanName,
+          )
+        )
         .sequence
         .toResource
-      extraRoutes <-
-        routesPipeline(metricsMiddleware, currentReq, withClientTracing = false)(
-          extraRoutes(serverInterpreter)
-        ).toResource
+      metricsMiddleware = Metrics(metricsOps)
+      routesPipeline = makeRoutesPipeline(otelMiddleware, metricsMiddleware, currentReq, clientTracingMiddleware)
+      contextAndRoutesPipeline = contextMiddleware.andThen(routesPipeline)
+      routes = makeRoutes(using currentReq)(ServerRouter.Route.builderFor(serverInterpreter))
+      maybeRegularCtxRoutes = routes.regular.map(contextAndRoutesPipeline)
+      extraRoutes = routesPipeline(makeExtraRoutes(serverInterpreter))
       // Note the order matters here, as `extraRoutes` are more lax and `ctxRoutes` needs certain headers to be set and
       // fails requests if they are missing.
-      httpApp = maybeCtxRoutes
-        .fold(extraRoutes)(ctxRoutes => ctxRoutes <+> extraRoutes)
-        .pipe(finalMiddleware)
-        .orNotFound
-        .pipe(insufficientPermissionsHandler)
+      regularRoutes = maybeRegularCtxRoutes.fold(extraRoutes)(ctxRoutes => ctxRoutes <+> extraRoutes)
+      maybeWebSocketCtxRoutes = routes.webSocket.map(_.andThen(contextAndRoutesPipeline))
       maybeTls <- cfg.server.tls
         .map(tlsConfig =>
           TLSContext.Builder
@@ -216,7 +215,11 @@ object FrameworkHttpServer {
           .default[IO]
           .withHost(cfg.server.host)
           .withPort(cfg.server.port)
-          .withHttpApp(httpApp)
+          .pipe(b =>
+            maybeWebSocketCtxRoutes.fold(b.withHttpApp(makeHttpApp(regularRoutes)))(mkWsRoutes =>
+              b.withHttpWebSocketApp(wsb => makeHttpApp(regularRoutes <+> mkWsRoutes(wsb)))
+            )
+          )
           .pipe(b => if (cfg.server.useHttp2) b.withHttp2 else b.withoutHttp2)
           .pipe(b => maybeTls.fold(b)(b.withTLS(_)))
           .build

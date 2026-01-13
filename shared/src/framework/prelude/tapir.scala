@@ -5,6 +5,7 @@ import yantl.Newtype
 import scala.collection.immutable.SortedSet
 import sttp.tapir.SchemaType
 import sttp.tapir.Schema.SName
+import sttp.tapir.DecodeResult
 
 export sttp.tapir.{Codec as TapirCodec, CodecFormat as TapirCodecFormat, Schema as TapirSchema}
 
@@ -33,5 +34,12 @@ given tapirCodecForNothing[LowLevel, CodecFormat <: TapirCodecFormat]: TapirCode
   def encode(h: Nothing): LowLevel = ???
   def format: CodecFormat = ???
   def rawDecode(l: LowLevel): sttp.tapir.DecodeResult[Nothing] = ???
-  val schema: Schema[Nothing] = summon
+  def schema: Schema[Nothing] = schemaForNothing
+}
+
+given tapirCodecForUnit: TapirCodec[String, Unit, TapirCodecFormat.TextPlain] with {
+  def encode(h: Unit): String = ""
+  val format: TapirCodecFormat.TextPlain = TapirCodecFormat.TextPlain()
+  def rawDecode(l: String): DecodeResult[Unit] = DecodeResult.Value(())
+  def schema: Schema[Unit] = summon
 }

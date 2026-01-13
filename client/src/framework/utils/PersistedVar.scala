@@ -87,6 +87,7 @@ class PersistedVar[A](
 object PersistedVar {
   given [A]: Conversion[PersistedVar[A], Var[A]] = _.underlying
 
+  /** Creates a raw [[PersistedVar]]. You probably want to use [[local]] or [[session]] instead. */
   def apply[A](
     persistenceKey: String,
     defaultValue: => A,

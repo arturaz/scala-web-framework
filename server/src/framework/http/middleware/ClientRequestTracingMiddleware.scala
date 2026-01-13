@@ -9,17 +9,19 @@ import org.http4s.*
 import org.http4s.dsl.Http4sDsl
 import org.http4s.headers.Accept
 import org.http4s.otel4s.middleware.instances.all.*
+import org.http4s.server.HttpMiddleware
 import org.typelevel.ci.CIString
+import org.typelevel.otel4s.trace.{SpanKind, TracerProvider}
 
 import scala.concurrent.duration.FiniteDuration
-import org.typelevel.otel4s.trace.TracerProvider
-import org.typelevel.otel4s.trace.SpanKind
 
 /** Starts tracing spans based on client request time. */
-object ClientRequestTracingMiddleware {
-  enum ServerSentEventsHandlingMode derives CanEqual {
+object ClientRequestTracingMiddleware { self =>
 
-    /** SSE requests are not traced. */
+  /** How to handle server-sent events and websocket requests. */
+  enum StreamingHandlingMode derives CanEqual {
+
+    /** Streaming requests are not traced. */
     case Ignore
 
     /** Get the header value from the query parameters. */
@@ -50,19 +52,16 @@ object ClientRequestTracingMiddleware {
     spanName: Request[F] => String,
     headerName: CIString = CIString(FrameworkHeaders.`X-Request-Started-At`.Name),
     failOnInvalidHeader: Boolean = true,
-    sseHandlingMode: ServerSentEventsHandlingMode = ServerSentEventsHandlingMode.GetHeaderFromQueryParameters,
-  )(service: HttpRoutes[F])(using tracerProvider: TracerProvider[F], clock: Clock[F]): F[HttpRoutes[F]] = {
+    streamingHandlingMode: StreamingHandlingMode = StreamingHandlingMode.GetHeaderFromQueryParameters,
+  )(using tracerProvider: TracerProvider[F], clock: Clock[F]): F[HttpMiddleware[F]] = {
     val dsl = new Http4sDsl[F] {}
     import dsl.*
 
     val now = clock.realTimeInstant.map(FrameworkDateTime.fromInstant)
 
-    tracerProvider.tracer(sourcecode.FullName.here).get.map { tracer =>
+    tracerProvider.tracer(sourcecode.FullName.here).get.map { tracer => service =>
       Kleisli { (req: Request[F]) =>
-        val isSSERequest = req.method == Method.GET && (req.headers.get[headers.Accept] match {
-          case None         => false
-          case Some(accept) => accept.values.exists(_.mediaRange == MediaType.`text/event-stream`)
-        })
+        val isStreamingRequest = isSSERequest(req) || isWebSocketRequest(req)
 
         def getHeaderFromQueryParameters = (
           req.uri.query.params.get(headerName.toString).map(value => Header.Raw(headerName, value)),
@@ -72,11 +71,11 @@ object ClientRequestTracingMiddleware {
 
         def getHeaderFromRequest = (req.headers.get(`headerName`).map(_.head), req)
 
-        def getHeader = if (isSSERequest) getHeaderFromQueryParameters else getHeaderFromRequest
+        def getHeader = if (isStreamingRequest) getHeaderFromQueryParameters else getHeaderFromRequest
 
         // `OPTIONS` requests usually do not include custom headers from the browser, so just let them through.
         if (req.method == Method.OPTIONS) service(req)
-        else if (isSSERequest && sseHandlingMode == ServerSentEventsHandlingMode.Ignore) service(req)
+        else if (isStreamingRequest && streamingHandlingMode == StreamingHandlingMode.Ignore) service(req)
         else {
           val (maybeRawHeader, req) = getHeader
           val maybeHeader = maybeRawHeader.map(parseHeader)
@@ -111,6 +110,17 @@ object ClientRequestTracingMiddleware {
       }
     }
   }
+
+  def isSSERequest[F[_]](req: Request[F]): Boolean =
+    req.method == Method.GET && (req.headers.get[headers.Accept] match {
+      case None         => false
+      case Some(accept) => accept.values.exists(_.mediaRange == MediaType.`text/event-stream`)
+    })
+
+  def isWebSocketRequest[F[_]](req: Request[F]): Boolean =
+    req.headers
+      .get(headers.Upgrade.headerInstance.name)
+      .exists(_.head.value.equalsIgnoreCase("websocket"))
 
   def parseHeader(header: Header.Raw): Either[String, FrameworkDateTime] = {
     header.value.toLongOption

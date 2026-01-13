@@ -15,6 +15,11 @@ import sttp.tapir.{DecodeResult, Endpoint, PublicEndpoint}
 import scala.annotation.targetName
 import scala.concurrent.duration.*
 import scala.scalajs.js.JSON
+import framework.data.EndpointSSEWithWS
+import sttp.capabilities.WebSockets
+import sttp.capabilities.fs2.Fs2Streams
+import org.scalajs.dom.WebSocket
+import framework.data.EndpointSSEWithWS.ClientConnectionMode
 
 extension [Input, Error, Output, Requirements](e: PublicEndpoint[Input, Error, Output, Requirements]) {
   def toReq(params: Input, now: FrameworkDateTime)(using
@@ -199,11 +204,45 @@ object OnSSEStreamError {
   }
 }
 
-// TODO: make this actually fail to compile if the endpoint doesn't have ServerSentEvents capability
-// https://softwaremill.community/t/introducing-serversentevents-capability-failing-to-achieve-type-safety/460
-extension [SecurityInput, Input, Output, AuthError, Requirements <: ServerSentEvents](
-  e: Endpoint[SecurityInput, Input, AuthError, Output, Requirements]
-) {
+trait ToSSEStreamBuilder[SecurityInput, Input, Output] {
+
+  /** Implementation helper for [[raw]]. */
+  protected def rawImpl(
+    securityParams: SecurityInput,
+    params: Input,
+    reconnectOnError: Option[OnSSEStreamError[SecurityInput, Input, MessageEvent]] = Some(
+      OnSSEStreamError.default[SecurityInput, Input, MessageEvent]
+    ),
+    createUri: (SecurityInput, Input) => Uri,
+    createEventStream: Uri => EventStream[MessageEvent],
+    createEithersEventStream: Uri => EventStream[Either[Event, MessageEvent]],
+  )(using baseUri: AppBaseUri, definedAt: DefinedAt): EventStream[MessageEvent] = {
+    reconnectOnError match {
+      case None =>
+        val uri = createUri(securityParams, params)
+        createEventStream(uri)
+
+      case Some(onError) =>
+        def stream(securityParams: SecurityInput, params: Input, index: Int): EventStream[MessageEvent] = {
+          val uri = createUri(securityParams, params)
+
+          createEithersEventStream(uri).flatMapSwitch {
+            case Right(value) =>
+              onError.onMessage(value)
+              EventStream.fromValue(value)
+
+            case Left(error) =>
+              val (newSecurityParams, newParams, wait) =
+                onError.onError(uri, error, index, securityParams, params)(using definedAt)
+              EventStream
+                .delay(wait.toMillis.toInt)
+                .flatMapSwitch(_ => stream(newSecurityParams, newParams, index + 1))
+          }
+        }
+
+        stream(securityParams, params, 0)
+    }
+  }
 
   /** Turns the endpoint into a server-sent event stream without decoding.
     *
@@ -212,7 +251,7 @@ extension [SecurityInput, Input, Output, AuthError, Requirements <: ServerSentEv
     * @param withCredentials
     *   A boolean value, defaulting to false, indicating if CORS should be set to include credentials.
     */
-  def toSSEStreamRaw(
+  def raw(
     securityParams: SecurityInput,
     params: Input,
     now: () => FrameworkDateTime = FrameworkDateTime.now,
@@ -220,47 +259,7 @@ extension [SecurityInput, Input, Output, AuthError, Requirements <: ServerSentEv
       OnSSEStreamError.default[SecurityInput, Input, MessageEvent]
     ),
     withCredentials: Boolean = false,
-  )(using baseUri: AppBaseUri, definedAt: DefinedAt): EventStream[MessageEvent] = {
-    val options = js.Dynamic.literal(withCredentials = withCredentials).asInstanceOf[EventSourceInit]
-
-    def create(uri: Uri) = {
-      val uriStr = uri.toString
-      log.debug(s"Creating SSE stream for $uri, options=", options)
-      new EventSource(uriStr, options)
-    }
-    def createUri(securityParams: SecurityInput, params: Input) = {
-      val timestamp = now()
-      val (name, value) = FrameworkHeaders.`X-Request-Started-At`(timestamp)
-      e.toReq(securityParams, params, timestamp)
-        .uri
-        // Add the client tracing as a query parameter because SSE requests do not support custom headers
-        .addParam(name, value)
-    }
-
-    reconnectOnError match {
-      case None =>
-        val uri = createUri(securityParams, params)
-        EventStream.fromDomEventSource(create(uri))
-
-      case Some(onError) =>
-        def stream(securityParams: SecurityInput, params: Input, index: Int): EventStream[MessageEvent] = {
-          val uri = createUri(securityParams, params)
-
-          EventStream.fromDomEventSourceEither(create(uri)).flatMapSwitch {
-            case Right(value) =>
-              onError.onMessage(value)
-              EventStream.fromValue(value)
-
-            case Left(error) =>
-              val (newSecurityParams, newParams, wait) =
-                onError.onError(uri, error, index, securityParams, params)(using definedAt)
-              EventStream.delay(wait.toMillis.toInt).flatMapSwitch(_ => stream(newSecurityParams, newParams, index + 1))
-          }
-        }
-
-        stream(securityParams, params, 0)
-    }
-  }
+  )(using baseUri: AppBaseUri, definedAt: DefinedAt): EventStream[MessageEvent]
 
   /** Turns the endpoint into a server-sent event stream.
     *
@@ -269,7 +268,7 @@ extension [SecurityInput, Input, Output, AuthError, Requirements <: ServerSentEv
     * @param withCredentials
     *   A boolean value, defaulting to false, indicating if CORS should be set to include credentials.
     */
-  def toSSEStream(
+  def apply(
     securityParams: SecurityInput,
     params: Input,
     decode: String => Either[String, Output],
@@ -288,7 +287,7 @@ extension [SecurityInput, Input, Output, AuthError, Requirements <: ServerSentEv
       }
     }
 
-    val evtStream = toSSEStreamRaw(securityParams, params, now, modifiedReconnectOnError, withCredentials)
+    val evtStream = raw(securityParams, params, now, modifiedReconnectOnError, withCredentials)
     evtStream.map { evt =>
       val either = for {
         dataStr <- evt.data match {
@@ -318,7 +317,7 @@ extension [SecurityInput, Input, Output, AuthError, Requirements <: ServerSentEv
     * @param withCredentials
     *   A boolean value, defaulting to false, indicating if CORS should be set to include credentials.
     */
-  def toSSEStreamJson(
+  def json(
     securityParams: SecurityInput,
     params: Input,
     now: () => FrameworkDateTime = FrameworkDateTime.now,
@@ -331,7 +330,7 @@ extension [SecurityInput, Input, Output, AuthError, Requirements <: ServerSentEv
     codec: CirceDecoder[Output],
     definedAt: DefinedAt,
   ): EventStream[(MessageEvent, Output)] = {
-    toSSEStream(
+    apply(
       securityParams,
       params,
       codec.parseAndDecode(_).left.map(err => s"Failed to decode event data: $err"),
@@ -340,4 +339,99 @@ extension [SecurityInput, Input, Output, AuthError, Requirements <: ServerSentEv
       withCredentials,
     )
   }
+}
+
+extension [SecurityInput, Input, Output, AuthError, Requirements](
+  e: Endpoint[SecurityInput, Input, AuthError, Output, Requirements & ServerSentEvents]
+) {
+  def toSSEStream: ToSSEStreamBuilder[SecurityInput, Input, Output] = new {
+    override def raw(
+      securityParams: SecurityInput,
+      params: Input,
+      now: () => FrameworkDateTime = FrameworkDateTime.now,
+      reconnectOnError: Option[OnSSEStreamError[SecurityInput, Input, MessageEvent]] = Some(
+        OnSSEStreamError.default[SecurityInput, Input, MessageEvent]
+      ),
+      withCredentials: Boolean = false,
+    )(using baseUri: AppBaseUri, definedAt: DefinedAt): EventStream[MessageEvent] = {
+      val options = js.Dynamic.literal(withCredentials = withCredentials).asInstanceOf[EventSourceInit]
+
+      def createEventSource(uri: Uri) = {
+        val uriStr = uri.toString
+        log.debug(s"Creating SSE stream for $uri, options=", options)
+        EventSource(uriStr, options)
+      }
+
+      def createUri(securityParams: SecurityInput, params: Input) = {
+        val timestamp = now()
+        val (name, value) = FrameworkHeaders.`X-Request-Started-At`(timestamp)
+        e.toReq(securityParams, params, timestamp)
+          .uri
+          // Add the client tracing as a query parameter because SSE requests do not support custom headers
+          .addParam(name, value)
+      }
+
+      rawImpl(
+        securityParams,
+        params,
+        reconnectOnError,
+        createUri,
+        uri => EventStream.fromDomEventSource(createEventSource(uri)),
+        uri => EventStream.fromDomEventSourceEither(createEventSource(uri)),
+      )
+    }
+  }
+}
+extension [F[_], SecurityInput, Input, Output, AuthError, Requirements](
+  e: Endpoint[SecurityInput, Input, AuthError, fs2.Stream[F, Output], Requirements & Fs2Streams[F] & WebSockets]
+) {
+
+  /** Connects to [[EndpointSSEWithWS.webSocketAsSSE]]. */
+  def toWsAsSSEStream: ToSSEStreamBuilder[SecurityInput, Input, Output] = new {
+    override def raw(
+      securityParams: SecurityInput,
+      params: Input,
+      now: () => FrameworkDateTime = FrameworkDateTime.now,
+      reconnectOnError: Option[OnSSEStreamError[SecurityInput, Input, MessageEvent]] = Some(
+        OnSSEStreamError.default[SecurityInput, Input, MessageEvent]
+      ),
+      withCredentials: Boolean = false,
+    )(using baseUri: AppBaseUri, definedAt: DefinedAt): EventStream[MessageEvent] = {
+      def createWebSocket(uri: Uri) = {
+        val uriStr = uri.toString
+        log.debug(s"Creating WS stream for $uri")
+        WebSocket(uriStr)
+      }
+
+      def createUri(securityParams: SecurityInput, params: Input) = {
+        val timestamp = now()
+        val (name, value) = FrameworkHeaders.`X-Request-Started-At`(timestamp)
+        e.toReq(securityParams, params, timestamp)
+          .uri
+          // Add the client tracing as a query parameter because WS requests do not support custom headers
+          .addParam(name, value)
+      }
+
+      rawImpl(
+        securityParams,
+        params,
+        reconnectOnError,
+        createUri,
+        uri => EventStream.fromWebSocket(createWebSocket(uri)),
+        uri => EventStream.fromWebSocketEither(createWebSocket(uri)),
+      )
+    }
+  }
+}
+
+extension [F[_], SecurityInput, Input, Output, AuthError, Requirements](
+  e: EndpointSSEWithWS[F, SecurityInput, Input, Output, AuthError, Requirements]
+) {
+  def toSSEStream(mode: EndpointSSEWithWS.ClientConnectionMode): ToSSEStreamBuilder[SecurityInput, Input, Output] =
+    mode match {
+      case EndpointSSEWithWS.ClientConnectionMode.ServerSentEvents => e.sse.toSSEStream
+      case EndpointSSEWithWS.ClientConnectionMode.WebSocket        => e.webSocketAsSSE.toWsAsSSEStream
+      // TODO: implement
+      case ClientConnectionMode.SSEWithWebSocketFallback => e.sse.toSSEStream
+    }
 }

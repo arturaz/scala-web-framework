@@ -63,16 +63,23 @@ extension [SecurityInput, Input, Output, AuthError, Requirements](
     e.withOutputPublic(EndpointIO.Body(RawBodyType.StringBody(StandardCharsets.UTF_8), codec, EndpointIO.Info.empty))
   }
 
-  /** [[serverSentEvents]] + WebSocket. */
-  def serverSentEventsAndWebSocket[Output2](using
+  /** [[serverSentEvents]] + WebSocket.
+    *
+    * @param wsDiscriminatedBy
+    *   the [[EndpointInput]] that discriminates the websocket from the SSE.
+    */
+  def serverSentEventsAndWebSocket[Output2](wsDiscriminatedBy: EndpointInput[Unit] = "ws")(using
     codec: Codec[String, Output2, TapirCodecFormat.Json]
-  ): EndpointSSEWithWS[SecurityInput, Input, Output2, AuthError, Requirements] =
+  ): EndpointSSEWithWS[IO, SecurityInput, Input, Output2, AuthError, Requirements] =
     EndpointSSEWithWS(
-      sse = e.in("sse").serverSentEvents[Output2],
+      sse = e.serverSentEvents[Output2],
       webSocket = e
-        .in("ws")
+        .in(wsDiscriminatedBy)
         .withOutputPublic(webSocketBody[Nothing, TapirCodecFormat.Json, Output2, TapirCodecFormat.Json](Fs2Streams[IO])),
     )
+
+  /** Relaxes the requirements. */
+  def relaxRequirements[R1 >: Requirements]: Endpoint[SecurityInput, Input, AuthError, Output, R1] = e.asInstanceOf
 }
 
 extension [A](query: EndpointInput.Query[Option[A]]) {

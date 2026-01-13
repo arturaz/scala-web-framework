@@ -15,6 +15,9 @@ import scala.annotation.targetName
 import sttp.tapir.Endpoint
 import sttp.tapir.server.http4s.RichHttp4sEndpoint
 import sttp.tapir.typelevel.ParamConcat
+import framework.data.EndpointSSEWithWS
+import sttp.tapir.EndpointServerLogicOps
+import framework.tapir.capabilities.ServerSentEvents
 
 /** Helper trait for creating routes from endpoints.
   *
@@ -32,7 +35,11 @@ import sttp.tapir.typelevel.ParamConcat
   *            _
   *              .serverSecurityLogicPure(app.auth.Authenticator.authenticated)
   *              .serverLogicSuccess(app.endpoints.UsersMe.apply)
-  *          )
+  *          ),
+  *          builder.endpoint.sseWithWs(Endpoints.AppUpdates.unauthenticated)(
+  *            toSSE = _.toSSEJson[IO](sseKeepAlive),
+  *            build = _.serverLogicSuccessPure(app.endpoints.AppUpdates.forUnauthenticated),
+  *          ),
   *        )
   *      )
   *    }
@@ -54,16 +61,16 @@ object ServerRouter {
     webSocket: Option[WebSocketBuilder2[F] => ContextRoutes[Context, F]],
   )
   object Route {
-    def apply[Context, F[_]](
+    def both[Context, F[_]](
       regular: ContextRoutes[Context, F],
       webSocket: WebSocketBuilder2[F] => ContextRoutes[Context, F],
     ): Route[Context, F] =
       apply(Some(regular), Some(webSocket))
 
-    def apply[Context, F[_]](regular: ContextRoutes[Context, F]): Route[Context, F] =
+    def regular[Context, F[_]](regular: ContextRoutes[Context, F]): Route[Context, F] =
       apply(Some(regular), webSocket = None)
 
-    def apply[Context, F[_]](webSocket: WebSocketBuilder2[F] => ContextRoutes[Context, F]): Route[Context, F] =
+    def webSocket[Context, F[_]](webSocket: WebSocketBuilder2[F] => ContextRoutes[Context, F]): Route[Context, F] =
       apply(regular = None, Some(webSocket))
 
     def builderFor[Context, F[_]](interpreter: Http4sServerInterpreter[F])(using
@@ -74,17 +81,19 @@ object ServerRouter {
 
       /** Creates a regular route. */
       def regular(se: ServerEndpoint[Fs2Streams[F] & TapirHttp4sContext[Context], F]): Route[Context, F] =
-        Route(serverInterpreter.toContextRoutes(se))
+        Route.regular(serverInterpreter.toContextRoutes(se))
 
       /** Creates a websocket route. */
       def webSocket(
         se: ServerEndpoint[Fs2Streams[F] & TapirHttp4sContext[Context] & WebSockets, F]
       ): Route[Context, F] =
-        Route(serverInterpreter.toContextWebSocketRoutes(se))
+        Route.webSocket(serverInterpreter.toContextWebSocketRoutes(se))
 
       /** Creates a [[Route]] from an endpoint. */
       object endpoint {
-        def regular[SECURITY_INPUT, INPUT, ERROR_OUTPUT, OUTPUT, R, INPUT_PLUS_CONTEXT](
+
+        /** Creates a regular route. */
+        def regular[SECURITY_INPUT, INPUT, ERROR_OUTPUT, OUTPUT, R](
           endpoint: Endpoint[SECURITY_INPUT, INPUT, ERROR_OUTPUT, OUTPUT, R]
         )(using concat: ParamConcat[INPUT, Context])(
           build: Endpoint[
@@ -97,7 +106,8 @@ object ServerRouter {
         ): Route[Context, F] =
           self.regular(build(endpoint.contextIn[Context]()))
 
-        def webSocket[SECURITY_INPUT, INPUT, ERROR_OUTPUT, OUTPUT, R, INPUT_PLUS_CONTEXT](
+        /** Creates a websocket route. */
+        def webSocket[SECURITY_INPUT, INPUT, ERROR_OUTPUT, OUTPUT, R](
           endpoint: Endpoint[SECURITY_INPUT, INPUT, ERROR_OUTPUT, OUTPUT, R]
         )(using inputConcat: ParamConcat[INPUT, Context])(
           build: Endpoint[
@@ -109,6 +119,50 @@ object ServerRouter {
           ] => ServerEndpoint[Fs2Streams[F] & TapirHttp4sContext[Context] & WebSockets, F]
         ): Route[Context, F] =
           self.webSocket(build(endpoint.contextIn[Context]()))
+
+        /** Creates a server-sent events route with a websocket alternative.
+          *
+          * Example:
+          * ```
+          * builder.endpoint.sseWithWs(Endpoints.AppUpdates.unauthenticated)(
+          *   toSSE = _.toSSEJson[IO](sseKeepAlive),
+          *   build = _.serverLogicSuccessPure(app.endpoints.AppUpdates.forUnauthenticated),
+          * )
+          * ```
+          */
+        def sseWithWs[SECURITY_INPUT, INPUT, ERROR_OUTPUT, OUTPUT, R](
+          endpoint: EndpointSSEWithWS[F, SECURITY_INPUT, INPUT, OUTPUT, ERROR_OUTPUT, R]
+        )(using inputConcat: ParamConcat[INPUT, Context])[PRINCIPAL](
+          toSSE: Endpoint[
+            SECURITY_INPUT,
+            inputConcat.Out,
+            ERROR_OUTPUT,
+            OUTPUT,
+            R & ServerSentEvents & TapirHttp4sContext[Context],
+          ] => Endpoint[
+            SECURITY_INPUT,
+            inputConcat.Out,
+            ERROR_OUTPUT,
+            Stream[F, OUTPUT],
+            R & Fs2Streams[F] & TapirHttp4sContext[Context],
+          ],
+          build: Endpoint[
+            SECURITY_INPUT,
+            inputConcat.Out,
+            ERROR_OUTPUT,
+            Stream[F, OUTPUT],
+            R & Fs2Streams[F] & TapirHttp4sContext[Context],
+          ] => ServerEndpoint[Fs2Streams[F] & TapirHttp4sContext[Context], F],
+        ): Route[Context, F] = {
+          Route.both(
+            regular = endpoint.sse.contextIn[Context]().pipe(toSSE).pipe(build).pipe(serverInterpreter.toContextRoutes),
+            webSocket = endpoint.webSocketAsSSE
+              .contextIn[Context]()
+              .relaxRequirements[R & Fs2Streams[F] & TapirHttp4sContext[Context]]
+              .pipe(build)
+              .pipe(serverInterpreter.toContextWebSocketRoutes),
+          )
+        }
       }
     }
   }

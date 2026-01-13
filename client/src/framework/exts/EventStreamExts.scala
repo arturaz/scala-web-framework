@@ -8,6 +8,7 @@ import java.util.concurrent.TimeUnit
 import scala.concurrent.duration.FiniteDuration
 import scala.scalajs.js.JSON
 import org.scalajs.dom.Event
+import org.scalajs.dom.WebSocket
 
 trait EventStreamBooleanExts {
   extension (stream: EventStream[Boolean]) {
@@ -105,7 +106,11 @@ extension (obj: EventStream.type) {
       start = (fireValue: CustomSource.FireValue[MessageEvent], fireError, getStartIndex, getIsStarted) => {
         val evtSource = create
         evtSource.onmessage = evt => fireValue(evt)
-        evtSource.onerror = evt => fireError(convertError(evt))
+        evtSource.onerror = evt => {
+          fireError(convertError(evt))
+          // Make sure to manually close the event source to prevent reconnection.
+          evtSource.close()
+        }
         evtSource
       },
       stop = (_, evtSource) => {
@@ -135,6 +140,58 @@ extension (obj: EventStream.type) {
           evtSource.close()
         }
         evtSource
+      },
+      stop = (_, evtSource) => {
+        evtSource.close()
+      },
+    )
+  }
+
+  /** Creates an [[EventStream]] from a [[WebSocket]]. */
+  def fromWebSocket(
+    create: => WebSocket,
+    convertError: Event => Throwable = { evt =>
+      new Exception(s"An error occurred while getting events from WebSocket: ${JSON.stringify(evt, space = 2)}")
+    },
+  ): EventStream[MessageEvent] = {
+    fromCustomSourceWithSubscription(
+      start = (fireValue: CustomSource.FireValue[MessageEvent], fireError, getStartIndex, getIsStarted) => {
+        val evtSource = create
+        evtSource.onmessage = evt => fireValue(evt)
+        evtSource.onerror = evt => {
+          fireError(convertError(evt))
+          // Make sure to manually close the event source to prevent reconnection.
+          evtSource.close()
+        }
+        evtSource
+      },
+      stop = (_, evtSource) => {
+        evtSource.close()
+      },
+    )
+  }
+
+  /** Creates an [[EventStream]] from a [[WebSocket]] which emits `Right([[MessageEvent]])` and then finally
+    * `Left([[Event]])`, after which the [[WebSocket]] is closed.
+    */
+  def fromWebSocketEither(
+    create: => WebSocket
+  ): EventStream[Either[Event, MessageEvent]] = {
+    fromCustomSourceWithSubscription(
+      start = (
+        fireValue: CustomSource.FireValue[Either[Event, MessageEvent]],
+        fireError,
+        getStartIndex,
+        getIsStarted,
+      ) => {
+        val webSocket = create
+        webSocket.onmessage = evt => fireValue(Right(evt))
+        webSocket.onerror = evt => {
+          fireValue(Left(evt))
+          // Make sure to manually close the web socket to prevent reconnection.
+          webSocket.close()
+        }
+        webSocket
       },
       stop = (_, evtSource) => {
         evtSource.close()
