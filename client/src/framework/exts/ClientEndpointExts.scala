@@ -195,7 +195,7 @@ object OnSSEStreamError {
     connectionIndex: Int,
     securityInput: SecurityInput,
     input: Input,
-  )(using definedAt: DefinedAt): OnSSEStreamError.OnErrorAction[SecurityInput, Input] = {
+  )(using definedAt: DefinedAt): OnSSEStreamError.OnErrorAction.ReconnectAfter[SecurityInput, Input] = {
     given PrettyPrintDuration.Strings = PrettyPrintDuration.Strings.EnglishShortNoSpaces
     val waitingFor = defaultWaitFor(connectionIndex)
 
