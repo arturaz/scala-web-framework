@@ -5,6 +5,7 @@ import cats.effect.kernel.Outcome
 import com.raquo.airstream.core.Signal
 import com.raquo.airstream.state.{StrictSignal, Var}
 import framework.utils.NetworkOrAuthError
+import scala.annotation.targetName
 
 /** Tracks the status of an ongoing request.
   *
@@ -30,21 +31,30 @@ class ModificationRequestTracker(status: Var[ModificationRequestTracker.Status])
   }
   val canCancelBool: Signal[Boolean] = canCancel.map(_.isDefined)
 
-  /** Launches a request. */
-  def launch[A, Err](request: IO[Either[Err, A]]): IO[ModificationRequestTracker.Result[Err, A]] =
-    launch(EitherT(request))
+  @targetName("launchAuthenticatedWithNetworkFailure")
+  def launch[A, AuthError](
+    request: EitherT[IO, AuthenticatedNetworkRequestFailure[AuthError], A]
+  ): IO[ModificationRequestTracker.Result[NetworkOrAuthError[AuthError], A]] =
+    launch[A, AuthenticatedNetworkRequestFailure[AuthError]](request).map {
+      case ModificationRequestTracker.Result.Error(AuthenticatedNetworkRequestFailure.Aborted) =>
+        ModificationRequestTracker.Result.Cancelled
+      case ModificationRequestTracker.Result.Error(AuthenticatedNetworkRequestFailure.NetworkOrAuthError(err)) =>
+        ModificationRequestTracker.Result.Error(err)
+      case ModificationRequestTracker.Result.Cancelled   => ModificationRequestTracker.Result.Cancelled
+      case ModificationRequestTracker.Result.Finished(v) => ModificationRequestTracker.Result.Finished(v)
+    }
 
   /** Launches a request. */
   def launch[A, Err](request: EitherT[IO, Err, A]): IO[ModificationRequestTracker.Result[Err, A]] = {
     for {
       fiber <- (for {
-        _ <- IO(status.now()).flatMap {
+        () <- IO(status.now()).flatMap {
           case ModificationRequestTracker.Status.Standby         => IO.unit
           case ModificationRequestTracker.Status.EnRoute(cancel) => cancel
         }
         fiber <- request.value.start
         enRoute = ModificationRequestTracker.Status.EnRoute(fiber.cancel)
-        _ <- IO(status.set(enRoute))
+        () <- IO(status.set(enRoute))
       } yield fiber).uncancelable
       outcome <- (fiber.join <* IO(status.set(ModificationRequestTracker.Status.Standby))).uncancelable
       result <- outcome match {

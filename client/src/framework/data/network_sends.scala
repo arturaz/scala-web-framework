@@ -1,12 +1,12 @@
 package framework.data
 
-import framework.utils.NetworkOrAuthError
 import scala.annotation.targetName
 import cats.Functor
 import cats.syntax.all.*
+import framework.utils.AuthenticatedNetworkRequestFailure
 
 /** A type alias for the network request that can fail with a network or authentication error. */
-type SendRequestIO[AuthError, Response] = EitherT[IO, NetworkOrAuthError[AuthError], Response]
+type SendRequestIO[AuthError, Response] = EitherT[IO, AuthenticatedNetworkRequestFailure[AuthError], Response]
 
 /** The signal for sending the request. The when the outer [[Option]] becomes [[Some]] the button will be enabled. When
   * the user click the button the [[SyncIO]] will be executed. If it returns [[None]] nothing will happen, if it returns
@@ -54,13 +54,13 @@ object SendSignal {
 
     /** When we do not make a network request and the value may not be available. */
     given fromKnownValue[A]: Conversion[Signal[Option[A]], SignalMagnet[Nothing, A]] =
-      _.mapSome(a => EitherT.pure[IO, NetworkOrAuthError[Nothing]](a))
+      _.mapSome(a => EitherT.pure[IO, AuthenticatedNetworkRequestFailure[Nothing]](a))
   }
   trait SignalMagnetLowPriorityConversions2 {
 
     /** When we do not make a network request and the value is always available. */
     given fromAlwaysAvailableKnownValue[A]: Conversion[Signal[A], SignalMagnet[Nothing, A]] =
-      _.map(a => Some(EitherT.pure[IO, NetworkOrAuthError[Nothing]](a)))
+      _.map(a => Some(EitherT.pure[IO, AuthenticatedNetworkRequestFailure[Nothing]](a)))
   }
 
   /** Signal which does not ask for confirmation. */

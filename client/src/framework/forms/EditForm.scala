@@ -12,7 +12,7 @@ import framework.api.DataUpdateRequest
 import framework.data.{AppBaseUri, FrameworkDateTime}
 import framework.sourcecode.DefinedAt
 import framework.utils.FetchRequest.WithInput
-import framework.utils.{ModificationRequestTracker, NetworkError, NetworkOrAuthError, PersistedVar, UpdatableSignal}
+import framework.utils.{AuthenticatedNetworkRequestFailure, ModificationRequestTracker, PersistedVar, UpdatableSignal}
 import io.scalaland.chimney.dsl.*
 import io.scalaland.chimney.partial.Result
 import io.scalaland.chimney.{PartialTransformer, Transformer}
@@ -48,7 +48,7 @@ sealed abstract class EditForm[TVar[_], A](
   def sendAuthedToEndpointIO[AuthData, AuthError, Output, Requirements >: Effect[IO]](
     authDataIO: IO[AuthData],
     endpoint: Endpoint[AuthData, A, AuthError, Output, Requirements],
-  )(using AppBaseUri): EitherT[IO, NetworkOrAuthError[AuthError], Response[Output]] =
+  )(using AppBaseUri): EitherT[IO, AuthenticatedNetworkRequestFailure[AuthError], Response[Output]] =
     EditForm.sendAuthedToEndpointIO(endpoint, authDataIO, rxVar.signal.toIO)
 
   /** If the form is validated returns a signal that returns [[Some]] when the form data is valid. */
@@ -69,10 +69,15 @@ sealed abstract class EditForm[TVar[_], A](
     * You will most likely need to specify the [[ValidatedInput]] type parameter somewhere.
     */
   def sendValidatedAuthedIO[AuthData, AuthError, Output](authDataIO: IO[AuthData])[ValidatedInput](
-    createRequest: (AuthData, ValidatedInput) => EitherT[IO, NetworkOrAuthError[AuthError], Response[Output]]
+    createRequest: (
+      AuthData,
+      ValidatedInput,
+    ) => EitherT[IO, AuthenticatedNetworkRequestFailure[AuthError], Response[Output]]
   )(using
     PartialTransformer[A, ValidatedInput]
-  ): Signal[Option[EitherT[IO, NetworkOrAuthError[AuthError], Response[WithInput[ValidatedInput, Output]]]]] =
+  ): Signal[
+    Option[EitherT[IO, AuthenticatedNetworkRequestFailure[AuthError], Response[WithInput[ValidatedInput, Output]]]]
+  ] =
     EditForm.sendValidatedAuthedIO(rxVar.signal, authDataIO)(createRequest)
 
   /** Validates the form data and if that is valid sends it to the given endpoint.
@@ -83,10 +88,16 @@ sealed abstract class EditForm[TVar[_], A](
     extraData: Signal[ExtraData],
     authDataIO: IO[AuthData],
   )[ValidatedInput](
-    createRequest: (ExtraData, AuthData, ValidatedInput) => EitherT[IO, NetworkOrAuthError[AuthError], Response[Output]]
+    createRequest: (
+      ExtraData,
+      AuthData,
+      ValidatedInput,
+    ) => EitherT[IO, AuthenticatedNetworkRequestFailure[AuthError], Response[Output]]
   )(using
     PartialTransformer[A, ValidatedInput]
-  ): Signal[Option[EitherT[IO, NetworkOrAuthError[AuthError], Response[WithInput[ValidatedInput, Output]]]]] =
+  ): Signal[
+    Option[EitherT[IO, AuthenticatedNetworkRequestFailure[AuthError], Response[WithInput[ValidatedInput, Output]]]]
+  ] =
     EditForm.sendValidatedAuthedIO(rxVar.signal, extraData, authDataIO)(createRequest)
 
   /** Validates the form data and if that is valid sends it to the given endpoint. */
@@ -102,7 +113,9 @@ sealed abstract class EditForm[TVar[_], A](
   )(using
     PartialTransformer[A, ValidatedInput],
     AppBaseUri,
-  ): Signal[Option[EitherT[IO, NetworkOrAuthError[AuthError], Response[WithInput[ValidatedInput, Output]]]]] =
+  ): Signal[
+    Option[EitherT[IO, AuthenticatedNetworkRequestFailure[AuthError], Response[WithInput[ValidatedInput, Output]]]]
+  ] =
     EditForm.sendValidatedAuthedToEndpointIO(rxVar.signal, authDataIO, endpoint)
 
   /** Validates the form data and if that is valid sends it to the given endpoint.
@@ -124,7 +137,9 @@ sealed abstract class EditForm[TVar[_], A](
   )(using
     PartialTransformer[A, ValidatedInput],
     AppBaseUri,
-  ): Signal[Option[EitherT[IO, NetworkOrAuthError[AuthError], Response[WithInput[ValidatedInput, Output]]]]] =
+  ): Signal[
+    Option[EitherT[IO, AuthenticatedNetworkRequestFailure[AuthError], Response[WithInput[ValidatedInput, Output]]]]
+  ] =
     EditForm.sendValidatedAuthedToDataUpdateRequestEndpointIO(
       rxVar.signal,
       authDataIO,
@@ -236,7 +251,7 @@ object EditForm {
     endpoint: Endpoint[AuthData, Input, AuthError, Output, Requirements],
     authDataIO: IO[AuthData],
     inputIO: IO[Input],
-  )(using AppBaseUri): EitherT[IO, NetworkOrAuthError[AuthError], Response[Output]] =
+  )(using AppBaseUri): EitherT[IO, AuthenticatedNetworkRequestFailure[AuthError], Response[Output]] =
     (authDataIO, inputIO, FrameworkDateTime.nowIO.to[IO]).parMapN(endpoint.toReq).flatMapT(_.io)
 
   /** If the form is validated returns a signal that returns [[Some]] when the form data is valid. */
@@ -268,10 +283,15 @@ object EditForm {
     inputSignal: Signal[UnvalidatedInput],
     authDataIO: IO[AuthData],
   )[ValidatedInput](
-    createRequest: (AuthData, ValidatedInput) => EitherT[IO, NetworkOrAuthError[AuthError], Response[Output]]
+    createRequest: (
+      AuthData,
+      ValidatedInput,
+    ) => EitherT[IO, AuthenticatedNetworkRequestFailure[AuthError], Response[Output]]
   )(using
     PartialTransformer[UnvalidatedInput, ValidatedInput]
-  ): Signal[Option[EitherT[IO, NetworkOrAuthError[AuthError], Response[WithInput[ValidatedInput, Output]]]]] =
+  ): Signal[
+    Option[EitherT[IO, AuthenticatedNetworkRequestFailure[AuthError], Response[WithInput[ValidatedInput, Output]]]]
+  ] =
     sendValidatedAuthedIO(inputSignal, Signal.fromValue(()), authDataIO)((_, auth, input) => createRequest(auth, input))
 
   /** Validates the form data and if that is valid sends it to the given endpoint.
@@ -283,10 +303,16 @@ object EditForm {
     extraData: Signal[ExtraData],
     authDataIO: IO[AuthData],
   )[ValidatedInput](
-    createRequest: (ExtraData, AuthData, ValidatedInput) => EitherT[IO, NetworkOrAuthError[AuthError], Response[Output]]
+    createRequest: (
+      ExtraData,
+      AuthData,
+      ValidatedInput,
+    ) => EitherT[IO, AuthenticatedNetworkRequestFailure[AuthError], Response[Output]]
   )(using
     PartialTransformer[UnvalidatedInput, ValidatedInput]
-  ): Signal[Option[EitherT[IO, NetworkOrAuthError[AuthError], Response[WithInput[ValidatedInput, Output]]]]] = {
+  ): Signal[
+    Option[EitherT[IO, AuthenticatedNetworkRequestFailure[AuthError], Response[WithInput[ValidatedInput, Output]]]]
+  ] = {
     validatedInputAndAuthSignal(inputSignal, authDataIO).combineWithFn(extraData) {
       case (None, _) => None
       case (Some(io), extraData) =>
@@ -311,7 +337,9 @@ object EditForm {
   )(using
     PartialTransformer[UnvalidatedInput, ValidatedInput],
     AppBaseUri,
-  ): Signal[Option[EitherT[IO, NetworkOrAuthError[AuthError], Response[WithInput[ValidatedInput, Output]]]]] =
+  ): Signal[
+    Option[EitherT[IO, AuthenticatedNetworkRequestFailure[AuthError], Response[WithInput[ValidatedInput, Output]]]]
+  ] =
     sendValidatedAuthedIO(inputSignal, authDataIO)((authData, validatedInput) =>
       FrameworkDateTime.nowIO.to[IO].flatMapT(endpoint.toReq(authData, validatedInput, _).io)
     )
@@ -340,7 +368,9 @@ object EditForm {
   )(using
     PartialTransformer[UnvalidatedInput, ValidatedInput],
     AppBaseUri,
-  ): Signal[Option[EitherT[IO, NetworkOrAuthError[AuthError], Response[WithInput[ValidatedInput, Output]]]]] =
+  ): Signal[
+    Option[EitherT[IO, AuthenticatedNetworkRequestFailure[AuthError], Response[WithInput[ValidatedInput, Output]]]]
+  ] =
     sendValidatedAuthedIO(inputSignal, currentInputSignal, authDataIO)((currentInput, authData, validatedInput) => {
       val updateReq = DataUpdateRequest(inputId, expected = currentInput, toSet = validatedInput)
       FrameworkDateTime.nowIO.to[IO].flatMapT(now => endpoint.toReq(authData, updateReq, now).io)

@@ -16,7 +16,6 @@ import framework.data.{
   PublicLoadingStatus,
 }
 import framework.sourcecode.DefinedAt
-import framework.utils.NetworkError
 import monocle.AppliedLens
 
 import scala.annotation.targetName
@@ -156,28 +155,31 @@ object FetchRequest {
 
   @targetName("public")
   def apply[Input, Result](
-    createIO: Input => EitherT[IO, NetworkError, Option[Result]]
+    createIO: Input => EitherT[IO, NetworkRequestFailure, Option[Result]]
   ): FetchRequest[Input, PublicLoadingStatus, Result] = {
     new Impl(createIO, Signal.fromIOReturningOption)
   }
 
   @targetName("publicInfallible")
   def apply[Input, Result](
-    createIO: Input => EitherT[IO, NetworkError, Result]
+    createIO: Input => EitherT[IO, NetworkRequestFailure, Result]
   ): FetchRequest[Input, PublicLoadingStatus, Result] = {
-    new Impl[Input, NetworkError, Id, PublicLoadingStatus, Result](createIO, Signal.fromIO)
+    new Impl[Input, NetworkRequestFailure, Id, PublicLoadingStatus, Result](createIO, Signal.fromIO)
   }
 
   @targetName("authenticatedInfallible")
   def apply[Input, AuthError, Result](
-    createIO: Input => EitherT[IO, NetworkOrAuthError[AuthError], Result]
+    createIO: Input => EitherT[IO, AuthenticatedNetworkRequestFailure[AuthError], Result]
   ): FetchRequest[Input, AuthLoadingStatus, Result] = {
-    new Impl[Input, NetworkOrAuthError[AuthError], Id, AuthLoadingStatus, Result](createIO, Signal.fromAuthRequestIO)
+    new Impl[Input, AuthenticatedNetworkRequestFailure[AuthError], Id, AuthLoadingStatus, Result](
+      createIO,
+      Signal.fromAuthRequestIO,
+    )
   }
 
   @targetName("authenticated")
   def apply[Input, AuthError, Result](
-    createIO: Input => EitherT[IO, NetworkOrAuthError[AuthError], Option[Result]]
+    createIO: Input => EitherT[IO, AuthenticatedNetworkRequestFailure[AuthError], Option[Result]]
   ): FetchRequest[Input, AuthLoadingStatus, Result] = {
     new Impl(createIO, Signal.fromAuthRequestReturningOptionIO)
   }

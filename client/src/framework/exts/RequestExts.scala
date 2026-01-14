@@ -6,13 +6,21 @@ import framework.api.FrameworkHeaders
 import framework.data.FrameworkDateTime
 import framework.prelude.sttpBackend
 import framework.sourcecode.DefinedAt
-import framework.utils.{LogLevel, NetworkError, NetworkOrAuthError}
+import framework.utils.{
+  AuthenticatedNetworkRequestFailure,
+  LogLevel,
+  NetworkError,
+  NetworkOrAuthError,
+  NetworkRequestFailure,
+}
 import sttp.capabilities.fs2.Fs2Streams
 import sttp.capabilities.{Effect, Streams}
 import sttp.client3.{Request, Response}
 
 import scala.annotation.targetName
 import scala.scalajs.js.JavaScriptException
+import org.scalajs.dom.DOMException
+import framework.facades.AbortError
 
 extension [Output, Requirements](req: Request[Output, Requirements]) {
 
@@ -27,7 +35,7 @@ extension [Output, Requirements](req: Request[Output, Requirements]) {
 extension [Output, Requirements >: Effect[IO]](req: Request[Output, Requirements]) {
 
   /** Sends the request. */
-  def io(using DefinedAt): EitherT[IO, NetworkError, Response[Output]] =
+  def io(using DefinedAt): EitherT[IO, NetworkRequestFailure, Response[Output]] =
     req.mapResponse(output => Right(output): Either[NetworkError, Output]).io
 }
 
@@ -36,10 +44,13 @@ extension [Output, Requirements >: Effect[IO]](req: Request[Either[NetworkError,
 
   /** Sends the request. */
   @targetName("ioWithNetworkError")
-  def io(using DefinedAt): EitherT[IO, NetworkError, Response[Output]] =
+  def io(using DefinedAt): EitherT[IO, NetworkRequestFailure, Response[Output]] =
     req.mapResponse(_.left.map(_.asNetworkOrAuthError)).io.leftMap {
-      case NetworkOrAuthError.NetworkError(err) => err
-      case NetworkOrAuthError.AuthError(_)      => throw new IllegalStateException("impossible")
+      case AuthenticatedNetworkRequestFailure.Aborted => NetworkRequestFailure.Aborted
+      case AuthenticatedNetworkRequestFailure.NetworkOrAuthError(NetworkOrAuthError.NetworkError(err)) =>
+        NetworkRequestFailure.NetworkError(err)
+      case AuthenticatedNetworkRequestFailure.NetworkOrAuthError(NetworkOrAuthError.AuthError(_)) =>
+        throw new IllegalStateException("impossible")
     }
 }
 
@@ -54,7 +65,7 @@ extension [AuthError, Output, Requirements >: Effect[IO]](
 
   /** Sends the request. */
   @targetName("ioWithAuthError")
-  def io(using DefinedAt): EitherT[IO, NetworkOrAuthError[AuthError], Response[Output]] = {
+  def io(using DefinedAt): EitherT[IO, AuthenticatedNetworkRequestFailure[AuthError], Response[Output]] = {
     val id = RequestDebugCounter.counter
     RequestDebugCounter.counter += 1
     val reqLog = log.scoped(show"req #$id")
@@ -67,14 +78,24 @@ extension [AuthError, Output, Requirements >: Effect[IO]](
             reqLog.at(if (response.body.isLeft) LogLevel.Error else LogLevel.Info, s"Received response: $response")
             response.body match {
               case Left(error) =>
-                Left(error)
+                Left(AuthenticatedNetworkRequestFailure.NetworkOrAuthError(error))
               case Right(value) =>
                 Right(response.mapBody(_ => value))
             }
           }
           .recover { case e: JavaScriptException =>
-            reqLog.error(s"Error while sending request: $e")
-            Left(NetworkOrAuthError.NetworkError(NetworkError.JsError(e)))
+            e.exception match {
+              case AbortError(_) =>
+                reqLog.info("Request aborted")
+                Left(AuthenticatedNetworkRequestFailure.Aborted)
+
+              case _ =>
+                reqLog.error(s"Error while sending request: $e")
+                Left(
+                  AuthenticatedNetworkRequestFailure
+                    .NetworkOrAuthError(NetworkOrAuthError.NetworkError(NetworkError.JsError(e)))
+                )
+            }
           }
     )
   }

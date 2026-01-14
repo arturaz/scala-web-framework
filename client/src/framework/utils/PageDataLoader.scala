@@ -22,7 +22,7 @@ trait PageDataLoader {
 
   /** Loads public data which will always be found. */
   def public[Output](
-    createRequest: => EitherT[IO, NetworkError, Output]
+    createRequest: => EitherT[IO, NetworkRequestFailure, Output]
   )(whenLoaded: Output => PageRenderResult): PageRenderResult = {
     of(Signal.fromValue(())).public(createRequest = _ => createRequest.map(_.some))(withInput =>
       whenLoaded(withInput.fetchedData)
@@ -31,7 +31,7 @@ trait PageDataLoader {
 
   /** Loads private data which will always be found. */
   def authenticated[AuthError, Output](
-    createRequest: => EitherT[IO, NetworkOrAuthError[AuthError], Output]
+    createRequest: => EitherT[IO, AuthenticatedNetworkRequestFailure[AuthError], Output]
   )(whenLoaded: Output => PageRenderResult): PageRenderResult = {
     of(Signal.fromValue(())).authenticated(createRequest = _ => createRequest.map(_.some))(withInput =>
       whenLoaded(withInput.fetchedData)
@@ -64,19 +64,19 @@ trait PageDataLoader {
   /** Called when the page is loaded. */
   def onPageLoaded(request: FetchRequest.WithoutParams): Unit
 
-  /** Partial type application so that other type parameters could be infered. */
+  /** Partial type application so that other type parameters could be inferred. */
   class Builder[Input](private val inputSignal: Signal[Input]) {
 
     /** Loads public data which is always found. */
     def public[Output](
-      createRequest: Input => EitherT[IO, NetworkError, Output]
+      createRequest: Input => EitherT[IO, NetworkRequestFailure, Output]
     ): BuilderWithRequest[Input, Output] =
       public(createRequest.andThen(_.map(_.some)))
 
     /** Loads public data which can be not found. */
     @targetName("publicPossiblyNotFound")
     def public[Output](
-      createRequest: Input => EitherT[IO, NetworkError, Option[Output]]
+      createRequest: Input => EitherT[IO, NetworkRequestFailure, Option[Output]]
     ): BuilderWithRequest[Input, Output] =
       authenticated[Nothing, Output](
         createRequest.andThen(_.leftMap(_.asNetworkOrAuthError))
@@ -84,7 +84,7 @@ trait PageDataLoader {
 
     /** Loads private data which is always found. */
     def authenticated[AuthError, Output](
-      createRequest: Input => EitherT[IO, NetworkOrAuthError[AuthError], Output]
+      createRequest: Input => EitherT[IO, AuthenticatedNetworkRequestFailure[AuthError], Output]
     ): BuilderWithRequest[Input, Output] = {
       authenticated(createRequest.andThen(_.map(_.some)))
     }
@@ -92,7 +92,7 @@ trait PageDataLoader {
     /** Loads private data which can be not found. */
     @targetName("authenticatedPossiblyNotFound")
     def authenticated[AuthError, Output](
-      createRequest: Input => EitherT[IO, NetworkOrAuthError[AuthError], Option[Output]]
+      createRequest: Input => EitherT[IO, AuthenticatedNetworkRequestFailure[AuthError], Option[Output]]
     ): BuilderWithRequest[Input, Output] = BuilderWithRequest { whenLoaded =>
       val request = FetchRequest(createRequest)
 
