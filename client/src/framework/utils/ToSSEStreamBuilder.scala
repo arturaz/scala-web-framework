@@ -164,14 +164,79 @@ trait ToSSEStreamBuilder[SecurityInput, Input, Output] {
     )
   }
 }
+/** Callbacks for SSE/WebSocket fallback lifecycle events. */
+trait SSEFallbackCallbacks {
+
+  /** Called when SSE fails and we switch to WebSocket. */
+  def onFallbackToWebSocket(): Unit
+
+  /** Called when SSE connection succeeds (first message received). */
+  def onSSESuccess(): Unit
+}
+object SSEFallbackCallbacks {
+  val noOp: SSEFallbackCallbacks = new SSEFallbackCallbacks {
+    def onFallbackToWebSocket(): Unit = ()
+    def onSSESuccess(): Unit = ()
+  }
+
+  /** Creates callbacks that persist the fallback state to a [[PersistedVar]].
+    *
+    * @param persistedVar
+    *   The persisted var to update when fallback occurs or SSE succeeds.
+    * @param recoveryTimeout
+    *   How long to stay on WebSocket before trying SSE again.
+    * @param logger
+    *   Logger for logging fallback events. Use [[JSLogger.noOp]] to disable logging.
+    */
+  def persisted(
+    persistedVar: PersistedVar[EndpointSSEWithWS.ClientConnectionMode],
+    recoveryTimeout: FiniteDuration = EndpointSSEWithWS.ClientConnectionMode.defaultRecoveryTimeout,
+    logger: JSLogger = JSLogger.noOp,
+  ): SSEFallbackCallbacks = new SSEFallbackCallbacks {
+    def onFallbackToWebSocket(): Unit = {
+      persistedVar.underlying.now() match {
+        case EndpointSSEWithWS.ClientConnectionMode.SSEWithWebSocketFallback(_) =>
+          // Set forced WS mode for the recovery timeout
+          val tryAgainAt = FrameworkDateTime.now() + recoveryTimeout
+          logger.info(show"SSE failed, falling back to WebSocket. Will try SSE again at $tryAgainAt")
+          persistedVar.setAndPersist(
+            EndpointSSEWithWS.ClientConnectionMode.SSEWithWebSocketFallback(Some(tryAgainAt))
+          )
+        case EndpointSSEWithWS.ClientConnectionMode.ServerSentEvents
+            | EndpointSSEWithWS.ClientConnectionMode.WebSocket =>
+          // Manual override, don't change
+          ()
+      }
+    }
+
+    def onSSESuccess(): Unit = {
+      persistedVar.underlying.now() match {
+        case EndpointSSEWithWS.ClientConnectionMode.SSEWithWebSocketFallback(Some(_)) =>
+          // SSE works again, clear the timestamp
+          logger.info("SSE connection succeeded, clearing forced WebSocket mode")
+          persistedVar.setAndPersist(EndpointSSEWithWS.ClientConnectionMode.SSEWithWebSocketFallback(None))
+        case EndpointSSEWithWS.ClientConnectionMode.SSEWithWebSocketFallback(None)
+            | EndpointSSEWithWS.ClientConnectionMode.ServerSentEvents
+            | EndpointSSEWithWS.ClientConnectionMode.WebSocket =>
+          // Already in normal mode or manual override, nothing to do
+          ()
+      }
+    }
+  }
+}
+
 object ToSSEStreamBuilder {
 
   /** Simple fallback handler to WebSockets for when establishing the SSE connection fails. */
   def sseWithWebSocketFallback[F[_], SecurityInput, Input, Output, AuthError, Requirements](
     e: EndpointSSEWithWS[F, SecurityInput, Input, Output, AuthError, Requirements],
+    callbacks: SSEFallbackCallbacks,
     maxSseFailuresBeforeFallback: Int = 3,
     waitFor: Int => FiniteDuration = OnSSEStreamError.defaultWaitFor,
   ): ToSSEStreamBuilder[SecurityInput, Input, Output] = new {
+    // Track whether we've notified SSE success for this connection
+    private var sseSuccessNotified = false
+
     override def raw(
       securityParams: SecurityInput,
       params: Input,
@@ -180,7 +245,14 @@ object ToSSEStreamBuilder {
       withCredentials: Boolean,
     )(using baseUri: AppBaseUri, definedAt: DefinedAt): EventStream[MessageEvent] = {
       val sseReconnectOnError = new OnSSEStreamError[SecurityInput, Input, MessageEvent] {
-        override def onMessage(msg: MessageEvent): Unit = reconnectOnError.foreach(_.onMessage(msg))
+        override def onMessage(msg: MessageEvent): Unit = {
+          // First successful SSE message - notify callback
+          if (!sseSuccessNotified) {
+            sseSuccessNotified = true
+            callbacks.onSSESuccess()
+          }
+          reconnectOnError.foreach(_.onMessage(msg))
+        }
 
         override def onError(
           uri: Uri,
@@ -196,23 +268,26 @@ object ToSSEStreamBuilder {
 
           val delay = waitFor(connectionIndex)
 
-          def delayedWsStream =
+          def delayedWsStream = {
+            // Notify fallback when switching to WS
+            callbacks.onFallbackToWebSocket()
             EventStream
               .delay(delay.toMillis.toIntClamped)
               .flatMapSwitch(_ =>
                 e.webSocketAsSSE.toWsAsSSEStream.raw(securityParams, params, now, reconnectOnError, withCredentials)
               )
+          }
 
           reconnectOnError match {
             case None =>
               log.info(
-                s"sseWithWebSocketFallback: reconnectOnError is None, reconnecting with WS in ${delay.prettyForDebug}"
+                show"sseWithWebSocketFallback: reconnectOnError is None, reconnecting with WS in ${delay.prettyForDebug}"
               )
               OnSSEStreamError.OnErrorAction.ReconnectWith(delayedWsStream)
             case Some(_) if failuresSoFar >= maxSseFailuresBeforeFallback =>
               log.info(
-                s"sseWithWebSocketFallback: failure at connection index $connectionIndex, " +
-                  s"reconnecting with WS in ${delay.prettyForDebug}"
+                show"sseWithWebSocketFallback: failure at connection index $connectionIndex, " +
+                  show"reconnecting with WS in ${delay.prettyForDebug}"
               )
               OnSSEStreamError.OnErrorAction.ReconnectWith(delayedWsStream)
             case Some(reconnectOnError) =>

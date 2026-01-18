@@ -6,7 +6,7 @@ import framework.data.{AppBaseUri, EndpointSSEWithWS, FrameworkDateTime}
 import framework.prelude.sttpClientInterpreter
 import framework.sourcecode.DefinedAt
 import framework.tapir.capabilities.ServerSentEvents
-import framework.utils.{NetworkError, NetworkOrAuthError, PrettyPrintDuration, ToSSEStreamBuilder}
+import framework.utils.{NetworkError, NetworkOrAuthError, PrettyPrintDuration, SSEFallbackCallbacks, ToSSEStreamBuilder}
 import org.scalajs.dom.{Event, EventSource, EventSourceInit, MessageEvent, WebSocket}
 import sttp.capabilities.WebSockets
 import sttp.capabilities.fs2.Fs2Streams
@@ -298,11 +298,22 @@ extension [F[_], SecurityInput, Input, Output, AuthError, Requirements](
 extension [F[_], SecurityInput, Input, Output, AuthError, Requirements](
   e: EndpointSSEWithWS[F, SecurityInput, Input, Output, AuthError, Requirements]
 ) {
-  def toSSEStream(mode: EndpointSSEWithWS.ClientConnectionMode): ToSSEStreamBuilder[SecurityInput, Input, Output] =
+  def toSSEStream(
+    mode: EndpointSSEWithWS.ClientConnectionMode,
+  )(using callbacks: SSEFallbackCallbacks): ToSSEStreamBuilder[SecurityInput, Input, Output] =
     mode match {
       case EndpointSSEWithWS.ClientConnectionMode.ServerSentEvents => e.sse.toSSEStream
       case EndpointSSEWithWS.ClientConnectionMode.WebSocket        => e.webSocketAsSSE.toWsAsSSEStream
-      case EndpointSSEWithWS.ClientConnectionMode.SSEWithWebSocketFallback =>
-        ToSSEStreamBuilder.sseWithWebSocketFallback(e)
+      case EndpointSSEWithWS.ClientConnectionMode.SSEWithWebSocketFallback(None) =>
+        // Normal behavior: try SSE first
+        ToSSEStreamBuilder.sseWithWebSocketFallback(e, callbacks)
+      case EndpointSSEWithWS.ClientConnectionMode.SSEWithWebSocketFallback(Some(trySSEAgainAt)) =>
+        if (FrameworkDateTime.now() >= trySSEAgainAt) {
+          // Time expired, try SSE again
+          ToSSEStreamBuilder.sseWithWebSocketFallback(e, callbacks)
+        } else {
+          // Still in forced WS mode
+          e.webSocketAsSSE.toWsAsSSEStream
+        }
     }
 }
