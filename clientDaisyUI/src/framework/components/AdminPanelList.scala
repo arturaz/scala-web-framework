@@ -138,7 +138,7 @@ def AdminPanelList[
                 cls := "collapse collapse-arrow border border-base-200 rounded-none",
                 input(`type` := "checkbox", cls := "peer"),
                 div(
-                  cls := "collapse-title peer-checked:bg-base-200 flex flex-row gap-4 items-baseline",
+                  cls := "collapse-title peer-checked:bg-base-200 flex flex-row flex-wrap gap-4 items-baseline",
                   h3(cls := "text-md font-semibold", getHeader(itemRx.signal)),
                   getSubHeaders(itemRx.signal).map(subHeader => span(cls := "text-sm opacity-50", subHeader)),
                 ),
