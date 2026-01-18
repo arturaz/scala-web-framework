@@ -8,7 +8,7 @@ import com.raquo.laminar.api.L.*
 import com.raquo.laminar.inserters.DynamicInserter
 import com.raquo.laminar.modifiers.Modifier
 import com.raquo.laminar.nodes.{ChildNode, ReactiveElement, ReactiveHtmlElement}
-import framework.data.{AutocompleteData, FormFileHolder, FrameworkDate, MaybeCollection, MaybeSeq, MaybeSignal}
+import framework.data.{AutocompleteData, FormFileHolder, FrameworkDate, FrameworkDateTime, MaybeCollection, MaybeSeq, MaybeSignal}
 import framework.localization.{LocalizationSupport, LocalizedErrorMessages}
 import framework.sourcecode.DefinedAt
 import framework.utils.{FetchRequest, UpdatableSignal, ZoomedOwnerlessSignal}
@@ -299,6 +299,76 @@ object FormInput {
       )
   }
 
+  /** Helper to wrap an input with label elements. */
+  private def withLabelWrapper(
+    label: String,
+    beforeLabel: Seq[Modifier[Div]],
+    altLabel: Seq[Modifier[Span]],
+    modInput: L.Input => L.Modifier[L.Element],
+    renderPosition: RenderPosition,
+  )(inputElem: L.Input): L.Modifier[L.Label] = {
+    val labelElem = Option.when(label.nonEmpty)(
+      span(
+        cls := "label-text grow",
+        renderPosition match {
+          case RenderPosition.Below    => label
+          case RenderPosition.Sideways => show"$label:"
+        },
+      )
+    )
+
+    val altLabelElem = Option.when(altLabel.nonEmpty)(
+      span(
+        cls := "label-text-alt",
+        altLabel,
+      )
+    )
+
+    val newInputElem = modInput(inputElem)
+
+    renderPosition match {
+      case RenderPosition.Below =>
+        div(
+          when(labelElem.isDefined || altLabelElem.isDefined)(
+            div(cls := "label", beforeLabel, labelElem, altLabelElem)
+          ),
+          newInputElem,
+        )
+      case RenderPosition.Sideways =>
+        div(
+          cls := "flex grid-cols-2 gap-4 justify-start content-start",
+          labelElem.map(elem => div(cls := "label", elem)),
+          newInputElem,
+          altLabelElem.map(elem => nodeSeq(div(cls := "grow"), div(cls := "label", elem))),
+        )
+    }
+  }
+
+  /** Helper for date/datetime input components. */
+  private def dateInputBase[A](
+    signal: ZoomedOwnerlessSignal[A],
+    validation: Option[LocalizedErrorMessages[A]],
+    modInput: L.Input => L.Modifier[L.Label],
+    inputType: String,
+    widthClass: String,
+    toStr: A => String,
+    fromStr: String => A,
+  ): ReactiveHtmlElement[HTMLLabelElement] =
+    L.label(
+      className := "form-control",
+      modInput(
+        L.input(
+          cls := s"input input-bordered $widthClass pl-3 pr-0",
+          `type` := inputType,
+          controlled(
+            value <-- signal.signal.map(toStr),
+            onInput.mapToValue.map(fromStr) --> signal.setTo,
+          ),
+        )
+      ),
+      validationMessages(signal.signal, validation),
+    )
+
   def date[A](
     signal: ZoomedOwnerlessSignal[A],
     validation: Option[LocalizedErrorMessages[A]],
@@ -306,22 +376,16 @@ object FormInput {
   )(using
     toDate: Transformer[A, FrameworkDate],
     fromDate: Transformer[FrameworkDate, A],
-  ): ReactiveHtmlElement[HTMLLabelElement] = {
-    L.label(
-      className := "form-control",
-      modInput(
-        L.input(
-          cls := "input input-bordered w-40 pl-3 pr-0",
-          `type` := "date",
-          controlled(
-            value <-- signal.signal.map(toDate.transform(_).asString),
-            onInput.mapToValue.map(str => fromDate.transform(FrameworkDate.fromString(str).getOrThrow)) --> signal.setTo,
-          ),
-        )
-      ),
-      validationMessages(signal.signal, validation),
+  ): ReactiveHtmlElement[HTMLLabelElement] =
+    dateInputBase(
+      signal,
+      validation,
+      modInput,
+      inputType = "date",
+      widthClass = "w-40",
+      toStr = a => toDate.transform(a).asString,
+      fromStr = str => fromDate.transform(FrameworkDate.fromString(str).getOrThrow),
     )
-  }
 
   def dateWithLabel[A](
     label: String,
@@ -334,49 +398,8 @@ object FormInput {
   )(using
     toDate: Transformer[A, FrameworkDate],
     fromDate: Transformer[FrameworkDate, A],
-  ): ReactiveHtmlElement[HTMLLabelElement] = {
-    date(
-      signal,
-      validation,
-      modInput = inputElem => {
-        val labelElem = Option.when(label.nonEmpty)(
-          span(
-            cls := "label-text grow",
-            renderPosition match {
-              case RenderPosition.Below    => label
-              case RenderPosition.Sideways => show"$label:"
-            },
-          )
-        )
-
-        val altLabelElem = Option.when(altLabel.nonEmpty)(
-          span(
-            cls := "label-text-alt",
-            altLabel,
-          )
-        )
-
-        val newInputElem = modInput(inputElem)
-
-        renderPosition match {
-          case RenderPosition.Below =>
-            div(
-              when(labelElem.isDefined || altLabelElem.isDefined)(
-                div(cls := "label", beforeLabel, labelElem, altLabelElem)
-              ),
-              newInputElem,
-            )
-          case RenderPosition.Sideways =>
-            div(
-              cls := "flex grid-cols-2 gap-4 justify-start content-start",
-              labelElem.map(elem => div(cls := "label", elem)),
-              newInputElem,
-              altLabelElem.map(elem => nodeSeq(div(cls := "grow"), div(cls := "label", elem))),
-            )
-        }
-      },
-    )
-  }
+  ): ReactiveHtmlElement[HTMLLabelElement] =
+    date(signal, validation, modInput = withLabelWrapper(label, beforeLabel, altLabel, modInput, renderPosition))
 
   def dateWithLabelLocalized[A](
     signal: ZoomedOwnerlessSignal[A],
@@ -390,15 +413,55 @@ object FormInput {
   )(using Transformer[A, FrameworkDate], Transformer[FrameworkDate, A], l18n.LocaleEnum)(using
     lto: l18n.LocalizedTextOf[A]
   ): ReactiveHtmlElement[HTMLLabelElement] =
-    dateWithLabel(
-      label = lto.text,
-      signal = signal,
-      validation = validation,
-      beforeLabel = beforeLabel,
-      altLabel = altLabel,
-      modInput = modInput,
-      renderPosition = renderPosition,
+    dateWithLabel(lto.text, signal, validation, beforeLabel, altLabel, modInput, renderPosition)
+
+  private val dateTimeLocalFormatter = java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm")
+
+  def dateTime[A](
+    signal: ZoomedOwnerlessSignal[A],
+    validation: Option[LocalizedErrorMessages[A]],
+    modInput: L.Input => L.Modifier[L.Label] = input => input,
+  )(using
+    toDateTime: Transformer[A, FrameworkDateTime],
+    fromDateTime: Transformer[FrameworkDateTime, A],
+  ): ReactiveHtmlElement[HTMLLabelElement] =
+    dateInputBase(
+      signal,
+      validation,
+      modInput,
+      inputType = "datetime-local",
+      widthClass = "w-48",
+      toStr = a => toDateTime.transform(a).ldt.format(dateTimeLocalFormatter),
+      fromStr = str => fromDateTime.transform(FrameworkDateTime(java.time.LocalDateTime.parse(str, dateTimeLocalFormatter))),
     )
+
+  def dateTimeWithLabel[A](
+    label: String,
+    signal: ZoomedOwnerlessSignal[A],
+    validation: Option[LocalizedErrorMessages[A]],
+    beforeLabel: Seq[Modifier[Div]] = Seq.empty,
+    altLabel: Seq[Modifier[Span]] = Seq.empty,
+    modInput: L.Input => L.Modifier[L.Element] = input => input,
+    renderPosition: RenderPosition = RenderPosition.Below,
+  )(using
+    toDateTime: Transformer[A, FrameworkDateTime],
+    fromDateTime: Transformer[FrameworkDateTime, A],
+  ): ReactiveHtmlElement[HTMLLabelElement] =
+    dateTime(signal, validation, modInput = withLabelWrapper(label, beforeLabel, altLabel, modInput, renderPosition))
+
+  def dateTimeWithLabelLocalized[A](
+    signal: ZoomedOwnerlessSignal[A],
+    validation: Option[LocalizedErrorMessages[A]],
+    beforeLabel: Seq[Modifier[Div]] = Seq.empty,
+    altLabel: Seq[Modifier[Span]] = Seq.empty,
+    modInput: L.Input => L.Modifier[L.Element] = input => input,
+    renderPosition: RenderPosition = RenderPosition.Below,
+  )(using
+    l18n: LocalizationSupport
+  )(using Transformer[A, FrameworkDateTime], Transformer[FrameworkDateTime, A], l18n.LocaleEnum)(using
+    lto: l18n.LocalizedTextOf[A]
+  ): ReactiveHtmlElement[HTMLLabelElement] =
+    dateTimeWithLabel(lto.text, signal, validation, beforeLabel, altLabel, modInput, renderPosition)
 
   /** A select which always has an option selected. */
   def select[A](
