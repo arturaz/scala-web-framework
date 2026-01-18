@@ -141,8 +141,7 @@ object FrameworkHttpServer {
       otelMiddleware: ServerMiddleware[IO],
       metricsMiddleware: HttpMiddleware[IO],
       currentReq: GetOrStoreCurrentRequest[IO],
-      withClientTracing: Option[HttpMiddleware[IO]],
-    ): HttpMiddleware[IO] = routes => {
+    )(withClientTracing: Option[HttpMiddleware[IO]]): HttpMiddleware[IO] = routes => {
       routes
         .pipe(currentReq.middleware)
         .pipe(loggerMiddleware.apply)
@@ -189,14 +188,14 @@ object FrameworkHttpServer {
         .sequence
         .toResource
       metricsMiddleware = Metrics(metricsOps)
-      routesPipeline = makeRoutesPipeline(otelMiddleware, metricsMiddleware, currentReq, clientTracingMiddleware)
-      contextAndRoutesPipeline = contextMiddleware.andThen(routesPipeline)
+      routesPipeline = makeRoutesPipeline(otelMiddleware, metricsMiddleware, currentReq)
+      contextAndRoutesPipeline = contextMiddleware.andThen(routesPipeline(clientTracingMiddleware))
       routes = makeRoutes(using currentReq)(ServerRouter.Route.builderFor(serverInterpreter))
       maybeRegularCtxRoutes = routes.regular.map(contextAndRoutesPipeline)
-      extraRoutes = routesPipeline(makeExtraRoutes(serverInterpreter))
-      // Note the order matters here, as `extraRoutes` are more lax and `ctxRoutes` needs certain headers to be set and
-      // fails requests if they are missing.
-      regularRoutes = maybeRegularCtxRoutes.fold(extraRoutes)(ctxRoutes => ctxRoutes <+> extraRoutes)
+      extraRoutes = routesPipeline(None)(makeExtraRoutes(serverInterpreter))
+      // Extra routes (health checks, etc.) are tried first because they don't require client tracing headers.
+      // ctxRoutes have client tracing middleware that returns 400 for missing headers.
+      regularRoutes = maybeRegularCtxRoutes.fold(extraRoutes)(ctxRoutes => extraRoutes <+> ctxRoutes)
       maybeWebSocketCtxRoutes = routes.webSocket.map(_.andThen(contextAndRoutesPipeline))
       maybeTls <- cfg.server.tls
         .map(tlsConfig =>
