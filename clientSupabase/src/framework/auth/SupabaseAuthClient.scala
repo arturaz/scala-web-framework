@@ -1,5 +1,6 @@
 package framework.auth
 
+import cats.Show
 import framework.data.Email
 import framework.sourcecode.DefinedAt
 import framework.utils.JSLogger
@@ -21,7 +22,10 @@ import scala.scalajs.js.JSON
 import concurrent.duration.*
 
 /** Wrapper around insane supabase APIs. */
-class SupabaseAuthClient(private val client: JSSupabaseAuthClient, val log: JSLogger) {
+class SupabaseAuthClient(
+  private val client: JSSupabaseAuthClient,
+  val log: JSLogger,
+) {
   def autoRefreshToken: Boolean = client.autoRefreshToken
 
   lazy val onAuthStateChange: EventStream[SupabaseAuthClient.AuthStateChange] = {
@@ -117,7 +121,7 @@ class SupabaseAuthClient(private val client: JSSupabaseAuthClient, val log: JSLo
     IO.fromPromise(IO(client.signOut())).map(_.error.jsValueOrNullToOption.toLeft(()))
 }
 object SupabaseAuthClient {
-  enum AuthChangeEvent {
+  enum AuthChangeEvent derives CanEqual {
 
     /** @see [[typings.supabaseAuthJs.supabaseAuthJsStrings.INITIAL_SESSION]] */
     case INITIAL_SESSION
@@ -141,6 +145,7 @@ object SupabaseAuthClient {
     case AuthChangeEventMFA
   }
   object AuthChangeEvent {
+    given show: Show[AuthChangeEvent] = Show.fromToString
 
     def from(jsEvent: typings.supabaseAuthJs.distModuleLibTypesMod.AuthChangeEvent): Option[AuthChangeEvent] = {
       given CanEqual[
@@ -167,6 +172,6 @@ object SupabaseAuthClient {
   /** Emitted by [[ClientSideAuthClient.onAuthStateChange]] when the auth state changes. */
   case class AuthStateChange(event: AuthChangeEvent, maybeSession: Option[Session]) {
     override def toString(): String =
-      s"AuthStateChange(event=$event, session=${maybeSession.map(JSON.stringify(_, space = 2))})"
+      show"AuthStateChange(event=$event, session=${maybeSession.map(JSON.stringify(_, space = 2))})"
   }
 }
