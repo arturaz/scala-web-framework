@@ -17,38 +17,40 @@ import scala.concurrent.duration.FiniteDuration
 
 /** Redis-based blacklist. */
 object BlacklistRedisBased {
+  case class ExtractFromClaimResult[+Id](id: Id, claim: JwtClaim)
 
   /** Blacklists JWT claims.
     *
-    * @param extractIdFromClaim
-    *   A function that extracts an ID from the JWT claim. If [[None]] is returned, JWT id is used (if available),
-    *   otherwise the JWT content is used.
+    * @param extractFromClaim
+    *   A function that extracts data from the JWT claim. If [[None]] is returned, no blacklisting is done.
     */
   def forJWT[F[_]: Monad: Clock, BlacklistedValue, RKey: Semigroup, RValue: Empty](
     cmd: RedisCommands[F, RKey, RValue],
     key: RedisKeyPrefix[RKey],
-    extractIdFromClaim: BlacklistedValue => RKey,
-    extractClaimFromValue: BlacklistedValue => JwtClaim,
+    extractFromClaim: BlacklistedValue => Option[ExtractFromClaimResult[RKey]],
   ): Blacklist[F, BlacklistedValue] = new {
-    def keyFor(a: BlacklistedValue): RedisKey[RKey] =
-      key.key(extractIdFromClaim(a))
+    def keyFor(a: BlacklistedValue): Option[RedisKey[RKey]] =
+      extractFromClaim(a).map(v => key.key(v.id))
 
     override def isBlacklisted(a: BlacklistedValue): F[Boolean] =
-      cmd.exists(keyFor(a))
+      keyFor(a).fold(false.pure)(cmd.exists(_))
 
     override def blacklist(a: BlacklistedValue): F[Unit] = {
-      for {
-        jwt = extractClaimFromValue(a)
-        ttl <- jwt.expiration match {
-          case Some(secondsSinceEpoch) =>
-            val expiresAt = FrameworkDateTime.fromUnixSeconds(secondsSinceEpoch)
-            Clock[F].realTimeInstant.map(now => Some(expiresAt - FrameworkDateTime.fromInstant(now)))
+      extractFromClaim(a) match {
+        case None => Monad[F].unit
+        case Some(result) =>
+          for {
+            ttl <- result.claim.expiration match {
+              case Some(secondsSinceEpoch) =>
+                val expiresAt = FrameworkDateTime.fromUnixSeconds(secondsSinceEpoch)
+                Clock[F].realTimeInstant.map(now => Some(expiresAt - FrameworkDateTime.fromInstant(now)))
 
-          case None => None.pure
-        }
-        setArgs = SetArgs(existence = None, ttl = ttl.map(Ttl.Px(_)))
-        _ <- cmd.set(keyFor(a), Empty[RValue].empty, setArgs)
-      } yield ()
+              case None => None.pure
+            }
+            setArgs = SetArgs(existence = None, ttl = ttl.map(Ttl.Px(_)))
+            _ <- cmd.set(key.key(result.id), Empty[RValue].empty, setArgs)
+          } yield ()
+      }
     }
   }
 }
