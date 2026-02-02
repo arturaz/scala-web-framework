@@ -17,5 +17,7 @@ object IsProductionMode extends NewtypeBoolean {
   extension (value: Type) {
     def toOtelAttribute: Attribute[Boolean] = otelAttribute(value.unwrap)
   }
+
+  given Conversion[Type, framework.data.IsProductionMode] = v => framework.data.IsProductionMode(v.unwrap)
 }
 type IsProductionMode = IsProductionMode.Type

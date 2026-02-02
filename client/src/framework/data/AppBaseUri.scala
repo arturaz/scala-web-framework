@@ -9,7 +9,7 @@ trait AppBaseUri {
   def uri: Uri
 
   /** Whether we are running in a production-like environment, such as production or staging. */
-  def isProduction: Boolean
+  def isProduction: IsProductionMode
 
   /** Whether we are running in a development-like environment, such as development or local computer. */
   def isDevelopment: Boolean = !isProduction
@@ -59,8 +59,8 @@ object AppBaseUri {
     }
 
     new AppBaseUri {
-      val uri: Uri = Uri(scheme = scheme, host = location.hostname, port = serverPort)
-      def isProduction: Boolean = isProd
+      val uri = Uri(scheme = scheme, host = location.hostname, port = serverPort)
+      def isProduction = IsProductionMode(isProd)
     }
   }
 
@@ -88,8 +88,8 @@ object AppBaseUri {
     val serverPort = if (isProd) port else portForDevelopmentServer
 
     new AppBaseUri {
-      val uri: Uri = Uri(scheme = scheme, host = location.hostname, port = serverPort)
-      def isProduction: Boolean = isProd
+      val uri = Uri(scheme = scheme, host = location.hostname, port = serverPort)
+      def isProduction = IsProductionMode(isProd)
     }
   }
 
