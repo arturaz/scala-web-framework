@@ -32,7 +32,7 @@ def intersectionObserverEvents[El <: Element](
       observer.observe(ctx.thisNode.ref)
       observer
     },
-    (el, maybeObserver) => maybeObserver.foreach(_.unobserve(el.ref)),
+    (el, observer) => observer.unobserve(el.ref),
   )
 
 /** Notifies you when the top of the element enters or exits the viewport. */

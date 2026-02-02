@@ -2,7 +2,7 @@ package framework.utils
 
 import com.raquo.airstream.core.{EventStream, Signal}
 import com.raquo.airstream.state.{StrictSignal, Var}
-import com.raquo.laminar.api.enrichSource
+import com.raquo.laminar.api.arrowSyntax
 import com.raquo.laminar.inserters.DynamicInserter
 import com.raquo.laminar.modifiers.Binder
 import org.scalajs.dom.{window, Storage}
