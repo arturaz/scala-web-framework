@@ -1,6 +1,6 @@
 package framework.prelude
 
-import framework.config.IsProductionMode
+import framework.config.IsProductionModeConfig
 import scribe.*
 import scribe.cats.*
 import scribe.file.{FileWriter, FlushMode, PathBuilder}
@@ -27,7 +27,7 @@ trait WithLogger {
   def log: Scribe[IO] = Logger(classNameForLogging).f[IO]
 }
 
-def applyLoggingDefaults(isProduction: IsProductionMode): SyncIO[Unit] = SyncIO {
+def applyLoggingDefaults(isProduction: IsProductionModeConfig): SyncIO[Unit] = SyncIO {
   if (!isProduction) {
     appLogger.info("Applying development logging defaults.")
 

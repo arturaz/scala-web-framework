@@ -11,9 +11,8 @@ def AddCSS(css: String): Modifier.Base = {
       document.head.appendChild(style.ref)
       style
     },
-    unmount = {
-      case (_, None)        =>
-      case (_, Some(style)) => style.ref.remove()
+    unmount = { case (_, style) =>
+      style.ref.remove()
     },
   )
 }

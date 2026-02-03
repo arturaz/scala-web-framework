@@ -1,6 +1,5 @@
 package framework.utils
 
-import com.raquo.airstream.split.SplittableSignal
 import monocle.macros.GenLens
 import monocle.Lens
 import monocle.Focus.{KeywordContext, MkFocus}
@@ -65,6 +64,10 @@ trait UpdatableSignal[A] extends ZoomedOwnerlessSignal[A] { self =>
     val lens = f(GenLens[A])
     bimap(lens)
   }
+
+  /** Alias for [[bimapGenLens]] to be compatible with [[Var]]. */
+  def zoomLazyGenLens[PartOfA](f: MkFocus[A] => Lens[A, PartOfA]): UpdatableSignal[PartOfA] =
+    bimapGenLens(f)
 
   /** Returns a new [[UpdatableSignal]] for the [[PartOfA]] after you invoke `splitMatchOne`.
     *
