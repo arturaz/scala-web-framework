@@ -97,7 +97,7 @@ def LoginViaEmailWithOTP[SendOTPResult](
   emailInputLabel: String,
   emailInputPlaceholder: Option[String],
   emailValidation: Option[LocalizedAppliedValidate[String]],
-  loginButtonContent: Seq[Modifier[Button]],
+  loginButtonContent: => Seq[Modifier[Button]],
   beforeOtpInputLabel: (Email, SendOTPResult) => Seq[Modifier[Div]],
   otpInputLabel: String,
   otpInputPlaceholder: Option[String],
