@@ -33,6 +33,25 @@ enum LoginViaEmailWithOTPError {
   case CannotProgressToNextStep(userFriendlyMessage: Seq[Modifier[Div]])
 }
 
+/** @param htmlSignal
+  *   the HTML to render
+  * @param emailStrRx
+  *   the raw email input
+  * @param emailRx
+  *   the parsed email
+  * @param makeEmailInput
+  *   creates the email input field
+  * @param makeLoginButton
+  *   creates the login button that performs the specified [[IO]] when clicked
+  */
+case class LoginViaEmailWithOTPResult(
+  htmlSignal: Signal[Element],
+  emailStrRx: Var[String],
+  emailRx: Signal[Option[Email]],
+  makeEmailInput: () => Seq[Modifier[Div]],
+  makeLoginButton: (Email => IO[Unit]) => Button,
+)
+
 /** Login via email with one-time password (OTP).
   *
   * @param isLoggedInSignal
@@ -91,7 +110,7 @@ def LoginViaEmailWithOTP[SendOTPResult](
   afterEmailInputLabel: (Var[String], Signal[Option[Email]]) => Seq[Modifier[Div]] = (_, _) => Seq.empty,
   otpInputModifiers: ModificationRequestTracker => Seq[Modifier[Input]] = _ => Seq.empty,
   afterOtpInputLabel: (Email, SendOTPResult) => Seq[Modifier[Div]] = (_, _: SendOTPResult) => Seq.empty,
-): Signal[Element] = {
+): LoginViaEmailWithOTPResult = {
 
   /** The email input. */
   val emailStrRx = Var("")
@@ -111,52 +130,60 @@ def LoginViaEmailWithOTP[SendOTPResult](
 
   val tracker = ModificationRequestTracker()
 
-  def otpNotSent = {
-    val inputInvalid = emailValidation.fold2(
-      emailRx.map(_.isEmpty),
-      validation =>
-        emailStrRx.signal.combineWithFn(validation.validate)((str, validate) => str.isBlank() || !validate.isValid(str)),
-    )
+  def makeEmailInput(): Seq[Modifier[Div]] = Seq(
+    beforeEmailInputLabel(emailStrRx, emailRx),
+    FormInput
+      .stringWithLabel(
+        emailInputLabel,
+        emailStrRx,
+        validation = emailValidation,
+        placeholder = emailInputPlaceholder,
+        inputModifiers = Seq(
+          `type` := "email",
+          disabled <-- tracker.submitting,
+        ) ++ emailInputModifiers(tracker),
+      ),
+    afterEmailInputLabel(emailStrRx, emailRx),
+  )
 
+  val inputInvalid = emailValidation.fold2(
+    emailRx.map(_.isEmpty),
+    validation =>
+      emailStrRx.signal.combineWithFn(validation.validate)((str, validate) => str.isBlank() || !validate.isValid(str)),
+  )
+
+  def makeLoginButton(onButtonClick: Email => IO[Unit]) = {
+    button(
+      `type` := "submit",
+      cls := "btn btn-primary",
+      disabled <-- tracker.submitting.combineWithFn(inputInvalid)(_ || _),
+      child.maybe <-- tracker.submitting.splitBooleanAsOption(_ => Spinner),
+      loginButtonContent,
+      onClick(_.sample(emailRx).collectOpt(identity)) ---> onButtonClick,
+    )
+  }
+
+  def otpNotSent = {
     div(
       cls := "space-y-2",
       child.maybe <-- cannotProgressToNextStepRx.signal.mapSome(err => div(err.userFriendlyMessage)),
-      beforeEmailInputLabel(emailStrRx, emailRx),
-      FormInput
-        .stringWithLabel(
-          emailInputLabel,
-          emailStrRx,
-          validation = emailValidation,
-          placeholder = emailInputPlaceholder,
-          inputModifiers = Seq(
-            `type` := "email",
-            disabled <-- tracker.submitting,
-          ) ++ emailInputModifiers(tracker),
-        ),
-      afterEmailInputLabel(emailStrRx, emailRx),
-      button(
-        `type` := "submit",
-        cls := "btn btn-primary",
-        disabled <-- tracker.submitting.combineWithFn(inputInvalid)(_ || _),
-        child.maybe <-- tracker.submitting.splitBooleanAsOption(_ => Spinner),
-        loginButtonContent,
-        onClick(_.sample(emailRx).collectOpt(identity)) ---> { email =>
-          tracker
-            .launch(EitherT(sendOTP(email)))
-            .flatMap {
-              case ModificationRequestTracker.Result.Cancelled => IO.unit
-              case ModificationRequestTracker.Result.Error(err: LoginViaEmailWithOTPError.FatalError) =>
-                IO(fatalErrorRx.set(Some(err)))
-              case ModificationRequestTracker.Result.Error(err: LoginViaEmailWithOTPError.CannotProgressToNextStep) =>
-                IO(cannotProgressToNextStepRx.set(Some(err)))
-              case ModificationRequestTracker.Result.Finished(result) =>
-                IO {
-                  cannotProgressToNextStepRx.set(None)
-                  oneTimePasswordSentRx.set(Some((email, result)))
-                }
-            }
-        },
-      ),
+      makeEmailInput(),
+      makeLoginButton { email =>
+        tracker
+          .launch(EitherT(sendOTP(email)))
+          .flatMap {
+            case ModificationRequestTracker.Result.Cancelled => IO.unit
+            case ModificationRequestTracker.Result.Error(err: LoginViaEmailWithOTPError.FatalError) =>
+              IO(fatalErrorRx.set(Some(err)))
+            case ModificationRequestTracker.Result.Error(err: LoginViaEmailWithOTPError.CannotProgressToNextStep) =>
+              IO(cannotProgressToNextStepRx.set(Some(err)))
+            case ModificationRequestTracker.Result.Finished(result) =>
+              IO {
+                cannotProgressToNextStepRx.set(None)
+                oneTimePasswordSentRx.set(Some((email, result)))
+              }
+          }
+      },
     )
   }
 
@@ -264,5 +291,5 @@ def LoginViaEmailWithOTP[SendOTPResult](
       )
       .flattenSwitch
 
-  html
+  LoginViaEmailWithOTPResult(html, emailStrRx, emailRx, makeEmailInput, makeLoginButton)
 }
