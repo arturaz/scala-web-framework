@@ -19,7 +19,6 @@ import dev.profunktor.redis4cats.otel4s.{
 import dev.profunktor.redis4cats.pubsub.{PubSub, PubSubCommands}
 import dev.profunktor.redis4cats.streams.{RedisStream, Streaming}
 import dev.profunktor.redis4cats.{Redis, RedisCommands}
-import framework.config.IsProductionMode
 import framework.prelude.{*, given}
 import io.lettuce.core.TimeoutOptions.TimeoutSource
 import io.lettuce.core.protocol.RedisCommand

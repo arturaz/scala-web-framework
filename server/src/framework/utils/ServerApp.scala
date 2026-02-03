@@ -4,7 +4,7 @@ import cats.effect.{ExitCode, IOApp}
 import com.zaxxer.hikari.HikariDataSource
 import fly4s.Fly4s
 import fly4s.data.{Fly4sConfig, ValidatePattern}
-import framework.config.{IsProductionMode, PostgresqlConfig}
+import framework.config.{IsProductionModeConfig, PostgresqlConfig}
 import framework.db.{*, given}
 import io.opentelemetry.api.OpenTelemetry as JOpenTelemetry
 import io.opentelemetry.instrumentation.runtimemetrics.java17.RuntimeMetrics
@@ -34,7 +34,7 @@ trait ServerApp extends IOApp {
 
   def postgresqlConfig(cfg: ServerAppConfig): PostgresqlConfig
 
-  def isProduction(cfg: ServerAppConfig): IsProductionMode
+  def isProduction(cfg: ServerAppConfig): IsProductionModeConfig
 
   /** The name of this server. */
   def serverName: IO[String]
@@ -51,7 +51,7 @@ trait ServerApp extends IOApp {
 
   override def run(args: List[String]): IO[ExitCode] = {
     val appConfigValue = for {
-      isProduction <- IsProductionMode.cirisConfig[IO]
+      isProduction <- IsProductionModeConfig.cirisConfig[IO]
       cfg <- if (isProduction) productionAppConfig else ConfigValue.default(developmentAppConfig)
     } yield (cfg, isProduction)
 
