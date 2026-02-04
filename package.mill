@@ -166,7 +166,7 @@ object shared extends Module {
       // Derivation of union types
       // https://github.com/irevive/union-derivation
       // https://mvnrepository.com/artifact/io.github.irevive/union-derivation-core
-      mvn"io.github.irevive::union-derivation-core::0.2.1"
+      mvn"io.github.irevive::union-derivation-core::0.2.1",
     )
   }
 
@@ -718,6 +718,11 @@ val FrameworkPreludeImports: Vector[String] = Vector(
   "cps.monads",
   "cps.monads.catsEffect",
 )
+
+object Repositories {
+  /** https://github.com/evolution-gaming/sbt-artifactory-plugin */
+  val EvolutionGaming: String = "https://evolution.jfrog.io/artifactory/public"
+}
 
 def makePreludeImportsCompilerOption(imports: Vector[String]): String =
   s"-Yimports:${imports.mkString(",")}"
