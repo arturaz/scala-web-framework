@@ -54,7 +54,8 @@ object EndpointSSEWithWS {
   object ClientConnectionMode {
     given Show[ClientConnectionMode] = Show.fromToString
 
-    val defaultRecoveryTimeout: FiniteDuration = 24.hours
+    /** The default recovery timeout after which SSE will be tried again. */
+    val defaultRecoveryTimeout: FiniteDuration = 1.hour
   }
 
   /** Simplified enum for UI selection, without the timestamp parameter. */
