@@ -1,24 +1,17 @@
 package framework.utils
 
-import com.raquo.airstream.custom.CustomSource
-import framework.api.FrameworkHeaders
-import framework.data.EndpointSSEWithWS.ClientConnectionMode
+import cats.derived.*
+import framework.api.{FrameworkEndpoints, FrameworkHeaders}
 import framework.data.{AppBaseUri, EndpointSSEWithWS, FrameworkDateTime}
-import framework.prelude.sttpClientInterpreter
+import framework.exts.*
+import framework.exts.OnSSEStreamError.OnErrorAction
 import framework.sourcecode.DefinedAt
-import framework.tapir.capabilities.ServerSentEvents
-import framework.utils.{NetworkError, NetworkOrAuthError, PrettyPrintDuration}
 import org.scalajs.dom.{Event, EventSource, EventSourceInit, MessageEvent, WebSocket}
-import sttp.capabilities.WebSockets
-import sttp.capabilities.fs2.Fs2Streams
-import sttp.client3.Request
 import sttp.model.Uri
-import sttp.tapir.{DecodeResult, Endpoint, PublicEndpoint}
 
-import scala.annotation.targetName
+import scala.concurrent.Future
 import scala.concurrent.duration.*
 import scala.scalajs.js.JSON
-import framework.exts.OnSSEStreamError.OnErrorAction
 
 trait ToSSEStreamBuilder[SecurityInput, Input, Output] {
 
@@ -164,6 +157,7 @@ trait ToSSEStreamBuilder[SecurityInput, Input, Output] {
     )
   }
 }
+
 /** Callbacks for SSE/WebSocket fallback lifecycle events. */
 trait SSEFallbackCallbacks {
 
@@ -202,8 +196,8 @@ object SSEFallbackCallbacks {
           persistedVar.setAndPersist(
             EndpointSSEWithWS.ClientConnectionMode.SSEWithWebSocketFallback(Some(tryAgainAt))
           )
-        case EndpointSSEWithWS.ClientConnectionMode.ServerSentEvents
-            | EndpointSSEWithWS.ClientConnectionMode.WebSocket =>
+        case EndpointSSEWithWS.ClientConnectionMode.ServerSentEvents |
+            EndpointSSEWithWS.ClientConnectionMode.WebSocket =>
           // Manual override, don't change
           ()
       }
@@ -215,9 +209,9 @@ object SSEFallbackCallbacks {
           // SSE works again, clear the timestamp
           logger.info("SSE connection succeeded, clearing forced WebSocket mode")
           persistedVar.setAndPersist(EndpointSSEWithWS.ClientConnectionMode.SSEWithWebSocketFallback(None))
-        case EndpointSSEWithWS.ClientConnectionMode.SSEWithWebSocketFallback(None)
-            | EndpointSSEWithWS.ClientConnectionMode.ServerSentEvents
-            | EndpointSSEWithWS.ClientConnectionMode.WebSocket =>
+        case EndpointSSEWithWS.ClientConnectionMode.SSEWithWebSocketFallback(None) |
+            EndpointSSEWithWS.ClientConnectionMode.ServerSentEvents |
+            EndpointSSEWithWS.ClientConnectionMode.WebSocket =>
           // Already in normal mode or manual override, nothing to do
           ()
       }
@@ -226,77 +220,179 @@ object SSEFallbackCallbacks {
 }
 
 object ToSSEStreamBuilder {
+  private enum PreferredConnectionMode derives CanEqual, Show {
+    case ServerSentEvents
+    case WebSocket
+  }
 
-  /** Simple fallback handler to WebSockets for when establishing the SSE connection fails. */
+  /** Simple fallback handler to WebSockets for when establishing the SSE connection fails.
+    *
+    * @param logLevel
+    *   when None no logging is performed
+    */
   def sseWithWebSocketFallback[F[_], SecurityInput, Input, Output, AuthError, Requirements](
     e: EndpointSSEWithWS[F, SecurityInput, Input, Output, AuthError, Requirements],
     callbacks: SSEFallbackCallbacks,
     maxSseFailuresBeforeFallback: Int = 3,
     waitFor: Int => FiniteDuration = OnSSEStreamError.defaultWaitFor,
-  ): ToSSEStreamBuilder[SecurityInput, Input, Output] = new {
-    // Track whether we've notified SSE success for this connection
-    private var sseSuccessNotified = false
+    minTimeWSProbeTakes: FiniteDuration = 1.second,
+    probeTimeout: FiniteDuration = 8.seconds,
+    logLevel: Option[LogLevel] = Some(LogLevel.Debug),
+  )(using connectionTryout: FrameworkEndpoints.SseConnectionTryout): ToSSEStreamBuilder[SecurityInput, Input, Output] =
+    new {
+      // Track whether we've notified SSE success for this connection
+      private var sseSuccessNotified = false
 
-    override def raw(
-      securityParams: SecurityInput,
-      params: Input,
-      now: () => FrameworkDateTime,
-      reconnectOnError: Option[OnSSEStreamError[SecurityInput, Input, MessageEvent]],
-      withCredentials: Boolean,
-    )(using baseUri: AppBaseUri, definedAt: DefinedAt): EventStream[MessageEvent] = {
-      val sseReconnectOnError = new OnSSEStreamError[SecurityInput, Input, MessageEvent] {
-        override def onMessage(msg: MessageEvent): Unit = {
-          // First successful SSE message - notify callback
-          if (!sseSuccessNotified) {
-            sseSuccessNotified = true
-            callbacks.onSSESuccess()
+      private def probeConnectionMode(
+        now: () => FrameworkDateTime,
+        withCredentials: Boolean,
+      )(using baseUri: AppBaseUri): IO[PreferredConnectionMode] = {
+        val timestamp = now()
+        val (tracingName, tracingValue) = FrameworkHeaders.`X-Request-Started-At`(timestamp)
+        val sseUri =
+          connectionTryout.sseConnectionTryout.sse
+            .toReq((), timestamp)
+            .uri
+            .addParam(tracingName, tracingValue)
+            .toString
+        val wsUri = connectionTryout.sseConnectionTryout.webSocketAsSSE
+          .toReq((), timestamp)
+          .uri
+          .addParam(tracingName, tracingValue)
+          .toString
+
+        val sseOptions = scala.scalajs.js.Dynamic
+          .literal(withCredentials = withCredentials)
+          .asInstanceOf[EventSourceInit]
+
+        val sseOutcomeIO =
+          EventStream
+            .fromDomEventSourceEither(EventSource(sseUri, sseOptions))
+            .map(_.toOption.as(PreferredConnectionMode.ServerSentEvents))
+            .toIO
+
+        val wsOutcomeIO = EventStream
+          .fromWebSocketEither(WebSocket(wsUri))
+          .map(_.toOption.as(PreferredConnectionMode.WebSocket))
+          .toIO
+          .flatMap {
+            case some @ Some(_) => IO.pure(some).takeAtLeast(minTimeWSProbeTakes)
+            case None           => IO.pure(Option.empty[PreferredConnectionMode])
           }
-          reconnectOnError.foreach(_.onMessage(msg))
-        }
 
-        override def onError(
-          uri: Uri,
-          error: Event,
-          connectionIndex: Int,
-          securityParams: SecurityInput,
-          params: Input,
-        )(using
-          DefinedAt
-        ): OnErrorAction[SecurityInput, Input] = {
-          // connectionIndex: first failure is 0, then 1, ...
-          val failuresSoFar = connectionIndex + 1
-
-          val delay = waitFor(connectionIndex)
-
-          def delayedWsStream = {
-            // Notify fallback when switching to WS
-            callbacks.onFallbackToWebSocket()
-            EventStream
-              .delay(delay.toMillis.toIntClamped)
-              .flatMapSwitch(_ =>
-                e.webSocketAsSSE.toWsAsSSEStream.raw(securityParams, params, now, reconnectOnError, withCredentials)
-              )
+        val io = IO
+          .raceSome(sseOutcomeIO, wsOutcomeIO)
+          .flatTap {
+            case Some(mode) =>
+              logLevel match {
+                case None        => IO.unit
+                case Some(level) => IO(log.at(level, show"SSE/WS tryout succeeded for $mode for ${e.showShort}"))
+              }
+            case None => IO.unit
           }
-
-          reconnectOnError match {
+          .flatMap {
             case None =>
-              log.info(
-                show"sseWithWebSocketFallback: reconnectOnError is None, reconnecting with WS in ${delay.prettyForDebug}"
-              )
-              OnSSEStreamError.OnErrorAction.ReconnectWith(delayedWsStream)
-            case Some(_) if failuresSoFar >= maxSseFailuresBeforeFallback =>
-              log.info(
-                show"sseWithWebSocketFallback: failure at connection index $connectionIndex, " +
-                  show"reconnecting with WS in ${delay.prettyForDebug}"
-              )
-              OnSSEStreamError.OnErrorAction.ReconnectWith(delayedWsStream)
-            case Some(reconnectOnError) =>
-              reconnectOnError.onError(uri, error, connectionIndex, securityParams, params)
+              IO {
+                log.warning(show"SSE/WS tryout failed for both transports, defaulting to SSE for ${e.showShort}")
+                PreferredConnectionMode.ServerSentEvents
+              }
+            case Some(mode) =>
+              IO.pure(mode)
           }
-        }
+          .timeoutTo(
+            probeTimeout,
+            IO {
+              log.warning(
+                show"SSE/WS tryout timed out in ${probeTimeout.prettyForDebug}, defaulting to SSE for ${e.showShort}"
+              )
+              PreferredConnectionMode.ServerSentEvents
+            },
+          )
+
+        io
       }
 
-      e.sse.toSSEStream.raw(securityParams, params, now, Some(sseReconnectOnError), withCredentials = withCredentials)
+      private def sseStreamWithFallback(
+        securityParams: SecurityInput,
+        params: Input,
+        now: () => FrameworkDateTime,
+        reconnectOnError: Option[OnSSEStreamError[SecurityInput, Input, MessageEvent]],
+        withCredentials: Boolean,
+      )(using baseUri: AppBaseUri, definedAt: DefinedAt): EventStream[MessageEvent] = {
+        val sseReconnectOnError = new OnSSEStreamError[SecurityInput, Input, MessageEvent] {
+          override def onMessage(msg: MessageEvent): Unit = {
+            // First successful SSE message - notify callback
+            if (!sseSuccessNotified) {
+              sseSuccessNotified = true
+              callbacks.onSSESuccess()
+            }
+            reconnectOnError.foreach(_.onMessage(msg))
+          }
+
+          override def onError(
+            uri: Uri,
+            error: Event,
+            connectionIndex: Int,
+            securityParams: SecurityInput,
+            params: Input,
+          )(using
+            DefinedAt
+          ): OnErrorAction[SecurityInput, Input] = {
+            // connectionIndex: first failure is 0, then 1, ...
+            val failuresSoFar = connectionIndex + 1
+
+            val delay = waitFor(connectionIndex)
+
+            def delayedWsStream = {
+              // Notify fallback when switching to WS
+              callbacks.onFallbackToWebSocket()
+              EventStream
+                .delay(delay.toMillis.toIntClamped)
+                .flatMapSwitch(_ =>
+                  e.webSocketAsSSE.toWsAsSSEStream.raw(securityParams, params, now, reconnectOnError, withCredentials)
+                )
+            }
+
+            reconnectOnError match {
+              case None =>
+                log.info(
+                  show"sseWithWebSocketFallback: reconnectOnError is None, reconnecting with WS in ${delay.prettyForDebug}"
+                )
+                OnSSEStreamError.OnErrorAction.ReconnectWith(delayedWsStream)
+              case Some(_) if failuresSoFar >= maxSseFailuresBeforeFallback =>
+                log.info(
+                  show"sseWithWebSocketFallback: failure at connection index $connectionIndex, " +
+                    show"reconnecting with WS in ${delay.prettyForDebug}"
+                )
+                OnSSEStreamError.OnErrorAction.ReconnectWith(delayedWsStream)
+              case Some(reconnectOnError) =>
+                reconnectOnError.onError(uri, error, connectionIndex, securityParams, params)
+            }
+          }
+        }
+
+        e.sse.toSSEStream.raw(securityParams, params, now, Some(sseReconnectOnError), withCredentials = withCredentials)
+      }
+
+      override def raw(
+        securityParams: SecurityInput,
+        params: Input,
+        now: () => FrameworkDateTime,
+        reconnectOnError: Option[OnSSEStreamError[SecurityInput, Input, MessageEvent]],
+        withCredentials: Boolean,
+      )(using baseUri: AppBaseUri, definedAt: DefinedAt): EventStream[MessageEvent] = {
+        sseSuccessNotified = false
+
+        EventStream
+          .fromFuture(probeConnectionMode(now, withCredentials).unsafeToFuture())
+          .flatMapSwitch {
+            case PreferredConnectionMode.ServerSentEvents =>
+              callbacks.onSSESuccess()
+              sseStreamWithFallback(securityParams, params, now, reconnectOnError, withCredentials)
+            case PreferredConnectionMode.WebSocket =>
+              callbacks.onFallbackToWebSocket()
+              e.webSocketAsSSE.toWsAsSSEStream.raw(securityParams, params, now, reconnectOnError, withCredentials)
+          }
+      }
     }
-  }
 }

@@ -2,6 +2,7 @@ package framework.exts
 
 import com.raquo.airstream.custom.CustomSource
 import framework.api.FrameworkHeaders
+import framework.api.FrameworkEndpoints
 import framework.data.{AppBaseUri, EndpointSSEWithWS, FrameworkDateTime}
 import framework.prelude.sttpClientInterpreter
 import framework.sourcecode.DefinedAt
@@ -299,21 +300,17 @@ extension [F[_], SecurityInput, Input, Output, AuthError, Requirements](
   e: EndpointSSEWithWS[F, SecurityInput, Input, Output, AuthError, Requirements]
 ) {
   def toSSEStream(
-    mode: EndpointSSEWithWS.ClientConnectionMode,
-  )(using callbacks: SSEFallbackCallbacks): ToSSEStreamBuilder[SecurityInput, Input, Output] =
+    mode: EndpointSSEWithWS.ClientConnectionMode
+  )(using
+    callbacks: SSEFallbackCallbacks,
+    connectionTryout: FrameworkEndpoints.SseConnectionTryout,
+  ): ToSSEStreamBuilder[SecurityInput, Input, Output] =
     mode match {
       case EndpointSSEWithWS.ClientConnectionMode.ServerSentEvents => e.sse.toSSEStream
       case EndpointSSEWithWS.ClientConnectionMode.WebSocket        => e.webSocketAsSSE.toWsAsSSEStream
-      case EndpointSSEWithWS.ClientConnectionMode.SSEWithWebSocketFallback(None) =>
-        // Normal behavior: try SSE first
+      case EndpointSSEWithWS.ClientConnectionMode.SSEWithWebSocketFallback(None) |
+          EndpointSSEWithWS.ClientConnectionMode.SSEWithWebSocketFallback(Some(_)) =>
+        // Auto mode: probe both transports and then use the selected one.
         ToSSEStreamBuilder.sseWithWebSocketFallback(e, callbacks)
-      case EndpointSSEWithWS.ClientConnectionMode.SSEWithWebSocketFallback(Some(trySSEAgainAt)) =>
-        if (FrameworkDateTime.now() >= trySSEAgainAt) {
-          // Time expired, try SSE again
-          ToSSEStreamBuilder.sseWithWebSocketFallback(e, callbacks)
-        } else {
-          // Still in forced WS mode
-          e.webSocketAsSSE.toWsAsSSEStream
-        }
     }
 }

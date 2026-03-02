@@ -33,6 +33,9 @@ case class EndpointSSEWithWS[F[_]: Concurrent, SecurityInput, Input, Output, Aut
   ] = webSocket.mapOut(pipe => pipe(fs2.Stream.empty))(outputStream =>
     inputStream => inputStream.mergeHaltBoth(outputStream)
   )
+
+  def showShort = show"EndpointSSEWithWS(${sse.showShort}, ${webSocket.showShort})"
+  override def toString(): String = showShort
 }
 object EndpointSSEWithWS {
   enum ClientConnectionMode derives CanEqual, CirceCodec {

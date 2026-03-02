@@ -12,31 +12,6 @@ import scala.concurrent.Future
 trait SignalExts {
   extension [A](signal: Signal[A]) {
 
-    /** Subscribes to a [[Signal]] to receive the first value and immediately unsubscribes. */
-    def toIO: IO[A] =
-      signal.toIOMapFilter(Some(_))
-
-    /** Subscribes to a [[Signal]] to receive the first value that matches the predicate and immediately unsubscribes.
-      */
-    def toIOMapFilter[B](f: A => Option[B]): IO[B] = {
-      IO.async[B] { callback =>
-        IO {
-          val owner = new ManualOwner
-          signal.addObserver(Observer(a => {
-            f(a) match {
-              case None =>
-              // do nothing
-              case Some(b) =>
-                owner.killSubscriptions()
-                callback(Right(b))
-            }
-          }))(using owner)
-
-          Some(IO(owner.killSubscriptions()))
-        }
-      }
-    }
-
     /** Maps the value of the [[Signal]] passing the [[A]] as context. */
     def mapImplicit[B](f: A ?=> B): Signal[B] = signal.map(a => f(using a))
 
