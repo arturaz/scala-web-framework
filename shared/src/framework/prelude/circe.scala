@@ -2,6 +2,8 @@ package framework.prelude
 
 import sttp.model.Uri
 import framework.exts.fromKeyCodecs
+import scala.util.matching.Regex
+import scala.util.Try
 
 // Prefix types with `Circe` to avoid confusion with `tapir`s `Codec`.
 export io.circe.{
@@ -23,3 +25,7 @@ given CirceKeyEncoder[Uri] = CirceKeyEncoder.instance(_.toString)
 given CirceKeyDecoder[Uri] = CirceKeyDecoder.instance(Uri.parse(_).toOption)
 
 given CirceCodec[Uri] = CirceCodec.fromKeyCodecs
+
+given CirceKeyEncoder[Regex] = CirceKeyEncoder.instance(_.regex)
+given CirceKeyDecoder[Regex] = CirceKeyDecoder.instance(str => Try(Regex(str)).toOption)
+given CirceCodec[Regex] = CirceCodec.fromKeyCodecs

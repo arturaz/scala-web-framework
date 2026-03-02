@@ -6,6 +6,7 @@ import scala.collection.immutable.SortedSet
 import sttp.tapir.SchemaType
 import sttp.tapir.Schema.SName
 import sttp.tapir.DecodeResult
+import scala.util.matching.Regex
 
 export sttp.tapir.{Codec as TapirCodec, CodecFormat as TapirCodecFormat, Schema as TapirSchema}
 
@@ -29,6 +30,9 @@ given [A: Schema]: Schema[NonEmptySet[A]] = summon[Schema[SortedSet[A]]].map(Non
 
 given schemaForNothing: Schema[Nothing] =
   Schema.any.name(SName("Nothing")).description("Nothing - no values will be accepted or produced.")
+
+given schemaForRegex: Schema[Regex] =
+  Schema.string[Regex].name(SName("Regex")).description("Regular expression").encodedExample("^[a-z]+$")
 
 given tapirCodecForNothing[LowLevel, CodecFormat <: TapirCodecFormat]: TapirCodec[LowLevel, Nothing, CodecFormat] with {
   def encode(h: Nothing): LowLevel = ???
