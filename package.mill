@@ -452,6 +452,16 @@ object server extends FrameworkScalaModule {
     mvn"com.monovore::decline:${Versions.Decline}",
     // https://mvnrepository.com/artifact/com.monovore/decline-effect
     mvn"com.monovore::decline-effect:${Versions.Decline}",
+
+    // Email sending
+    // https://github.com/roman0x58/pencil-mail
+    // https://mvnrepository.com/artifact/io.github.roman0x58/pencil-mail
+    mvn"io.github.roman0x58::pencil-mail::3.0.6",
+
+    // HTML rendering
+    // https://com-lihaoyi.github.io/scalatags/
+    // https://mvnrepository.com/artifact/com.lihaoyi/scalatags
+    mvn"com.lihaoyi::scalatags::0.13.1"
   )
 
   override def runMvnDeps = Seq(
