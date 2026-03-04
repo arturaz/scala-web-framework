@@ -6,6 +6,7 @@ import framework.prelude.*
 import framework.utils.{NamedEnum, UrlConvertible}
 import sttp.tapir.DecodeResult
 import urldsl.errors.DummyError
+import java.nio.charset.{Charset, StandardCharsets}
 
 /** Helper that implements cursor-based pagination.
   *
@@ -262,6 +263,25 @@ object PageCursor {
           show"$pageSizePrefix${pageSizeCodec.encode(pageSize)},${cursorCodec.encode(cursor)}"
       }
   }
+
+  /** Combines [[tapirCodecTransparent]] with [[framework.exts.base64ed]] for convenience. */
+  def tapirCodecTransparentBase64[PrimaryColumn, SecondaryColumn, PageSize: CanEqual1](
+    pageSizePrefix: String = "ps-",
+    primaryPrefix: String = "p-",
+    secondaryPrefix: String = "s-",
+    idxPrefix: String = "idx-",
+    charset: Charset = StandardCharsets.UTF_8,
+  )(using
+    primaryCodec: TapirCodec[String, PrimaryColumn, TapirCodecFormat.TextPlain],
+    secondaryCodec: TapirCodec[String, SecondaryColumn, TapirCodecFormat.TextPlain],
+    pageSizeCodec: TapirCodec[String, PageSize, TapirCodecFormat.TextPlain],
+  ): TapirCodec[String, PageCursor[PrimaryColumn, SecondaryColumn, PageSize], TapirCodecFormat.TextPlain] =
+    tapirCodecTransparent[PrimaryColumn, SecondaryColumn, PageSize](
+      pageSizePrefix,
+      primaryPrefix,
+      secondaryPrefix,
+      idxPrefix,
+    ).base64ed(charset)
 
   /** Encodes the cursor as binary data, using SCodec, wrapping it in Base64. */
   def tapirCodecBinaryBase64[PrimaryColumn, SecondaryColumn, PageSize](using
