@@ -6,11 +6,12 @@ import framework.sourcecode.DefinedAt
 import framework.utils.JSLogger
 import retry.syntax.*
 import retry.{HandlerDecision, RetryPolicies}
-import typings.supabaseAuthJs.anon.{DataMessageId, DataSessionUser, DataUser, ErrorAuthError, MessageId, User}
+import typings.supabaseAuthJs.anon.{DataT, DataUser, ErrorAuthError, MessageId, SessionUser}
 import typings.supabaseAuthJs.distModuleLibErrorsMod.{isAuthRetryableFetchError, AuthError}
 import typings.supabaseAuthJs.distModuleLibTypesMod.{
   _AuthChangeEvent,
   EmailOtpType,
+  RequestResultSafeDestructure,
   Session,
   SignInWithPasswordlessCredentials,
   VerifyOtpParams,
@@ -20,8 +21,12 @@ import typings.supabaseSupabaseJs.distModuleLibSupabaseAuthClientMod.SupabaseAut
 import scala.scalajs.js.JSON
 
 import concurrent.duration.*
+import framework.auth.SupabaseAuthClient.requestResultSafeDestructureAsEither
 
-/** Wrapper around insane supabase APIs. */
+/** Wrapper around insane supabase APIs.
+  *
+  * Written for https://www.npmjs.com/package/@supabase/supabase-js/v/2.87.3
+  */
 class SupabaseAuthClient(
   private val client: JSSupabaseAuthClient,
   val log: JSLogger,
@@ -54,26 +59,22 @@ class SupabaseAuthClient(
     .join(RetryPolicies.limitRetries(10))
     .followedBy(RetryPolicies.limitRetriesByDelay(200.millis, RetryPolicies.exponentialBackoff[IO](10.millis)))
 
-  def signInWithOtp(email: Email)(using DefinedAt): IO[Either[ErrorAuthError, MessageId]] = {
+  def signInWithOtp(email: Email)(using DefinedAt): IO[Either[AuthError, MessageId]] = {
     val log = this.log.scoped("signInWithOtp")
 
     def doTry(tryIndex: Int) =
       IO(log(show"Sending OTP code to '$email' (try index: $tryIndex)")) *>
         IO.fromPromise(IO(client.signInWithOtp(SignInWithPasswordlessCredentials.EmailOptions(email.unwrap))))
           .flatTap(response => IO(log(show"OTP code-send response: ", response)))
-          .map { r =>
-            r.matchDynamic(_.error)
-              .on(null)((v: DataMessageId) => Right(v.data))
-              .performOrElse((v: ErrorAuthError) => Left(v))
-          }
+          .map(requestResultSafeDestructureAsEither)
 
     doTry(0)
       .retryingOnFailures(
         retryPolicy,
         {
-          case (Left(err), details) if isAuthRetryableFetchError(err.error) =>
+          case (Left(err), details) if isAuthRetryableFetchError(err) =>
             IO {
-              log.info(show"failed, retrying (${details.pprintWithoutColors})", err.error)
+              log.info(show"failed, retrying (${details.pprintWithoutColors})", err)
               HandlerDecision.Adapt(doTry(details.retriesSoFar + 1))
             }
           case (Left(err), details) =>
@@ -92,7 +93,7 @@ class SupabaseAuthClient(
       .map(_.merge)
   }
 
-  def verifyOtp(email: Email, otp: String)(using DefinedAt): IO[Either[AuthError, User]] = {
+  def verifyOtp(email: Email, otp: String)(using DefinedAt): IO[Either[AuthError, SessionUser]] = {
     val log = this.log.scoped("verifyOtp")
 
     def doTry(tryIndex: Int) =
@@ -100,10 +101,7 @@ class SupabaseAuthClient(
         IO.fromPromise(
           IO(client.verifyOtp(VerifyOtpParams.VerifyEmailOtpParams(email.unwrap, otp, EmailOtpType.email)))
         ).flatTap(response => IO(log("OTP code-verify response: ", response)))
-          .map { r =>
-            if (r.asInstanceOf[js.Dynamic].error == null) Right(r.asInstanceOf[DataUser].data)
-            else Left(r.asInstanceOf[DataSessionUser].error)
-          }
+          .map(requestResultSafeDestructureAsEither)
 
     doTry(0)
       .retryingOnFailures(
@@ -173,5 +171,12 @@ object SupabaseAuthClient {
   case class AuthStateChange(event: AuthChangeEvent, maybeSession: Option[Session]) {
     override def toString(): String =
       show"AuthStateChange(event=$event, session=${maybeSession.map(JSON.stringify(_, space = 2))})"
+  }
+
+  def requestResultSafeDestructureAsEither[A](value: RequestResultSafeDestructure[A]): Either[AuthError, A] = {
+    value
+      .matchDynamic(_.error)
+      .on(null)((v: DataT[A]) => Right(v.data))
+      .performOrElse((v: ErrorAuthError[?]) => Left(v.error))
   }
 }
