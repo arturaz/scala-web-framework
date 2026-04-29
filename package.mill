@@ -29,7 +29,7 @@ object shared extends Module {
       // Newtypes
       // https://github.com/arturaz/yantl
       // https://mvnrepository.com/artifact/io.github.arturaz/yantl
-      mvn"io.github.arturaz::yantl::0.4.1",
+      mvn"io.github.arturaz::yantl::0.4.3",
 
       // findValues for sealed trait based ADTs
       mvn"com.beachape::enumeratum::${Versions.Enumeratum}", 

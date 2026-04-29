@@ -7,9 +7,13 @@ import yantl.{Newtype, Validate, Validator, ValidatorRule}
 
 import scala.util.Try
 import scala.util.matching.Regex
+import java.util.Locale
 
-/** A very basic email validator. */
+/** A very basic email validator. Normalizes emails as lowercase. */
 object Email extends NewtypeString with Newtype.ValidatedOf(IArray(Email.validatorRule)) {
+
+  override val resolveMake =
+    super.resolveMake.mapValidateInput((email: String) => email.toLowerCase(Locale.ROOT))
 
   /** Validates that it has a "x@y.z" format */
   def validatorRule: ValidatorRule[String, NotAnEmail] = input => {
