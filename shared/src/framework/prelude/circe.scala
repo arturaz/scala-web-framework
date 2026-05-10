@@ -4,6 +4,8 @@ import sttp.model.Uri
 import framework.exts.fromKeyCodecs
 import scala.util.matching.Regex
 import scala.util.Try
+import scala.concurrent.duration.FiniteDuration
+import java.util.concurrent.TimeUnit
 
 // Prefix types with `Circe` to avoid confusion with `tapir`s `Codec`.
 export io.circe.{
@@ -29,3 +31,5 @@ given CirceCodec[Uri] = CirceCodec.fromKeyCodecs
 given CirceKeyEncoder[Regex] = CirceKeyEncoder.instance(_.regex)
 given CirceKeyDecoder[Regex] = CirceKeyDecoder.instance(str => Try(Regex(str)).toOption)
 given CirceCodec[Regex] = CirceCodec.fromKeyCodecs
+
+given CirceCodec[FiniteDuration] = summon[CirceCodec[Long]].imap(FiniteDuration(_, TimeUnit.NANOSECONDS))(_.toNanos)
