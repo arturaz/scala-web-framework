@@ -10,7 +10,7 @@ import urldsl.errors.DummyError
 
 import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
-import java.time.{Instant, LocalDateTime, ZoneId, ZonedDateTime}
+import java.time.{Instant, LocalDateTime, LocalTime, ZoneId, ZonedDateTime}
 import scala.concurrent.duration.*
 import scala.util.Try
 
@@ -109,6 +109,8 @@ object FrameworkDateTime {
 
   given show: Show[FrameworkDateTime] = _.asString
 
+  given fromFrameworkDate: Conversion[FrameworkDate, FrameworkDateTime] = date =>
+    FrameworkDateTime(LocalDateTime.of(date.ld, LocalTime.MIDNIGHT))
   trait Newtype extends yantl.Newtype.Of[FrameworkDateTime] {
     given Show[Type] = unwrap(_).asString
 
