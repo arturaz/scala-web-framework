@@ -1,6 +1,7 @@
 package framework.data
 
 import alleycats.Empty
+import cats.Monad
 import framework.exts.*
 import framework.prelude.*
 import framework.utils.{NamedEnum, UrlConvertible}
@@ -106,6 +107,27 @@ object PageCursor {
 
   /** Creates a builder for cursors that are of page size [[PageSize]]. */
   def withPageSize[PageSize](pageSize: PageSize): Builder[PageSize] = Builder(pageSize)
+
+  /** Fetches every page starting with [[firstCursor]], collecting mapped items from each page. */
+  def collectAll[F[_], PrimaryColumn, SecondaryColumn, PageSize, PageData, A](
+    firstCursor: PageCursor[PrimaryColumn, SecondaryColumn, PageSize]
+  )(
+    fetchPage: PageCursor[PrimaryColumn, SecondaryColumn, PageSize] => F[HasSurroundingPages[Vector[PageData]]]
+  )(
+    getCursorColumns: PageData => (PrimaryColumn, SecondaryColumn)
+  )(
+    mapItem: PageData => A
+  )(using F: Monad[F]): F[Vector[A]] =
+    F.tailRecM((firstCursor, Vector.empty[A])) { case (cursor, acc) =>
+      F.map(fetchPage(cursor)) { page =>
+        val items = page.data.map(mapItem)
+        val accWithPage = acc ++ items
+        page.nextPageCursor(cursor, _.lastOption.map(getCursorColumns)) match {
+          case None       => Right(accWithPage)
+          case Some(next) => Left((next, accWithPage))
+        }
+      }
+    }
 
   case class Builder[PageSize](pageSize: PageSize) extends AnyVal {
 
