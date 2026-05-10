@@ -16,6 +16,7 @@ import framework.prelude.{*, given}
 import cats.syntax.either.*
 import framework.utils.UrlConvertible
 import urldsl.errors.DummyError
+import java.time.LocalTime
 
 /** A date in the local timezone. */
 case class FrameworkDate(ld: LocalDate) extends AnyVal with Ordered[FrameworkDate] derives CanEqual {
@@ -23,6 +24,9 @@ case class FrameworkDate(ld: LocalDate) extends AnyVal with Ordered[FrameworkDat
 
   /** Returns the date in "yyyy-MM-dd" format. */
   def asString: String = ld.format(FrameworkDate.formatter)
+
+  def startOfDay: FrameworkDateTime = FrameworkDateTime(ld.atTime(LocalTime.MIN))
+  def endOfDay: FrameworkDateTime = FrameworkDateTime(ld.atTime(LocalTime.MAX))
 }
 object FrameworkDate {
   private val utc = ZoneId.of("UTC")
