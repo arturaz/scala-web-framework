@@ -3,10 +3,11 @@ package framework.prelude
 import framework.utils.UnvalidatedNewtypeOf
 import yantl.Newtype
 import scala.collection.immutable.SortedSet
-import sttp.tapir.SchemaType
+import sttp.tapir.SchemaType.SInteger
 import sttp.tapir.Schema.SName
 import sttp.tapir.DecodeResult
 import scala.util.matching.Regex
+import scala.concurrent.duration.FiniteDuration
 
 export sttp.tapir.{Codec as TapirCodec, CodecFormat as TapirCodecFormat, Schema as TapirSchema}
 
@@ -33,6 +34,12 @@ given schemaForNothing: Schema[Nothing] =
 
 given schemaForRegex: Schema[Regex] =
   Schema.string[Regex].name(SName("Regex")).description("Regular expression").encodedExample("^[a-z]+$")
+
+given schemaForFiniteDuration: Schema[FiniteDuration] =
+  Schema(SInteger[FiniteDuration]())
+    .format("int64")
+    .name(SName("FiniteDuration"))
+    .description("A finite duration in nanoseconds")
 
 given tapirCodecForNothing[LowLevel, CodecFormat <: TapirCodecFormat]: TapirCodec[LowLevel, Nothing, CodecFormat] with {
   def encode(h: Nothing): LowLevel = ???
