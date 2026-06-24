@@ -20,7 +20,23 @@ import org.flywaydb.core.api.callback.Callback
 import org.flywaydb.core.api.callback.Context
 import org.flywaydb.core.api.callback.Event
 import scala.jdk.CollectionConverters.*
+import scala.concurrent.duration.FiniteDuration
 
+/** @param idleTimeout
+  *   maximum amount of time (in milliseconds) that a connection is allowed to sit idle in the pool. Whether a
+  *   connection is retired as idle or not is subject to a maximum variation of +30 seconds, and average variation of
+  *   +15 seconds. A connection will never be retired as idle before this timeout. A value of 0 means that idle
+  *   connections are never removed from the pool. Uses default value if not set.
+  * @param minIdleConnections
+  *   minimum number of idle connections that HikariCP tries to maintain in the pool, including both idle and in-use
+  *   connections. If the idle connections dip below this value, HikariCP will make a best effort to restore them
+  *   quickly and efficiently. Uses default value if not set.
+  * @param maxPoolSize
+  *   maximum size that the pool is allowed to reach, including both idle and in-use connections. Basically this value
+  *   will determine the maximum number of actual connections to the database backend. When the pool reaches this size,
+  *   and no idle connections are available, calls to getConnection() will block for up to connectionTimeout
+  *   milliseconds before timing out. Uses default value if not set.
+  */
 case class PostgresqlConfig(
   username: String = "postgres",
   password: Secret[String],
@@ -28,9 +44,12 @@ case class PostgresqlConfig(
   host: Host = host"localhost",
   port: Port = port"5432",
   sslMode: Option[PostgresqlConfig.SslMode] = None,
+  idleTimeout: Option[FiniteDuration] = None,
+  minIdleConnections: Option[Int] = None,
+  maxPoolSize: Option[Int] = None,
 ) {
   def jdbcUrl: String =
-    s"jdbc:postgresql://${host.show}:${port.show}/${database.show}?${sslMode.fold("")(sslMode => s"sslmode=${sslMode.asString}")}"
+    show"jdbc:postgresql://$host:$port/$database?${sslMode.fold("")(sslMode => show"sslmode=${sslMode.asString}")}"
 
   def defaultFly4sConfig: Fly4sConfig = Fly4sConfig(
     ignoreMigrationPatterns = List(
@@ -102,6 +121,9 @@ case class PostgresqlConfig(
           config.setJdbcUrl(jdbcUrl)
           config.setUsername(username)
           config.setPassword(password.value)
+          idleTimeout.foreach(duration => config.setIdleTimeout(duration.toMillis))
+          minIdleConnections.foreach(config.setMinimumIdle)
+          maxPoolSize.foreach(config.setMaximumPoolSize)
           modConfig(config)
         },
         logHandler,
@@ -138,5 +160,8 @@ object PostgresqlConfig {
     ciris.env(prefix("POSTGRESQL_HOST")).as[Host].default(host"localhost"),
     ciris.env(prefix("POSTGRESQL_PORT")).as[Port].default(port"5432"),
     ciris.env(prefix("POSTGRESQL_SSL_MODE")).as[SslMode].option,
+    ciris.env(prefix("POSTGRESQL_IDLE_TIMEOUT")).as[FiniteDuration].option,
+    ciris.env(prefix("POSTGRESQL_MIN_IDLE_CONNECTIONS")).as[Int].option,
+    ciris.env(prefix("POSTGRESQL_MAX_POOL_SIZE")).as[Int].option,
   ).parMapN(apply)
 }
