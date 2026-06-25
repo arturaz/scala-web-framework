@@ -16,6 +16,8 @@ import framework.utils.{
 import sttp.capabilities.fs2.Fs2Streams
 import sttp.capabilities.{Effect, Streams}
 import sttp.client3.{Request, Response}
+import sttp.model.StatusCode
+import sttp.tapir.DecodeResult
 
 import scala.annotation.targetName
 import scala.scalajs.js.JavaScriptException
@@ -76,7 +78,23 @@ extension [AuthError, Output, Requirements >: Effect[IO]](
           .send(req)
           .map { response =>
             reqLog.at(if (response.body.isLeft) LogLevel.Error else LogLevel.Info, s"Received response: $response")
-            response.body match {
+
+            // If the server (or a proxy like nginx) returned a non-2xx status whose body we could not decode as the
+            // expected error/success type, surface a precise `RateLimited`/`UnexpectedResponse` instead of a raw decode
+            // failure dump. This catches things like a 429/502/503 HTML error page. Genuine decode bugs on a 2xx
+            // response are left as `DecodeError` so their full diagnostic detail is preserved.
+            val normalizedBody: Either[NetworkOrAuthError[AuthError], Output] =
+              response.body match {
+                case Left(NetworkOrAuthError.NetworkError(NetworkError.DecodeError(failure))) if !response.isSuccess =>
+                  val error = response.code match {
+                    case StatusCode.TooManyRequests => NetworkError.RateLimited(failure)
+                    case code                       => NetworkError.UnexpectedResponse(code, failure)
+                  }
+                  Left(NetworkOrAuthError.NetworkError(error))
+                case other => other
+              }
+
+            normalizedBody match {
               case Left(error) =>
                 Left(AuthenticatedNetworkRequestFailure.NetworkOrAuthError(error))
               case Right(value) =>

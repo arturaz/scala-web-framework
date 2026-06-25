@@ -1,5 +1,6 @@
 package framework.utils
 
+import sttp.model.StatusCode
 import sttp.tapir.DecodeResult
 
 import scala.scalajs.js.JavaScriptException
@@ -12,6 +13,14 @@ enum NetworkError derives CanEqual {
 
   /** The response could not be parsed. */
   case DecodeError(failure: DecodeResult.Failure) extends NetworkError
+
+  /** The server (or a proxy) rate-limited us (HTTP 429). Transient — the user should retry shortly. */
+  case RateLimited(error: DecodeResult.Failure) extends NetworkError
+
+  /** A non-success HTTP status (e.g. 502/503 from a proxy) whose body could not be decoded as the expected type.
+    * Typically a proxy error page rather than an app-level error.
+    */
+  case UnexpectedResponse(statusCode: StatusCode, error: DecodeResult.Failure) extends NetworkError
 
   def asNetworkOrAuthError: NetworkOrAuthError[Nothing] = NetworkOrAuthError.NetworkError(this)
 
@@ -26,6 +35,10 @@ enum NetworkError derives CanEqual {
 
     case DecodeError(other) => s"NetworkError.DecodeError($other)"
     case JsError(err)       => s"NetworkError.JsError($err)"
+    case RateLimited(error) =>
+      show"NetworkError.RateLimited(${error.toString})"
+    case UnexpectedResponse(statusCode, error) =>
+      show"NetworkError.UnexpectedResponse(statusCode: $statusCode, error: ${error.toString})"
   }
 }
 
