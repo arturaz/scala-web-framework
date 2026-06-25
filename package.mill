@@ -504,6 +504,10 @@ object serverRedis extends FrameworkScalaModule {
       serverRedis, build.framework.testInfra.jvm, build.framework.server.testInfra
     )
   }
+
+  object tests extends FrameworkTestModule {
+    override def moduleDeps: Seq[JavaModule] = Seq(serverRedis.testInfra)
+  }
 }
 
 object serverSquants extends FrameworkScalaModule {
