@@ -22,7 +22,7 @@ enum NetworkError derives CanEqual {
     */
   case UnexpectedResponse(statusCode: StatusCode, error: DecodeResult.Failure) extends NetworkError
 
-  def asNetworkOrAuthError: NetworkOrAuthError[Nothing] = NetworkOrAuthError.NetworkError(this)
+  def asNetworkOrEndpointError: NetworkOrEndpointError[Nothing] = NetworkOrEndpointError.NetworkError(this)
 
   override def toString(): String = this match {
     // Make sure we show the chain of all causes of the error
@@ -46,9 +46,9 @@ enum NetworkRequestFailure derives CanEqual {
   case NetworkError(err: framework.utils.NetworkError)
   case Aborted
 
-  def asNetworkOrAuthError: AuthenticatedNetworkRequestFailure[Nothing] = this match {
+  def asNetworkOrEndpointError: AuthenticatedNetworkRequestFailure[Nothing] = this match {
     case NetworkRequestFailure.NetworkError(err) =>
-      AuthenticatedNetworkRequestFailure.NetworkOrAuthError(NetworkOrAuthError.NetworkError(err))
+      AuthenticatedNetworkRequestFailure.NetworkOrEndpointError(NetworkOrEndpointError.NetworkError(err))
     case Aborted => AuthenticatedNetworkRequestFailure.Aborted
   }
 }

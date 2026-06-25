@@ -79,7 +79,7 @@ trait PageDataLoader {
       createRequest: Input => EitherT[IO, NetworkRequestFailure, Option[Output]]
     ): BuilderWithRequest[Input, Output] =
       authenticated[Nothing, Output](
-        createRequest.andThen(_.leftMap(_.asNetworkOrAuthError))
+        createRequest.andThen(_.leftMap(_.asNetworkOrEndpointError))
       )
 
     /** Loads private data which is always found. */

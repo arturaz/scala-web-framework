@@ -6,7 +6,7 @@ import cats.syntax.option.*
 import com.raquo.airstream.core.Signal
 import framework.data.{AuthLoadingStatus, PublicLoadingStatus}
 import framework.prelude.{*, given}
-import framework.utils.{AuthenticatedNetworkRequestFailure, NetworkOrAuthError, NetworkRequestFailure}
+import framework.utils.{AuthenticatedNetworkRequestFailure, NetworkOrEndpointError, NetworkRequestFailure}
 
 import scala.concurrent.Future
 import scala.concurrent.duration.*
@@ -58,9 +58,9 @@ extension (obj: Signal.type) {
   ): Signal[AuthLoadingStatus[A]] = {
     Signal.fromFuture(future.value).map {
       case None | Some(Left(AuthenticatedNetworkRequestFailure.Aborted)) => AuthLoadingStatus.Loading
-      case Some(Left(AuthenticatedNetworkRequestFailure.NetworkOrAuthError(NetworkOrAuthError.NetworkError(_)))) =>
+      case Some(Left(AuthenticatedNetworkRequestFailure.NetworkOrEndpointError(NetworkOrEndpointError.NetworkError(_)))) =>
         AuthLoadingStatus.NetworkError
-      case Some(Left(AuthenticatedNetworkRequestFailure.NetworkOrAuthError(NetworkOrAuthError.AuthError(_)))) =>
+      case Some(Left(AuthenticatedNetworkRequestFailure.NetworkOrEndpointError(NetworkOrEndpointError.EndpointError(_)))) =>
         AuthLoadingStatus.Unauthenticated
       case Some(Right(None))        => AuthLoadingStatus.NotFound
       case Some(Right(Some(value))) => AuthLoadingStatus.Loaded(value)

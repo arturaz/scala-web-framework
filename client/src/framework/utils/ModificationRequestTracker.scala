@@ -4,7 +4,7 @@ import cats.data.EitherT
 import cats.effect.kernel.Outcome
 import com.raquo.airstream.core.Signal
 import com.raquo.airstream.state.{StrictSignal, Var}
-import framework.utils.NetworkOrAuthError
+import framework.utils.NetworkOrEndpointError
 import scala.annotation.targetName
 
 /** Tracks the status of an ongoing request.
@@ -34,11 +34,11 @@ class ModificationRequestTracker(status: Var[ModificationRequestTracker.Status])
   @targetName("launchAuthenticatedWithNetworkFailure")
   def launch[A, AuthError](
     request: EitherT[IO, AuthenticatedNetworkRequestFailure[AuthError], A]
-  ): IO[ModificationRequestTracker.Result[NetworkOrAuthError[AuthError], A]] =
+  ): IO[ModificationRequestTracker.Result[NetworkOrEndpointError[AuthError], A]] =
     launch[A, AuthenticatedNetworkRequestFailure[AuthError]](request).map {
       case ModificationRequestTracker.Result.Error(AuthenticatedNetworkRequestFailure.Aborted) =>
         ModificationRequestTracker.Result.Cancelled
-      case ModificationRequestTracker.Result.Error(AuthenticatedNetworkRequestFailure.NetworkOrAuthError(err)) =>
+      case ModificationRequestTracker.Result.Error(AuthenticatedNetworkRequestFailure.NetworkOrEndpointError(err)) =>
         ModificationRequestTracker.Result.Error(err)
       case ModificationRequestTracker.Result.Cancelled   => ModificationRequestTracker.Result.Cancelled
       case ModificationRequestTracker.Result.Finished(v) => ModificationRequestTracker.Result.Finished(v)

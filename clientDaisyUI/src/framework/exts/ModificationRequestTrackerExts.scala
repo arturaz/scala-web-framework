@@ -6,10 +6,10 @@ import com.raquo.laminar.nodes.ReactiveHtmlElement
 import framework.components.*
 import framework.data.{MaybeSignal, SendSignal}
 import framework.sourcecode.DefinedAt
-import framework.utils.{ModificationRequestTracker, NetworkOrAuthError}
+import framework.utils.{ModificationRequestTracker, NetworkOrEndpointError}
 import org.scalajs.dom.HTMLButtonElement
 
-trait ButtonErrorHandler[-AuthError] extends (NetworkOrAuthError[AuthError] => Unit)
+trait ButtonErrorHandler[-E] extends (NetworkOrEndpointError[E] => Unit)
 
 /** Contains the contents of the send button.
   *

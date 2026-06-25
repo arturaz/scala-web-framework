@@ -7,7 +7,13 @@ import framework.data.{AppBaseUri, EndpointSSEWithWS, FrameworkDateTime}
 import framework.prelude.sttpClientInterpreter
 import framework.sourcecode.DefinedAt
 import framework.tapir.capabilities.ServerSentEvents
-import framework.utils.{NetworkError, NetworkOrAuthError, PrettyPrintDuration, SSEFallbackCallbacks, ToSSEStreamBuilder}
+import framework.utils.{
+  NetworkError,
+  NetworkOrEndpointError,
+  PrettyPrintDuration,
+  SSEFallbackCallbacks,
+  ToSSEStreamBuilder,
+}
 import org.scalajs.dom.{Event, EventSource, EventSourceInit, MessageEvent, WebSocket}
 import sttp.capabilities.WebSockets
 import sttp.capabilities.fs2.Fs2Streams
@@ -22,11 +28,16 @@ import scala.scalajs.js.JSON
 extension [Input, Error, Output, Requirements](e: PublicEndpoint[Input, Error, Output, Requirements]) {
   def toReq(params: Input, now: FrameworkDateTime)(using
     baseUri: AppBaseUri
-  ): Request[Either[Error, Output], Requirements] = {
+  ): Request[Either[NetworkOrEndpointError[Error], Output], Requirements] = {
     sttpClientInterpreter
-      .toRequestThrowDecodeFailures(e, Some(baseUri.uri))
+      .toRequest[Input, Error, Output, Requirements](e, Some(baseUri.uri))
       .apply(params)
       .withClientRequestTracing(now)
+      .mapResponse {
+        case failure: DecodeResult.Failure     => Left(NetworkOrEndpointError.NetworkError(NetworkError.DecodeError(failure)))
+        case DecodeResult.Value(Left(error))   => Left(NetworkOrEndpointError.EndpointError(error))
+        case DecodeResult.Value(Right(output)) => Right(output)
+      }
   }
 }
 
@@ -54,15 +65,15 @@ extension [SecurityInput, Input, Output, AuthError, Requirements](
     securityParams: SecurityInput,
     params: Input,
     now: FrameworkDateTime,
-  )(using baseUri: AppBaseUri): Request[Either[NetworkOrAuthError[AuthError], Output], Requirements] = {
+  )(using baseUri: AppBaseUri): Request[Either[NetworkOrEndpointError[AuthError], Output], Requirements] = {
     sttpClientInterpreter
       .toSecureRequest(e, Some(baseUri.uri))
       .apply(securityParams)
       .apply(params)
       .withClientRequestTracing(now)
       .mapResponse {
-        case failure: DecodeResult.Failure   => Left(NetworkOrAuthError.NetworkError(NetworkError.DecodeError(failure)))
-        case DecodeResult.Value(Left(error)) => Left(NetworkOrAuthError.AuthError(error))
+        case failure: DecodeResult.Failure   => Left(NetworkOrEndpointError.NetworkError(NetworkError.DecodeError(failure)))
+        case DecodeResult.Value(Left(error)) => Left(NetworkOrEndpointError.EndpointError(error))
         case DecodeResult.Value(Right(output)) => Right(output)
       }
   }
@@ -70,7 +81,7 @@ extension [SecurityInput, Input, Output, AuthError, Requirements](
   /** [[toReq]] with the current time. */
   def toReqNow(securityParams: SecurityInput, params: Input)(using
     AppBaseUri
-  ): SyncIO[Request[Either[NetworkOrAuthError[AuthError], Output], Requirements]] =
+  ): SyncIO[Request[Either[NetworkOrEndpointError[AuthError], Output], Requirements]] =
     FrameworkDateTime.nowIO.map(e.toReq(securityParams, params, _))
 }
 

@@ -10,7 +10,7 @@ import framework.utils.{
   AuthenticatedNetworkRequestFailure,
   LogLevel,
   NetworkError,
-  NetworkOrAuthError,
+  NetworkOrEndpointError,
   NetworkRequestFailure,
 }
 import sttp.capabilities.fs2.Fs2Streams
@@ -47,11 +47,11 @@ extension [Output, Requirements >: Effect[IO]](req: Request[Either[NetworkError,
   /** Sends the request. */
   @targetName("ioWithNetworkError")
   def io(using DefinedAt): EitherT[IO, NetworkRequestFailure, Response[Output]] =
-    req.mapResponse(_.left.map(_.asNetworkOrAuthError)).io.leftMap {
+    req.mapResponse(_.left.map(_.asNetworkOrEndpointError)).io.leftMap {
       case AuthenticatedNetworkRequestFailure.Aborted => NetworkRequestFailure.Aborted
-      case AuthenticatedNetworkRequestFailure.NetworkOrAuthError(NetworkOrAuthError.NetworkError(err)) =>
+      case AuthenticatedNetworkRequestFailure.NetworkOrEndpointError(NetworkOrEndpointError.NetworkError(err)) =>
         NetworkRequestFailure.NetworkError(err)
-      case AuthenticatedNetworkRequestFailure.NetworkOrAuthError(NetworkOrAuthError.AuthError(_)) =>
+      case AuthenticatedNetworkRequestFailure.NetworkOrEndpointError(NetworkOrEndpointError.EndpointError(_)) =>
         throw new IllegalStateException("impossible")
     }
 }
@@ -60,14 +60,14 @@ private object RequestDebugCounter {
   var counter = 0
 }
 
-/** Requests that can fail with an authentication error. */
-extension [AuthError, Output, Requirements >: Effect[IO]](
-  req: Request[Either[NetworkOrAuthError[AuthError], Output], Requirements]
+/** Requests that can fail with an endpoint-declared error (for example an authentication error). */
+extension [E, Output, Requirements >: Effect[IO]](
+  req: Request[Either[NetworkOrEndpointError[E], Output], Requirements]
 ) {
 
   /** Sends the request. */
-  @targetName("ioWithAuthError")
-  def io(using DefinedAt): EitherT[IO, AuthenticatedNetworkRequestFailure[AuthError], Response[Output]] = {
+  @targetName("ioWithEndpointError")
+  def io(using DefinedAt): EitherT[IO, AuthenticatedNetworkRequestFailure[E], Response[Output]] = {
     val id = RequestDebugCounter.counter
     RequestDebugCounter.counter += 1
     val reqLog = log.scoped(show"req #$id")
@@ -83,20 +83,20 @@ extension [AuthError, Output, Requirements >: Effect[IO]](
             // expected error/success type, surface a precise `RateLimited`/`UnexpectedResponse` instead of a raw decode
             // failure dump. This catches things like a 429/502/503 HTML error page. Genuine decode bugs on a 2xx
             // response are left as `DecodeError` so their full diagnostic detail is preserved.
-            val normalizedBody: Either[NetworkOrAuthError[AuthError], Output] =
+            val normalizedBody: Either[NetworkOrEndpointError[E], Output] =
               response.body match {
-                case Left(NetworkOrAuthError.NetworkError(NetworkError.DecodeError(failure))) if !response.isSuccess =>
+                case Left(NetworkOrEndpointError.NetworkError(NetworkError.DecodeError(failure))) if !response.isSuccess =>
                   val error = response.code match {
                     case StatusCode.TooManyRequests => NetworkError.RateLimited(failure)
                     case code                       => NetworkError.UnexpectedResponse(code, failure)
                   }
-                  Left(NetworkOrAuthError.NetworkError(error))
+                  Left(NetworkOrEndpointError.NetworkError(error))
                 case other => other
               }
 
             normalizedBody match {
               case Left(error) =>
-                Left(AuthenticatedNetworkRequestFailure.NetworkOrAuthError(error))
+                Left(AuthenticatedNetworkRequestFailure.NetworkOrEndpointError(error))
               case Right(value) =>
                 Right(response.mapBody(_ => value))
             }
@@ -111,7 +111,7 @@ extension [AuthError, Output, Requirements >: Effect[IO]](
                 reqLog.error(s"Error while sending request: $e")
                 Left(
                   AuthenticatedNetworkRequestFailure
-                    .NetworkOrAuthError(NetworkOrAuthError.NetworkError(NetworkError.JsError(e)))
+                    .NetworkOrEndpointError(NetworkOrEndpointError.NetworkError(NetworkError.JsError(e)))
                 )
             }
           }
